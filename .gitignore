@@ -1,0 +1,11 @@
+node_modules
+dist
+*.local
+.DS_Store
+
+# Build-time only — decompressed database lives outside this app and is large
+../quran-database-main/quran.db
+
+# Python
+__pycache__/
+.pytest_cache/
