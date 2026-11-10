@@ -52,7 +52,8 @@ DB is touched. Outputs: `surahs.json`, `verses.json`, `editions.json`,
 glosses paired with QUL's own Arabic words: pause marks dropped, the trailing
 `(n)` ayah number dropped), `surah-info-{en,id}.json`, `asbab.json` (verified
 Arabic asbab; ranges clamped to the surah's last ayah, since the source counts
-al-ʿAlaq as 20 verses), `tafsir/<ident>/<surah>.json` (the two QUL Indonesian
+al-ʿAlaq as 20 verses), `chronology.json` (the Browse timeline, see below),
+`tafsir/<ident>/<surah>.json` (the two QUL Indonesian
 tafsirs, `id.mukhtasar-qul` and `id.saadi-qul`, as passage lists
 `[[fromAyah, toAyah, text], …]`: QUL repeats a passage's text on every ayah of
 its `group_key`, so `group_tafsir` keeps it once; Sa'di is ~9 MB, hence per-surah
@@ -75,6 +76,19 @@ attributions that commentators dispute; the UI always shows `PLACE_CAVEAT`
 (`components/charts/common.ts`). Use `ayahPlace(v, surahMap)` from
 `data/selectors.ts`, never `v.p` alone.
 
+**Surah chronology (Browse → Sort → Timeline).** The checked-in
+`scripts/data/surah_chronology.json` places each surah in the one period its
+revelation began: five Makkah periods (sirah phases, `m1`–`m5`) and ten Madinah
+years (`y1`–`y10`), each with dated marker events from `../sirah/00-timeline.md`.
+Long surahs carry `span` (Hijri years, e.g. Al-Baqarah `[1, 10]`). `basis` says
+how it was dated: `asbab` (a verified `sahih-ar` narration names the event; its
+`refs` must be covered by `asbab.json`), `sirah`, or `urutan` (only the surah's
+band in the Egyptian order; the card says "approx."). `check_chronology` fails
+the ETL unless 1..114 appear once, periods/events exist, refs exist, and the
+period's phase matches the surah's Makki/Madani header (or the entry has a
+`typeNote`). Grouping is `groupByTimeline` in `data/chronology.ts`. Edit the
+JSON, never `public/data/chronology.json`.
+
 The ETL reads read-only from `../reference/quran-refs/qul.db` (the `meta_ruku`,
 `meta_manzil`, `similar`, `themes`, `topics`/`topic_ayahs`, `translations`,
 `wbw` (`wbw-id`), `surah_info` and `tafsirs` (`mukhtasar-id`, `saadi-id`) tables) and from `hadith.db` only `asbab` rows
@@ -88,7 +102,7 @@ with `source='sahih-ar'` (never `wahidi-en`, a copyrighted translation).
   LRU-capped at 24 editions. Returns `{ data, loading, error }`.
 - `data/useLazyJson<T>(key, enabled)` — generic singleton-cache hook. Backs
   `useTajweed`, `useWordByWord`, `useMorphology`, `useRoots`, `useSimilar`,
-  `useThemes`, `useTopics`, `useAsbab`, `useSurahInfo`. (Grouped tafsir has its
+  `useThemes`, `useTopics`, `useAsbab`, `useSurahInfo`, `useChronology`. (Grouped tafsir has its
   own per-surah loader, `data/useGroupedTafsir(ident, surahIds)`; the tafsir list
   and each edition's kind — `ayah` vs `grouped` — live in
   `data/editions.ts:TAFSIR_EDITIONS`.) Pass

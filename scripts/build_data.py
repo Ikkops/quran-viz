@@ -32,6 +32,9 @@ DB = REPO / "quran-database-main" / "quran.db"
 QUL_DB = REPO / "reference" / "quran-refs" / "qul.db"
 PLACE_EXCEPTIONS = Path(__file__).resolve().parent / "data" / "ayah_place_exceptions.json"
 PLACES = ("Meccan", "Medinan", "Hijra")
+# Curated period in which each surah began to be revealed (Browse timeline).
+CHRONOLOGY = Path(__file__).resolve().parent / "data" / "surah_chronology.json"
+CHRONO_BASES = ("asbab", "sirah", "urutan")
 # Hadith corpus (reference/hadith/build_db.py); only its verified Arabic
 # asbab al-nuzul (`sahih-ar`) is exported.
 HADITH_DB = REPO / "reference" / "quran-refs" / "hadith.db"
@@ -210,7 +213,7 @@ def pair_wbw(arabic: str, glosses: list[str]) -> list[list[str]]:
     return [[w, g] for w, g in zip(words, glosses)]
 
 
-def export_reference_extras(key_to_id: dict) -> list[dict]:
+def export_reference_extras(key_to_id: dict, surah_type: dict) -> list[dict]:
     """Batch-2 exports from qul.db + hadith.db: section themes, topics,
     Indonesian word-by-word, surah introductions, verified asbab al-nuzul and
     the QUL Indonesian translations. Returns the extra edition entries."""
@@ -310,7 +313,65 @@ def export_reference_extras(key_to_id: dict) -> list[dict]:
         "items": [[lo, hi, texts] for (lo, hi), texts in groups.items()],
     })
     print(f"asbab.json: {len(groups)} ayah ranges")
+
+    asbab_ids = {i for lo, hi in groups for i in range(lo, hi + 1)}
+    chrono = json.loads(CHRONOLOGY.read_text(encoding="utf-8"))
+    check_chronology(chrono, surah_type, key_to_id, asbab_ids)
+    write_json(OUT / "chronology.json",
+               {"periods": chrono["periods"], "surahs": chrono["surahs"]})
+    print(f"chronology.json: {len(chrono['periods'])} periods, "
+          f"{len(chrono['surahs'])} surahs")
     return extra
+
+
+def parse_ref(ref: str) -> tuple[int, int, int]:
+    """'2:142' -> (2, 142, 142); '24:11-23' -> (24, 11, 23)."""
+    s, ayahs = ref.split(":")
+    lo, _, hi = ayahs.partition("-")
+    return int(s), int(lo), int(hi or lo)
+
+
+def check_chronology(data: dict, surah_type: dict, key_to_id: dict,
+                     asbab_ids: set) -> None:
+    """Validate scripts/data/surah_chronology.json: every surah exactly once,
+    known periods and events, phase matching the surah's Makki/Madani header
+    (unless a typeNote explains why), and refs that exist, all covered by a
+    verified asbab narration when basis is 'asbab'."""
+    def fail(msg: str):
+        sys.exit(f"surah_chronology: {msg}")
+    periods = {p["id"]: p for p in data["periods"]}
+    if len(periods) != len(data["periods"]):
+        fail("duplicate period id")
+    for p in data["periods"]:
+        if p["phase"] not in ("Meccan", "Medinan"):
+            fail(f"period {p['id']}: bad phase {p['phase']!r}")
+    surahs = data["surahs"]
+    if sorted(int(k) for k in surahs) != list(range(1, 115)):
+        fail("surahs must list 1..114 exactly once")
+    for k, e in surahs.items():
+        s = int(k)
+        p = periods.get(e["period"])
+        if p is None:
+            fail(f"surah {s}: unknown period {e['period']!r}")
+        if "event" in e and not 0 <= e["event"] < len(p["events"]):
+            fail(f"surah {s}: event {e['event']} out of range for {p['id']}")
+        if e["basis"] not in CHRONO_BASES:
+            fail(f"surah {s}: bad basis {e['basis']!r}")
+        if p["phase"] != surah_type[s] and not e.get("typeNote"):
+            fail(f"surah {s} is {surah_type[s]} but {p['id']} is {p['phase']}")
+        if "span" in e:
+            a, b = e["span"]
+            if not (p["phase"] == "Medinan" and 1 <= a < b <= 11):
+                fail(f"surah {s}: bad span {e['span']}")
+        for ref in e.get("refs", []):
+            rs, lo, hi = parse_ref(ref)
+            ids = [key_to_id.get((rs, a)) for a in range(lo, hi + 1)]
+            if rs != s or lo > hi or None in ids:
+                fail(f"surah {s}: bad ref {ref!r}")
+            if e["basis"] == "asbab" and not all(i in asbab_ids for i in ids):
+                fail(f"surah {s}: ref {ref} has no verified asbab")
+        if e["basis"] == "asbab" and not e.get("refs"):
+            fail(f"surah {s}: basis 'asbab' needs refs")
 
 
 def load_place_exceptions(key_to_id: dict, surah_type: dict) -> dict[int, str]:
@@ -489,7 +550,7 @@ def main() -> None:
         })
     # QUL Indonesian translations join the index after the DB's own `id` ones;
     # their files are written by export_reference_extras.
-    extra_editions = export_reference_extras(key_to_id)
+    extra_editions = export_reference_extras(key_to_id, surah_type)
     last_id = max((i for i, e in enumerate(editions) if e["language"] == "id"),
                   default=len(editions) - 1)
     editions[last_id + 1:last_id + 1] = extra_editions

@@ -58,7 +58,7 @@ export function SurahCard({
   exceptions: PlaceException[];
   palette: Palette;
   onOpen: () => void;
-  extra?: string;
+  extra?: string | string[];
 }) {
   const i = useI18n();
   const { t, n } = i;
@@ -106,11 +106,14 @@ export function SurahCard({
         <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
           {t.card.revealed(surah.revelationOrder)}
         </span>
-        {extra && (
-          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
-            {extra}
+        {(Array.isArray(extra) ? extra : extra ? [extra] : []).map((x) => (
+          <span
+            key={x}
+            className="rounded-full bg-slate-100 px-1.5 py-0.5 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+          >
+            {x}
           </span>
-        )}
+        ))}
       </div>
       <div className="grid grid-cols-4 gap-1 text-center text-[11px] text-slate-500 dark:text-slate-400">
         <div>

@@ -434,6 +434,14 @@ export const id: Messages = {
     revelation: "Urutan turun",
     mostAyahs: "Ayat terbanyak",
     mostWords: "Kata terbanyak",
+    timeline: "Linimasa",
+    phase: (place, ce) => `${place} · ± ${ce} M`,
+    periodCe: (ce) => `± ${ce} M`,
+    noMarker: "Tanpa peristiwa penanda",
+    noSurahs: "Tidak ada surah yang mulai turun pada periode ini",
+    timelineNote:
+      "Setiap surah diletakkan di periode saat surah itu mulai turun; surah panjang diberi rentang tahunnya. Penanggalan bersifat perkiraan: dari riwayat asbab yang terverifikasi, sirah (Ibnu Ishaq, al-Bukhari), atau, bila keduanya tidak menyebut, dari letak surah dalam urutan turun versi Mesir. Tahun Masehi hasil konversi.",
+    timelineLoading: "Memuat linimasa…",
     placeAria: "Tempat turun",
     noMatch: (q) => `Tidak ada surah yang cocok dengan “${q}”.`,
     manzilNote:
@@ -452,6 +460,9 @@ export const id: Messages = {
     duringHijra: "saat hijrah",
     exceptions: (s) => `Ayat pengecualian: ${s}`,
     allAyahs: (p) => `Semua ayat ${p}`,
+    span: (a, b) => `${a}–${b} H`,
+    asbab: (n) => `Asbab: ${n} ayat`,
+    inferred: "Perkiraan (urutan)",
   },
 
   structure: {

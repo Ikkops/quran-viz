@@ -323,6 +323,14 @@ export const en = {
     revelation: "Revelation order",
     mostAyahs: "Most ayahs",
     mostWords: "Most words",
+    timeline: "Timeline",
+    phase: (place: string, ce: string) => `${place} · c. ${ce} CE`,
+    periodCe: (ce: string) => `c. ${ce} CE`,
+    noMarker: "No marker event",
+    noSurahs: "No surah began in this period",
+    timelineNote:
+      "Each surah sits in the period its revelation began; long surahs show their span. Dating is approximate: from verified asbab narrations, the sirah (Ibn Isḥāq, al-Bukhārī) or, where neither dates it, the surah's place in the Egyptian revelation order. CE years are conversions.",
+    timelineLoading: "Loading timeline…",
     placeAria: "Revelation place",
     noMatch: (q: string) => `No surah matches “${q}”.`,
     manzilNote:
@@ -341,6 +349,9 @@ export const en = {
     duringHijra: "during the Hijra",
     exceptions: (s: string) => `Exception ayahs: ${s}`,
     allAyahs: (p: string) => `All ayahs ${p}`,
+    span: (a: number, b: number) => `${a}–${b} AH`,
+    asbab: (n: number) => `Asbab: ${n} ${n === 1 ? "ayah" : "ayahs"}`,
+    inferred: "Approx. (order)",
   },
 
   structure: {

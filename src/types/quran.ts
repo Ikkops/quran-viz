@@ -178,6 +178,49 @@ export type SurahInfoData = (string | null)[];
 
 /** asbab.json: verified asbab al-nuzul (Arabic), as [first ayah id, last ayah
  *  id, narrations]. */
+/** A label in both UI languages (dataset content picked by `lang`). */
+export interface Bilingual {
+  en: string;
+  id: string;
+}
+
+export interface ChronoEvent {
+  label: Bilingual;
+  when: Bilingual;
+}
+
+/** A period of the revelation timeline (scripts/data/surah_chronology.json). */
+export interface ChronoPeriod {
+  id: string;
+  phase: RevelationType;
+  label: Bilingual;
+  when: Bilingual;
+  /** Approximate Common Era years, e.g. "623–624". */
+  ce: string;
+  events: ChronoEvent[];
+}
+
+/** How a surah's period was dated: a verified asbab narration, the sirah
+ *  tradition, or only its band in the Egyptian revelation order. */
+export type ChronoBasis = "asbab" | "sirah" | "urutan";
+
+export interface ChronoEntry {
+  period: string;
+  /** Index into the period's events. */
+  event?: number;
+  basis: ChronoBasis;
+  /** Hijri years over which a long surah was revealed. */
+  span?: [number, number];
+  refs?: string[];
+  typeNote?: string;
+}
+
+export interface ChronologyData {
+  periods: ChronoPeriod[];
+  /** Keyed by surah id. */
+  surahs: Record<string, ChronoEntry>;
+}
+
 export interface AsbabData {
   source: string;
   items: [number, number, string[]][];

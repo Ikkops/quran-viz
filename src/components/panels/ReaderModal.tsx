@@ -24,6 +24,7 @@ import { useWordByWord, type GlossLang } from "../../data/useWordByWord";
 import { useThemes } from "../../data/useThemes";
 import { useAsbab } from "../../data/useAsbab";
 import { useSurahInfo, type InfoLang } from "../../data/useSurahInfo";
+import { renderInline } from "../../lib/inlineMarkdown";
 import {
   asbabByFirstAyah,
   tafsirGroupAt,
@@ -792,7 +793,9 @@ export function ReaderModal({
               ? t.common.loading
               : infoState.error
                 ? t.common.failedToLoad(infoState.error)
-                : (infoState.data?.[target.value] ?? t.reader.noInfo)}
+                : infoState.data?.[target.value]
+                  ? renderInline(infoState.data[target.value]!)
+                  : t.reader.noInfo}
           </div>
           <p className="mt-2 text-[11px] text-slate-400">
             {t.reader.infoSource(infoLang === "en")}
