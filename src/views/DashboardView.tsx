@@ -1,22 +1,27 @@
-import { useMemo, useRef } from "react";
-import { Download } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Download, FileSpreadsheet } from "lucide-react";
 import type { QuranData } from "../types/quran";
 import {
   aggregateBySurah,
   DEFAULT_FILTER,
+  exceptionsBySurah,
+  ayahPlace,
   filterVerses,
+  sanitizeFilter,
   surahMapOf,
   type FilterState,
 } from "../data/selectors";
 import { wordFrequency } from "../data/arabic";
 import { useTranslation } from "../data/useTranslation";
-import { usePersistentState } from "../lib/usePersistentState";
+import { persisted, usePersistentState } from "../lib/usePersistentState";
 import { useTheme } from "../theme/ThemeContext";
-import { exportElementToPng } from "../lib/export";
-import { Card, IconButton, SectionTitle } from "../components/ui";
-import { ControlPanel, type VizOption } from "../components/controls/ControlPanel";
+import { downloadCsv, exportElementToPng } from "../lib/export";
+import { parseHash, serializeHash } from "../lib/hash";
+import { rootSurahCounts, topRootsInScope } from "../data/roots";
+import { Card, IconButton, SectionTitle, SegmentedControl, cx } from "../components/ui";
+import { ControlPanel } from "../components/controls/ControlPanel";
 import type { ChartContext, ColorMode, ReaderTarget } from "../components/charts/common";
-import { SurahBarChart } from "../components/charts/SurahBarChart";
+import { SurahBarChart, type Metric } from "../components/charts/SurahBarChart";
 import { CorrelationScatter } from "../components/charts/CorrelationScatter";
 import { OpeningCategories } from "../components/charts/OpeningCategories";
 import { BoxPlots } from "../components/charts/BoxPlots";
@@ -32,51 +37,74 @@ import { RootExplorer } from "../components/charts/RootExplorer";
 import { useTopics } from "../data/useTopics";
 import { TopicExplorer } from "../components/charts/TopicExplorer";
 import type { ChartSettings } from "../components/panels/SettingsModal";
+import {
+  dashboardToParams,
+  METRICS,
+  migrateStoredViz,
+  seedDashboardFromHash,
+  VIZ_BY_ID,
+  VIZ_DEFS,
+  type CloudLang,
+  type VizId,
+} from "./vizDefs";
 
-const VIZ_OPTIONS: VizOption[] = [
-  { value: "words", label: "Words per surah", group: "Per surah" },
-  { value: "letters", label: "Letters per surah", group: "Per surah" },
-  { value: "verses", label: "Verses per surah", group: "Per surah" },
-  { value: "avg", label: "Avg words / verse", group: "Per surah" },
-  { value: "correlation", label: "Words vs verses (scatter)", group: "Relationships" },
-  { value: "opening", label: "Opening categories", group: "Relationships" },
-  { value: "histogram", label: "Verse-length distribution", group: "Verse level" },
-  { value: "boxplots", label: "Verse-length box plots", group: "Verse level" },
-  { value: "extremes", label: "Longest & shortest verses", group: "Verse level" },
-  { value: "cloud-ar", label: "Arabic word cloud", group: "Text" },
-  { value: "cloud-en", label: "English word cloud", group: "Text" },
-  { value: "roots", label: "Most frequent roots", group: "Morphology" },
-  { value: "root-explorer", label: "Root explorer", group: "Morphology" },
-  { value: "pos", label: "Part-of-speech mix", group: "Morphology" },
-  { value: "topic-explorer", label: "Topic explorer", group: "Topics" },
-];
+// Rewrite legacy `qv.viz` values (words/letters/…, cloud-ar/cloud-en) once,
+// before the persisted state below reads them.
+migrateStoredViz();
 
-const LAYOUT_VIZ = new Set(["words", "letters", "verses", "avg"]);
-const COLORMODE_VIZ = new Set(["words", "letters", "verses", "avg", "correlation"]);
-const VIZ_LABEL = Object.fromEntries(VIZ_OPTIONS.map((o) => [o.value, o.label]));
-const VIZ_VALUES = new Set(VIZ_OPTIONS.map((o) => o.value));
+const VIZ_IDS = VIZ_DEFS.map((d) => d.value);
+const METRIC_IDS = METRICS.map((m) => m.value);
 
 export function DashboardView({
   data,
   settings,
+  colorMode,
+  onColorMode: setColorMode,
   onOpen,
+  onSearch,
 }: {
   data: QuranData;
   settings: ChartSettings;
+  colorMode: ColorMode;
+  onColorMode: (m: ColorMode) => void;
   onOpen: (t: ReaderTarget) => void;
+  /** Open global search with a query (word-cloud click). */
+  onSearch?: (query: string) => void;
 }) {
   const theme = useTheme();
-  const [vizRaw, setViz] = usePersistentState("qv.viz", "words");
-  // A previously-persisted viz may have been removed; fall back to "words".
-  const viz = VIZ_VALUES.has(vizRaw) ? vizRaw : "words";
+  // A shared link's view (in the hash) wins over the remembered one. Runs
+  // before the persisted state below initialises from storage.
+  useState(() => {
+    seedDashboardFromHash(window.location.hash);
+    return true;
+  });
+  const [viz, setViz] = usePersistentState<VizId>(
+    "qv.viz",
+    "length",
+    persisted.oneOf(VIZ_IDS),
+  );
+  const [metric, setMetric] = usePersistentState<Metric>(
+    "qv.metric",
+    "wordCount",
+    persisted.oneOf(METRIC_IDS),
+  );
+  const [cloudLang, setCloudLang] = usePersistentState<CloudLang>(
+    "qv.cloudLang",
+    "ar",
+    persisted.oneOf(["ar", "en"] as const),
+  );
   const [filter, setFilter] = usePersistentState<FilterState>(
     "qv.filter",
     DEFAULT_FILTER,
+    sanitizeFilter,
   );
-  const [colorMode, setColorMode] = usePersistentState<ColorMode>("qv.colorMode", "type");
   const [horizontal, setHorizontal] = usePersistentState("qv.horizontal", false);
   const [activeKeys, setActiveKeys] = usePersistentState<string[]>("qv.activeKeys", []);
+  const [rootBw, setRootBw] = usePersistentState("qv.root", "ktb");
+  const [topicId, setTopicId] = usePersistentState<number | null>("qv.topic", null);
+  const [openingCat, setOpeningCat] = useState<string | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
+  const def = VIZ_BY_ID[viz];
 
   // Switching colour mode invalidates the legend selection (the keys differ).
   const changeColorMode = (m: ColorMode) => {
@@ -86,7 +114,8 @@ export function DashboardView({
   const toggleKey = (k: string) =>
     setActiveKeys((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]));
   const reset = () => {
-    setViz("words");
+    setViz("length");
+    setMetric("wordCount");
     setFilter(DEFAULT_FILTER);
     setColorMode("type");
     setHorizontal(false);
@@ -94,13 +123,21 @@ export function DashboardView({
   };
 
   const surahMap = useMemo(() => surahMapOf(data.surahs), [data.surahs]);
+  const exceptions = useMemo(() => exceptionsBySurah(data.verses), [data.verses]);
+  // Views that ignore the range see the whole Qur'an.
+  const effectiveFilter = def.uses.range ? filter : DEFAULT_FILTER;
   const filteredVerses = useMemo(
-    () => filterVerses(data.verses, filter),
-    [data.verses, filter],
+    () => filterVerses(data.verses, effectiveFilter, surahMap),
+    [data.verses, effectiveFilter, surahMap],
   );
   const surahData = useMemo(
-    () => aggregateBySurah(filteredVerses, surahMap, filter.sort),
-    [filteredVerses, surahMap, filter.sort],
+    () =>
+      aggregateBySurah(
+        filteredVerses,
+        surahMap,
+        def.uses.sort ? effectiveFilter.sort : "quran",
+      ),
+    [filteredVerses, surahMap, def.uses.sort, effectiveFilter.sort],
   );
   const order = useMemo(() => surahData.map((d) => d.id), [surahData]);
 
@@ -121,43 +158,178 @@ export function DashboardView({
   // Word clouds
   const arabicCloud = useMemo(
     () =>
-      viz === "cloud-ar"
+      viz === "cloud" && cloudLang === "ar"
         ? wordFrequency(
             filteredVerses.map((v) => v.ar),
             { arabic: true },
           )
         : [],
-    [viz, filteredVerses],
+    [viz, cloudLang, filteredVerses],
   );
   const englishEdition = useTranslation(
-    viz === "cloud-en" ? data.editions.default : null,
+    viz === "cloud" && cloudLang === "en" ? data.editions.default : null,
   );
   const englishCloud = useMemo(() => {
-    if (viz !== "cloud-en" || !englishEdition.data) return [];
+    if (viz !== "cloud" || cloudLang !== "en" || !englishEdition.data) return [];
     return wordFrequency(
       filteredVerses.map((v) => englishEdition.data![v.id] ?? ""),
       { arabic: false },
     );
-  }, [viz, filteredVerses, englishEdition.data]);
+  }, [viz, cloudLang, filteredVerses, englishEdition.data]);
 
-  // Morphology aggregate (corpus roots + POS), lazy-loaded only for its views.
-  const morphState = useMorphology(viz === "roots" || viz === "pos");
+  // Lazy data, loaded only for the views that need it.
+  const morphState = useMorphology(viz === "pos");
   const morph = morphState.data;
-  const rootsState = useRoots(viz === "root-explorer");
+  const rootsState = useRoots(viz === "roots" || viz === "root-explorer");
   const topicsState = useTopics(viz === "topic-explorer");
+
+  // Mirror the view into the link (replaceState: no history entry per click),
+  // keeping any open reader target.
+  useEffect(() => {
+    const cur = parseHash(window.location.hash);
+    if (cur.view !== "dashboard") return;
+    const next = serializeHash(
+      "dashboard",
+      cur.reader,
+      dashboardToParams({ viz, metric, cloudLang, filter }),
+    );
+    if (window.location.hash.slice(1) !== next)
+      window.history.replaceState(null, "", `#${next}`);
+  }, [viz, metric, cloudLang, filter]);
 
   const handleExport = async () => {
     if (chartRef.current)
       await exportElementToPng(chartRef.current, `quran-${viz}`, theme.dark);
   };
 
+  /** The rows behind the current view, for CSV export. */
+  const csvRows = (): Record<string, unknown>[] => {
+    const surahRows = () =>
+      surahData.map((d) => ({
+        surah: d.id,
+        name: d.name,
+        arabic: d.nameAr,
+        type: d.type,
+        revelation_order: d.revelationOrder,
+        ayahs: d.ayahCount,
+        words: d.wordCount,
+        letters: d.letterCount,
+        avg_words_per_ayah: d.avgWords.toFixed(2),
+        meccan_ayahs: d.split.v.Meccan,
+        medinan_ayahs: d.split.v.Medinan,
+        hijra_ayahs: d.split.v.Hijra,
+        opening_category: d.category,
+      }));
+    const verseRows = () =>
+      filteredVerses.map((v) => ({
+        surah: v.s,
+        ayah: v.a,
+        words: v.w,
+        letters: v.l,
+        place: ayahPlace(v, surahMap),
+        juz: v.juz,
+        page: v.page,
+      }));
+    const perSurah = (item: { v: number[] }) => {
+      const inScope = new Map(filteredVerses.map((v) => [v.id, v]));
+      const counts = rootSurahCounts(item, inScope);
+      return surahData.map((d) => ({
+        surah: d.id,
+        name: d.name,
+        count: counts.get(d.id)?.count ?? 0,
+      }));
+    };
+    switch (viz) {
+      case "length":
+      case "correlation":
+      case "opening":
+      case "boxplots":
+        return surahRows();
+      case "histogram":
+      case "extremes":
+        return verseRows();
+      case "cloud":
+        return (cloudLang === "ar" ? arabicCloud : englishCloud).map((w) => ({
+          word: w.text,
+          count: w.value,
+        }));
+      case "roots":
+        return rootsState.data
+          ? topRootsInScope(
+              rootsState.data,
+              new Set(filteredVerses.map((v) => v.id)),
+              200,
+            ).map(({ root, count }) => ({
+              root: root.ar,
+              buckwalter: root.bw,
+              gloss: root.gloss,
+              count,
+            }))
+          : [];
+      case "root-explorer": {
+        const r = rootsState.data?.find((x) => x.bw === rootBw) ?? rootsState.data?.[0];
+        return r ? perSurah(r).map((row) => ({ root: r.ar, ...row })) : [];
+      }
+      case "topic-explorer": {
+        const t =
+          topicsState.data?.find((x) => x.id === topicId) ?? topicsState.data?.[0];
+        return t ? perSurah(t).map((row) => ({ topic: t.name, ...row })) : [];
+      }
+      case "pos":
+        return (
+          morph?.pos.map((p) => ({ tag: p.tag, label: p.label, count: p.count })) ?? []
+        );
+      default:
+        return [];
+    }
+  };
+
+  const scopeLine = `${surahData.length} surahs · ${filteredVerses.length.toLocaleString()} verses`;
+  const subtitle =
+    viz === "pos"
+      ? morph
+        ? `Whole Qur'an · ${morph.totalSegments.toLocaleString()} morphological segments · Quranic Arabic Corpus`
+        : "Loading the Quranic Arabic Corpus…"
+      : viz === "roots" || viz === "root-explorer"
+        ? `${scopeLine} · Quranic Arabic Corpus roots`
+        : viz === "topic-explorer"
+          ? `${scopeLine} · ${topicsState.data?.length.toLocaleString() ?? "…"} QUL topics`
+          : viz === "cloud"
+            ? `${scopeLine} · click a word to search for it`
+            : viz === "opening"
+              ? `${scopeLine} · click a bar to list its surahs`
+              : def.autoHeight
+                ? scopeLine
+                : `${scopeLine} · drag the chart's corner to resize`;
+
+  const headerControls =
+    viz === "length" ? (
+      <SegmentedControl<Metric>
+        value={metric}
+        onChange={setMetric}
+        ariaLabel="Metric"
+        options={METRICS}
+      />
+    ) : viz === "cloud" ? (
+      <SegmentedControl<CloudLang>
+        value={cloudLang}
+        onChange={setCloudLang}
+        ariaLabel="Cloud language"
+        options={[
+          { value: "ar", label: "Arabic" },
+          { value: "en", label: "English" },
+        ]}
+      />
+    ) : null;
+
   return (
     <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
       <Card className="h-fit p-4">
         <ControlPanel
-          vizOptions={VIZ_OPTIONS}
+          vizDefs={VIZ_DEFS}
           viz={viz}
           onViz={setViz}
+          uses={def.uses}
           surahs={data.surahs}
           filter={filter}
           onFilter={setFilter}
@@ -165,44 +337,48 @@ export function DashboardView({
           onColorMode={changeColorMode}
           horizontal={horizontal}
           onHorizontal={setHorizontal}
-          supportsLayout={LAYOUT_VIZ.has(viz)}
-          supportsColorMode={COLORMODE_VIZ.has(viz)}
           onReset={reset}
         />
       </Card>
 
-      <Card className="p-4">
+      <Card className="min-w-0 p-4">
         <SectionTitle
-          title={VIZ_LABEL[viz]}
-          subtitle={
-            viz === "roots" || viz === "pos"
-              ? morph
-                ? `${morph.distinctRoots.toLocaleString()} distinct roots · ${morph.totalSegments.toLocaleString()} morphological segments · Quranic Arabic Corpus`
-                : "Loading the Quranic Arabic Corpus…"
-              : viz === "root-explorer"
-                ? `${surahData.length} surahs · ${filteredVerses.length.toLocaleString()} verses · Quranic Arabic Corpus roots`
-                : viz === "topic-explorer"
-                  ? `${surahData.length} surahs · ${filteredVerses.length.toLocaleString()} verses · ${topicsState.data?.length.toLocaleString() ?? "…"} QUL topics`
-                  : `${surahData.length} surahs · ${filteredVerses.length.toLocaleString()} verses · drag the chart's corner to resize`
-          }
+          title={def.label}
+          subtitle={subtitle}
           right={
-            <IconButton onClick={handleExport}>
-              <Download size={15} /> PNG
-            </IconButton>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {headerControls}
+              <IconButton onClick={handleExport} title="Download the chart as an image">
+                <Download size={15} /> PNG
+              </IconButton>
+              <IconButton
+                onClick={() => downloadCsv(csvRows(), `quran-${viz}`)}
+                title="Download the data behind this view"
+              >
+                <FileSpreadsheet size={15} /> CSV
+              </IconButton>
+            </div>
           }
         />
-        <div className="h-[calc(60*var(--zvh))] max-h-[calc(88*var(--zvh))] min-h-[360px] w-full resize-y overflow-hidden rounded-xl">
-          <div ref={chartRef} className="h-full w-full">
+        <div
+          className={cx(
+            "w-full rounded-xl",
+            !def.autoHeight &&
+              "h-[calc(60*var(--zvh))] max-h-[calc(88*var(--zvh))] min-h-[360px] resize-y overflow-hidden",
+          )}
+        >
+          <div ref={chartRef} className={cx("w-full", !def.autoHeight && "h-full")}>
             {renderChart()}
           </div>
         </div>
-        {COLORMODE_VIZ.has(viz) && (
+        {def.uses.color && (
           <div className="mt-3 border-t border-slate-100 pt-3 dark:border-slate-700/60">
             <Legend
               colorMode={colorMode}
               pie={theme.palette.pie}
               activeKeys={activeKeySet}
               onToggle={toggleKey}
+              ayahLevel={viz === "length" && metric !== "avgWords"}
             />
           </div>
         )}
@@ -212,38 +388,11 @@ export function DashboardView({
 
   function renderChart() {
     switch (viz) {
-      case "words":
+      case "length":
         return (
           <SurahBarChart
             data={surahData}
-            metric="wordCount"
-            horizontal={horizontal}
-            ctx={ctx}
-          />
-        );
-      case "letters":
-        return (
-          <SurahBarChart
-            data={surahData}
-            metric="letterCount"
-            horizontal={horizontal}
-            ctx={ctx}
-          />
-        );
-      case "verses":
-        return (
-          <SurahBarChart
-            data={surahData}
-            metric="ayahCount"
-            horizontal={horizontal}
-            ctx={ctx}
-          />
-        );
-      case "avg":
-        return (
-          <SurahBarChart
-            data={surahData}
-            metric="avgWords"
+            metric={metric}
             horizontal={horizontal}
             ctx={ctx}
           />
@@ -251,7 +400,16 @@ export function DashboardView({
       case "correlation":
         return <CorrelationScatter data={surahData} ctx={ctx} />;
       case "opening":
-        return <OpeningCategories data={surahData} ctx={ctx} />;
+        return (
+          <OpeningCategories
+            data={surahData}
+            ctx={ctx}
+            surahMap={surahMap}
+            exceptions={exceptions}
+            selected={openingCat}
+            onSelect={setOpeningCat}
+          />
+        );
       case "histogram":
         return (
           <LengthHistogram
@@ -274,12 +432,19 @@ export function DashboardView({
           />
         );
       case "roots":
-        return morph ? (
-          <RootChart roots={morph.roots} primary={theme.primary} dark={theme.dark} />
-        ) : morphState.error ? (
-          <Error loading={false} error={morphState.error} />
+        return rootsState.data ? (
+          <RootChart
+            roots={rootsState.data}
+            verses={filteredVerses}
+            primary={theme.primary}
+            dark={theme.dark}
+            onPick={(bw) => {
+              setRootBw(bw);
+              setViz("root-explorer");
+            }}
+          />
         ) : (
-          <Loading />
+          <LoadState error={rootsState.error} onRetry={rootsState.retry} />
         );
       case "root-explorer":
         return rootsState.data ? (
@@ -288,11 +453,11 @@ export function DashboardView({
             verses={filteredVerses}
             surahMap={surahMap}
             ctx={ctx}
+            selectedBw={rootBw}
+            onSelectBw={setRootBw}
           />
-        ) : rootsState.error ? (
-          <Error loading={false} error={rootsState.error} />
         ) : (
-          <Loading />
+          <LoadState error={rootsState.error} onRetry={rootsState.retry} />
         );
       case "topic-explorer":
         return topicsState.data ? (
@@ -301,27 +466,35 @@ export function DashboardView({
             verses={filteredVerses}
             surahMap={surahMap}
             ctx={ctx}
+            selectedId={topicId}
+            onSelectId={setTopicId}
           />
-        ) : topicsState.error ? (
-          <Error loading={false} error={topicsState.error} />
         ) : (
-          <Loading />
+          <LoadState error={topicsState.error} onRetry={topicsState.retry} />
         );
       case "pos":
         return morph ? (
           <PosChart pos={morph.pos} primary={theme.primary} dark={theme.dark} />
-        ) : morphState.error ? (
-          <Error loading={false} error={morphState.error} />
         ) : (
-          <Loading />
+          <LoadState error={morphState.error} onRetry={morphState.retry} />
         );
-      case "cloud-ar":
-        return <WordCloud words={arabicCloud} arabic primary={theme.primary} />;
-      case "cloud-en":
-        return englishEdition.loading ? (
-          <Loading />
+      case "cloud":
+        return cloudLang === "ar" ? (
+          <WordCloud
+            words={arabicCloud}
+            arabic
+            primary={theme.primary}
+            onWordClick={onSearch}
+          />
+        ) : englishEdition.loading ? (
+          <LoadState error={englishEdition.error} />
         ) : (
-          <WordCloud words={englishCloud} arabic={false} primary={theme.primary} />
+          <WordCloud
+            words={englishCloud}
+            arabic={false}
+            primary={theme.primary}
+            onWordClick={onSearch}
+          />
         );
       default:
         return null;
@@ -329,18 +502,25 @@ export function DashboardView({
   }
 }
 
-function Loading() {
+function LoadState({ error, onRetry }: { error: string | null; onRetry?: () => void }) {
   return (
-    <div className="flex h-full items-center justify-center text-sm text-slate-400">
-      Loading…
-    </div>
-  );
-}
-
-function Error({ error }: { loading: boolean; error: string }) {
-  return (
-    <div className="flex h-full items-center justify-center text-sm text-rose-500">
-      Failed to load: {error}
+    <div
+      className={cx(
+        "flex h-full min-h-[200px] flex-col items-center justify-center gap-2 text-sm",
+        error ? "text-rose-500" : "text-slate-400",
+      )}
+      role={error ? "alert" : "status"}
+    >
+      {error ? `Failed to load: ${error}` : "Loading…"}
+      {error && onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Retry
+        </button>
+      )}
     </div>
   );
 }

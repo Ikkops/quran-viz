@@ -83,3 +83,42 @@ def test_pair_wbw_drops_pause_marks_and_ayah_number():
 def test_pair_wbw_joins_surplus_arabic_into_last_word():
     pairs = bd.pair_wbw("سَلَٰمٌ عَلَىٰٓ إِلْ يَاسِينَ", ["kesejahteraan", "atas", "Ilyas"])
     assert pairs[-1] == ["إِلْ يَاسِينَ", "Ilyas"]
+
+
+def test_group_tafsir_dedups_passages():
+    rows = [
+        (19, 7, "19:7", "passage"),
+        (19, 8, "19:7", "passage"),
+        (19, 9, "19:7", "passage"),
+        (19, 10, "19:10", "single"),
+        (72, 11, "72:11", ""),  # empty note: dropped
+        (72, 12, "72:12", " x "),
+    ]
+    assert bd.group_tafsir(rows) == {
+        19: [[7, 9, "passage"], [10, 10, "single"]],
+        72: [[12, 12, "x"]],
+    }
+
+
+def test_check_revelation_order_rejects_duplicates():
+    import pytest
+    good = {i: 115 - i for i in range(1, 115)}
+    bd.check_revelation_order(good)
+    bad = dict(good)
+    bad[2] = bad[1]
+    with pytest.raises(SystemExit):
+        bd.check_revelation_order(bad)
+
+
+def test_place_exceptions_file_is_consistent():
+    key_to_id = {(s, a): i for i, (s, a) in enumerate(
+        [(s, a) for s in range(1, 115) for a in range(1, 300)], 1)}
+    surah_type = {s: "Meccan" for s in range(1, 115)}
+    for s in (2, 3, 4, 5, 8, 9, 22, 24, 33, 47, 48, 49, 57, 58, 59, 60, 61, 62,
+              63, 64, 65, 66, 76, 98, 99, 110, 13, 55):
+        surah_type[s] = "Medinan"
+    places = bd.load_place_exceptions(key_to_id, surah_type)
+    assert key_to_id[(7, 163)] in places and places[key_to_id[(7, 163)]] == "Medinan"
+    assert places[key_to_id[(2, 281)]] == "Meccan"
+    assert places[key_to_id[(28, 85)]] == "Hijra"
+    assert key_to_id[(22, 56)] not in places  # corrected: header says 52-55

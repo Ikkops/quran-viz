@@ -21,6 +21,21 @@ export function rootSurahCounts(
   return out;
 }
 
+/** The most frequent roots among the ayahs in `inScope`, descending. */
+export function topRootsInScope(
+  roots: RootEntry[],
+  inScope: Set<number>,
+  limit: number,
+): { root: RootEntry; count: number }[] {
+  const out: { root: RootEntry; count: number }[] = [];
+  for (const root of roots) {
+    let count = 0;
+    for (const id of root.v) if (inScope.has(id)) count += 1;
+    if (count) out.push({ root, count });
+  }
+  return out.sort((a, b) => b.count - a.count).slice(0, limit);
+}
+
 /** The most frequent roots within one surah, descending. */
 export function topRootsForSurah(
   roots: RootEntry[],

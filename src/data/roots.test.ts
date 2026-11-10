@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { RootEntry, SimilarData, Topic, Verse } from "../types/quran";
-import { rootSurahCounts, searchRoots, searchTopics, topRootsForSurah } from "./roots";
+import {
+  rootSurahCounts,
+  searchRoots,
+  searchTopics,
+  topRootsForSurah,
+  topRootsInScope,
+} from "./roots";
 import { filterSimilar } from "./similar";
 
 const verse = (id: number, s: number): Verse => ({
@@ -40,6 +46,20 @@ describe("topRootsForSurah", () => {
     ).toEqual([
       ["Alh", 2],
       ["ktb", 1],
+    ]);
+  });
+});
+
+describe("topRootsInScope", () => {
+  it("counts only occurrences inside the range", () => {
+    expect(topRootsInScope([ktb, alh], new Set([1, 2, 3]), 5)).toEqual(
+      [
+        { root: alh, count: 2 },
+        { root: ktb, count: 3 },
+      ].sort((a, b) => b.count - a.count),
+    );
+    expect(topRootsInScope([ktb, alh], new Set([4]), 5)).toEqual([
+      { root: alh, count: 1 },
     ]);
   });
 });

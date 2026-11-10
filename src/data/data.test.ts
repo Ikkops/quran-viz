@@ -102,6 +102,10 @@ describe("fawatih", () => {
     expect(categorizeOpening(112)).toBe("Direct Command (Amr)");
     expect(categorizeOpening(91)).toBe("Divine Oath (Qasam)");
     expect(categorizeOpening(110)).toBe("Condition / Event (Idha)");
+    // al-Suyuti: 10 surahs open with a call (nida'), 7 with a condition (shart).
+    expect(categorizeOpening(63)).toBe("Condition / Event (Idha)");
+    expect(categorizeOpening(73)).toBe("Call (Nida')");
+    expect(categorizeOpening(74)).toBe("Call (Nida')");
     expect(categorizeOpening(2000)).toBe("Statement / Narrative"); // default
   });
 });

@@ -1,14 +1,25 @@
-import type { RootDatum } from "../../types/quran";
-import { axisColor } from "./common";
+import { useMemo, useState } from "react";
+import type { RootEntry, Verse } from "../../types/quran";
+import { topRootsInScope } from "../../data/roots";
 import { HorizontalBarChart } from "./HorizontalBarChart";
 import { TooltipShell } from "../tooltips";
+import { Slider } from "../ui";
 
-interface TipProps {
-  active?: boolean;
-  payload?: { payload: RootDatum }[];
+interface RootRow extends Record<string, unknown> {
+  label: string;
+  ar: string;
+  bw: string;
+  gloss: string;
+  count: number;
 }
 
-function RootTooltip({ active, payload }: TipProps) {
+function RootTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: { payload: RootRow }[];
+}) {
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
@@ -23,34 +34,67 @@ function RootTooltip({ active, payload }: TipProps) {
       <div className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">
         {d.count.toLocaleString()} occurrences
       </div>
+      <p className="mt-1 text-[11px] text-slate-400">Click to explore this root</p>
     </TooltipShell>
   );
 }
 
-/** Horizontal bar chart of the most frequent triliteral roots in the Quran. */
+/** Row height that leaves room for Arabic ascenders and descenders. */
+const ROW_PX = 26;
+
+/** The most frequent roots within the dashboard range (from roots.json). */
 export function RootChart({
   roots,
+  verses,
   primary,
   dark,
-  limit = 30,
+  onPick,
 }: {
-  roots: RootDatum[];
+  roots: RootEntry[];
+  verses: Verse[];
   primary: string;
   dark: boolean;
-  limit?: number;
+  onPick?: (bw: string) => void;
 }) {
-  void axisColor(dark); // keep import side consistent with sibling charts
-  const data = roots.slice(0, limit) as (RootDatum & Record<string, unknown>)[];
+  const [limit, setLimit] = useState(20);
+  const scope = useMemo(() => new Set(verses.map((v) => v.id)), [verses]);
+  const rows: RootRow[] = useMemo(
+    () =>
+      topRootsInScope(roots, scope, limit).map(({ root, count }) => ({
+        label: `${root.ar} · ${root.bw}`,
+        ar: root.ar,
+        bw: root.bw,
+        gloss: root.gloss,
+        count,
+      })),
+    [roots, scope, limit],
+  );
+
   return (
-    <HorizontalBarChart<RootDatum & Record<string, unknown>>
-      data={data}
-      categoryKey="ar"
-      valueKey="count"
-      categoryWidth={70}
-      color={primary}
-      dark={dark}
-      tickStyle={{ fontSize: 16, fontFamily: "var(--font-arabic)" }}
-      tooltip={<RootTooltip />}
-    />
+    <div className="flex flex-col gap-3">
+      <div className="w-56">
+        <Slider
+          label="Roots shown"
+          min={10}
+          max={40}
+          step={5}
+          value={limit}
+          onChange={(e) => setLimit(Number(e.target.value))}
+        />
+      </div>
+      <div style={{ height: rows.length * ROW_PX + 40 }}>
+        <HorizontalBarChart<RootRow>
+          data={rows}
+          categoryKey="label"
+          valueKey="count"
+          categoryWidth={110}
+          color={primary}
+          dark={dark}
+          tickStyle={{ fontSize: 13, fontFamily: '"Amiri", serif' }}
+          tooltip={<RootTooltip />}
+          onBarClick={onPick && ((r) => onPick(r.bw))}
+        />
+      </div>
+    </div>
   );
 }

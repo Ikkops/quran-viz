@@ -88,16 +88,20 @@ export function RootExplorer({
   verses,
   surahMap,
   ctx,
+  selectedBw,
+  onSelectBw: setSelectedBw,
 }: {
   roots: RootEntry[];
   verses: Verse[];
   surahMap: Map<number, Surah>;
   ctx: ChartContext;
+  /** Selected root (Buckwalter), owned by the dashboard so it is remembered. */
+  selectedBw: string;
+  onSelectBw: (bw: string) => void;
 }) {
   const [mode, setMode] = useState<Mode>("root");
   const [measure, setMeasure] = useState<Measure>("count");
   const [query, setQuery] = useState("");
-  const [selectedBw, setSelectedBw] = useState("ktb");
   const [surah, setSurah] = useState<number | null>(null);
 
   const inScope = useMemo(() => new Map(verses.map((v) => [v.id, v])), [verses]);
@@ -154,7 +158,7 @@ export function RootExplorer({
   };
 
   return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <SegmentedControl<Mode>
           value={mode}
@@ -237,7 +241,7 @@ export function RootExplorer({
             — {total.toLocaleString()} occurrences in {inSurahs} of {surahIds.length}{" "}
             surahs. Click a bar to read the first one.
           </p>
-          <div className="min-h-[240px] flex-1">
+          <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={surahRows}
@@ -288,7 +292,7 @@ export function RootExplorer({
       )}
 
       {mode === "surah" && (
-        <div className="min-h-[240px] flex-1">
+        <div style={{ height: rootRows.length * 26 + 40 }}>
           <HorizontalBarChart<RootRow>
             data={rootRows}
             categoryKey="ar"
@@ -296,7 +300,7 @@ export function RootExplorer({
             categoryWidth={70}
             color={ctx.primary}
             dark={ctx.dark}
-            tickStyle={{ fontSize: 16, fontFamily: "var(--font-arabic)" }}
+            tickStyle={{ fontSize: 15, fontFamily: '"Amiri", serif' }}
             tooltip={<RootRowTooltip />}
             onBarClick={(r) => pickRoot(r.bw)}
           />

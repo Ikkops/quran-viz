@@ -18,7 +18,14 @@ export interface Surah {
   /** True when ayah 1 carried a basmala we stripped (render it above verse 1).
    *  False for Al-Fatiha (basmala is verse 1) and At-Tawbah (none). */
   hasBismillah: boolean;
+  /** Rank in the standard (Egyptian) revelation order, 1 = Al-'Alaq. */
+  revelationOrder: number;
+  /** Ayahs whose traditional place differs from the surah's (see Verse.p). */
+  exceptions: number;
 }
+
+/** Where an ayah was revealed. "Hijra" = en route during the migration. */
+export type AyahPlace = RevelationType | "Hijra";
 
 /** Core verse record. Short keys mirror verses.json to keep the file small. */
 export interface Verse {
@@ -35,6 +42,9 @@ export interface Verse {
   w: number; // word count
   l: number; // letter count
   ar: string; // Uthmani Arabic text
+  /** Set only when the ayah's traditional place differs from its surah's
+   *  classification (mushaf-header exceptions; scholars differ). */
+  p?: AyahPlace;
 }
 
 /** Verse augmented with cumulative running totals (global + per-juz). */
@@ -94,6 +104,8 @@ export interface Meta {
     letters: number;
   };
   classification: Record<string, number>;
+  /** Ayah-level split (Meccan / Medinan / Hijra) using the per-ayah places. */
+  classificationByAyah: Record<string, number>;
   juzs: JuzRange[];
   hizbs: HizbRange[];
   countMethod: string;

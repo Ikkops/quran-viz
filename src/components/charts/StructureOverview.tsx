@@ -1,6 +1,7 @@
 import { TRADITIONAL_COUNT } from "../../data/traditionalCounts";
 import type { Meta, Surah } from "../../types/quran";
 import { Card } from "../ui";
+import { PLACE_CAVEAT } from "./common";
 
 function Stat({
   label,
@@ -28,10 +29,14 @@ function Stat({
 
 export function StructureOverview({ surahs, meta }: { surahs: Surah[]; meta: Meta }) {
   const t = meta.totals;
-  const meccan = meta.classification["Meccan"] ?? 0;
-  const medinan = meta.classification["Medinan"] ?? 0;
+  const byAyah = meta.classificationByAyah ?? meta.classification;
+  const meccan = byAyah["Meccan"] ?? 0;
+  const medinan = byAyah["Medinan"] ?? 0;
+  const hijra = byAyah["Hijra"] ?? 0;
   // `surahs` may be filtered upstream; fall back to the meta total when not.
   const surahCount = surahs.length || t.surahs;
+  const meccanSurahs = surahs.filter((s) => s.type === "Meccan").length;
+  const medinanSurahs = surahs.filter((s) => s.type === "Medinan").length;
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto">
@@ -52,9 +57,28 @@ export function StructureOverview({ surahs, meta }: { surahs: Surah[]; meta: Met
         <Stat label="Juz" value={t.juzs} />
         <Stat label="Hizb" value={t.hizbs} />
         <Stat label="Sajda verses" value={t.sajdas} />
-        <Stat label="Meccan surahs" value={meccan} />
-        <Stat label="Medinan surahs" value={medinan} />
+        <Stat
+          label="Meccan ayahs"
+          value={meccan.toLocaleString()}
+          sub={`${meccanSurahs} surahs · ${(meta.classification["Meccan"] ?? 0).toLocaleString()} ayahs by surah`}
+        />
+        <Stat
+          label="Medinan ayahs"
+          value={medinan.toLocaleString()}
+          sub={`${medinanSurahs} surahs · ${(meta.classification["Medinan"] ?? 0).toLocaleString()} ayahs by surah`}
+        />
+        {hijra > 0 && (
+          <Stat
+            label="Revealed during the Hijra"
+            value={hijra}
+            sub="22:52–55, 28:85, 47:13"
+          />
+        )}
       </div>
+      <p className="text-[11px] text-slate-400">
+        Ayah counts use each ayah&apos;s own place where it differs from its surah (e.g.
+        7:163–170 are Medinan inside a Meccan surah). {PLACE_CAVEAT}
+      </p>
     </div>
   );
 }

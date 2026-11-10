@@ -2,28 +2,27 @@ import { useMemo } from "react";
 import type { CloudWord } from "../../data/arabic";
 import { cx } from "../ui";
 
+/** Word cloud sized on a square-root scale, so one dominant word (Allah)
+ *  doesn't shrink every other word to the minimum. Click a word to search it. */
 export function WordCloud({
   words,
   arabic,
   primary,
+  onWordClick,
 }: {
   words: CloudWord[];
   arabic: boolean;
   primary: string;
+  onWordClick?: (word: string) => void;
 }) {
   const { min, max } = useMemo(() => {
     if (!words.length) return { min: 0, max: 1 };
     return {
-      min: words[words.length - 1].value,
-      max: words[0].value,
+      min: Math.sqrt(words[words.length - 1].value),
+      max: Math.sqrt(words[0].value),
     };
   }, [words]);
-
-  const size = (v: number) => {
-    if (max === min) return 18;
-    const t = (v - min) / (max - min);
-    return 12 + t * 36; // 12px .. 48px
-  };
+  const t = (v: number) => (max === min ? 0.5 : (Math.sqrt(v) - min) / (max - min));
 
   return (
     <div
@@ -34,21 +33,23 @@ export function WordCloud({
       )}
     >
       {words.map((w) => {
-        const t = max === min ? 0.5 : (w.value - min) / (max - min);
+        const k = t(w.value);
         return (
-          <span
+          <button
+            type="button"
             key={w.text}
-            title={`${w.text}: ${w.value}`}
+            title={`${w.text}: ${w.value.toLocaleString()} — click to search`}
+            onClick={() => onWordClick?.(w.text)}
             style={{
-              fontSize: size(w.value),
+              fontSize: (arabic ? 16 : 14) + k * (arabic ? 44 : 40),
               color: primary,
-              opacity: 0.45 + 0.55 * t,
-              lineHeight: 1.1,
+              opacity: 0.5 + 0.5 * k,
+              lineHeight: arabic ? 1.5 : 1.15,
             }}
-            className="font-semibold transition hover:scale-110"
+            className="font-semibold transition hover:scale-110 hover:opacity-100"
           >
             {w.text}
-          </span>
+          </button>
         );
       })}
     </div>

@@ -15,7 +15,7 @@ function VerseCard({
   const s = surahMap.get(v.s);
   return (
     <button
-      onClick={() => ctx.onSelectSurah?.(v.s)}
+      onClick={() => ctx.onOpen?.({ scope: "surah", value: v.s, anchor: v.id })}
       className="w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-right transition hover:border-slate-300 hover:shadow-sm dark:border-slate-700 dark:bg-slate-800/60"
     >
       <div className="mb-1 flex items-center justify-between" dir="ltr">

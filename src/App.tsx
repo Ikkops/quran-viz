@@ -1,9 +1,12 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   BarChart3,
+  Bookmark as BookmarkIcon,
   BookOpen,
   Info,
+  Keyboard,
   Languages,
+  Layers,
   LayoutGrid,
   Moon,
   Search,
@@ -11,67 +14,55 @@ import {
   Sun,
 } from "lucide-react";
 import { useQuranData } from "./data/useQuranData";
-import { usePersistentState } from "./lib/usePersistentState";
+import { persisted, usePersistentState } from "./lib/usePersistentState";
 import { useTheme } from "./theme/ThemeContext";
 import type { ColorMode, ReaderTarget } from "./components/charts/common";
-import { READER_SCOPES, type ReaderScope } from "./components/charts/common";
-import { Card, IconButton, SegmentedControl, Skeleton } from "./components/ui";
+import {
+  Card,
+  IconButton,
+  Modal,
+  ModalHeader,
+  SegmentedControl,
+  Skeleton,
+} from "./components/ui";
+import { BookmarkList } from "./components/panels/BookmarkList";
+import { surahMapOf } from "./data/selectors";
+import {
+  BOOKMARKS_KEY,
+  sanitizeBookmarks,
+  toggleBookmark,
+  type Bookmark,
+} from "./lib/bookmarks";
 import { DashboardView } from "./views/DashboardView";
 import { StructureView } from "./views/StructureView";
+import { BrowseView } from "./views/BrowseView";
 import { TranslationCompare } from "./components/panels/TranslationCompare";
 import { ReaderModal } from "./components/panels/ReaderModal";
 import { GlobalSearchModal } from "./components/panels/GlobalSearchModal";
 import { SettingsModal, type ChartSettings } from "./components/panels/SettingsModal";
+import { parseHash, serializeHash, type View } from "./lib/hash";
+import { SHORTCUTS, shortcutFor } from "./lib/shortcuts";
 
-type View = "dashboard" | "structure" | "compare";
-
-const VIEWS: View[] = ["dashboard", "structure", "compare"];
-const SCOPES: readonly ReaderScope[] = READER_SCOPES;
-
-/** Parse the URL hash into a view + optional reader target.
- *  Format: `#<view>` or `#<view>/r/<scope>/<value>[/<anchor>]`. */
-function parseHash(): { view: View; reader: ReaderTarget | null } {
-  const h = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
-  if (!h) return { view: "dashboard", reader: null };
-  const [viewPart, ...rest] = h.split("/r/");
-  const view = (VIEWS as string[]).includes(viewPart) ? (viewPart as View) : "dashboard";
-  const readerPart = rest.join("/r/");
-  if (!readerPart) return { view, reader: null };
-  const segs = readerPart.split("/");
-  if (segs.length < 2) return { view, reader: null };
-  const scope = SCOPES.includes(segs[0] as ReaderScope)
-    ? (segs[0] as ReaderScope)
-    : "surah";
-  const value = Number(segs[1]);
-  if (!Number.isFinite(value)) return { view, reader: null };
-  const anchor = segs[2] !== undefined ? Number(segs[2]) : undefined;
-  return {
-    view,
-    reader: { scope, value, anchor: Number.isFinite(anchor) ? anchor : undefined },
-  };
-}
-
-/** Serialize a view + reader target back to the hash string (without leading #). */
-function serializeHash(view: View, reader: ReaderTarget | null): string {
-  if (!reader) return view;
-  const anchor = reader.anchor !== undefined ? `/${reader.anchor}` : "";
-  return `${view}/r/${reader.scope}/${reader.value}${anchor}`;
-}
+/** Current hash, parsed. Dashboard params are kept when the reader opens or
+ *  closes so a shared link reopens the same chart. */
+const readHash = () =>
+  parseHash(typeof window !== "undefined" ? window.location.hash : "");
 
 export default function App() {
   const { data, loading, error } = useQuranData();
   const theme = useTheme();
-  const initial = parseHash();
+  const initial = readHash();
   const [view, setViewState] = useState<View>(initial.view);
   const [reader, setReader] = useState<ReaderTarget | null>(initial.reader);
   const setView = (v: View) => {
     setViewState(v);
     if (typeof window !== "undefined") window.location.hash = serializeHash(v, reader);
+    // (Leaving the dashboard drops its params; it writes them back on return.)
   };
   // Sync view + reader with browser back/forward navigation.
   useEffect(() => {
     const onHash = () => {
-      const p = parseHash();
+      const p = readHash();
       setViewState(p.view);
       setReader(p.reader);
     };
@@ -83,18 +74,74 @@ export default function App() {
   const navigateReader = (t: ReaderTarget | null) => {
     setReader(t);
     if (t) setLastRead(t);
-    if (typeof window !== "undefined") window.location.hash = serializeHash(view, t);
+    if (typeof window !== "undefined")
+      window.location.hash = serializeHash(
+        view,
+        t,
+        view === "dashboard" ? readHash().params : {},
+      );
   };
-  const [colorMode] = usePersistentState<ColorMode>("qv.colorMode", "type");
-  // Remembered across reader/compare opens.
-  const [edition, setEdition] = useState("en.sahih");
+  // Shared by the dashboard charts, reader badges and search results.
+  const [colorMode, setColorMode] = usePersistentState<ColorMode>(
+    "qv.colorMode",
+    "type",
+    persisted.oneOf(["type", "fawatih"] as const),
+  );
+  // Reader translation; remembered across reader opens and app restarts.
+  const [storedEdition, setEdition] = usePersistentState("qv.edition", "en.sahih");
+  // A stored edition may no longer exist after a data rebuild.
+  const edition =
+    data && !data.editions.editions.some((e) => e.identifier === storedEdition)
+      ? data.editions.default
+      : storedEdition;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // Query to open search with (word-cloud click); bumped key remounts the input.
+  const [searchSeed, setSearchSeed] = useState<{ q: string; n: number }>({ q: "", n: 0 });
+  const openSearch = (q = "") => {
+    setSearchSeed((cur) => ({ q, n: cur.n + 1 }));
+    setSearchOpen(true);
+  };
   const [settings, setSettings] = usePersistentState<ChartSettings>("qv.settings", {
     bucketSize: 5,
     extremesCount: 5,
     uiScale: 1.5,
   });
+  const [bookmarks, setBookmarks] = usePersistentState<Bookmark[]>(
+    BOOKMARKS_KEY,
+    [],
+    sanitizeBookmarks,
+  );
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  // App-wide keyboard shortcuts (see lib/shortcuts.ts).
+  const modalOpen = !!reader || searchOpen || settingsOpen || bookmarksOpen || helpOpen;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = document.activeElement as HTMLElement | null;
+      const typing =
+        !!el &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.tagName === "SELECT" ||
+          el.isContentEditable);
+      const action = shortcutFor(e, typing, modalOpen);
+      if (!action || !data) return;
+      e.preventDefault();
+      if (action.kind === "search") {
+        setSearchSeed((cur) => ({ q: "", n: cur.n + 1 }));
+        setSearchOpen(true);
+      } else if (action.kind === "bookmarks") setBookmarksOpen(true);
+      else if (action.kind === "help") setHelpOpen(true);
+      else {
+        setViewState(action.view);
+        window.location.hash = serializeHash(action.view, null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [modalOpen, data]);
+  const surahMap = useMemo(() => (data ? surahMapOf(data.surahs) : new Map()), [data]);
   // Last-read position for the "Resume" button.
   const [lastRead, setLastRead] = usePersistentState<ReaderTarget | null>(
     "qv.lastRead",
@@ -149,7 +196,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {lastRead && !reader && data && (
               <button
                 onClick={() => navigateReader(lastRead)}
@@ -160,7 +207,16 @@ export default function App() {
                 Resume
               </button>
             )}
-            <IconButton onClick={() => setSearchOpen(true)} aria-label="Search the Quran">
+            {data && (
+              <IconButton
+                onClick={() => setBookmarksOpen(true)}
+                aria-label={`Bookmarks (${bookmarks.length})`}
+                title={`Bookmarks (${bookmarks.length})`}
+              >
+                <BookmarkIcon size={16} />
+              </IconButton>
+            )}
+            <IconButton onClick={() => openSearch()} aria-label="Search the Quran">
               <Search size={16} />
             </IconButton>
             <SegmentedControl<View>
@@ -169,16 +225,24 @@ export default function App() {
               ariaLabel="Main view"
               options={[
                 { value: "dashboard", label: "Dashboard", icon: <BarChart3 size={15} /> },
+                { value: "browse", label: "Browse", icon: <LayoutGrid size={15} /> },
                 {
                   value: "structure",
                   label: "Structure",
-                  icon: <LayoutGrid size={15} />,
+                  icon: <Layers size={15} />,
                 },
                 { value: "compare", label: "Compare", icon: <Languages size={15} /> },
               ]}
             />
             <IconButton onClick={theme.toggleDark} aria-label="Toggle dark mode">
               {theme.dark ? <Sun size={16} /> : <Moon size={16} />}
+            </IconButton>
+            <IconButton
+              onClick={() => setHelpOpen(true)}
+              aria-label="Keyboard shortcuts"
+              title="Keyboard shortcuts (?)"
+            >
+              <Keyboard size={16} />
             </IconButton>
             <IconButton onClick={() => setSettingsOpen(true)} aria-label="Settings">
               <SettingsIcon size={16} />
@@ -195,11 +259,26 @@ export default function App() {
             <p className="mt-2 text-slate-400">
               Did you run <code>npm run build:data</code>?
             </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-3 rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300"
+            >
+              Retry
+            </button>
           </Card>
         )}
         {data && view === "dashboard" && (
-          <DashboardView data={data} settings={settings} onOpen={navigateReader} />
+          <DashboardView
+            data={data}
+            settings={settings}
+            colorMode={colorMode}
+            onColorMode={setColorMode}
+            onOpen={navigateReader}
+            onSearch={openSearch}
+          />
         )}
+        {data && view === "browse" && <BrowseView data={data} onOpen={navigateReader} />}
         {data && view === "structure" && (
           <StructureView data={data} onOpen={navigateReader} />
         )}
@@ -225,10 +304,64 @@ export default function App() {
           onEditionChange={setEdition}
           colorMode={colorMode}
           palette={theme.palette}
+          arabicScale={theme.arabicScale}
+          onArabicScale={theme.setArabicScale}
           onNavigate={navigateReader}
           onClose={() => navigateReader(null)}
+          bookmarks={bookmarks}
+          onBookmarks={setBookmarks}
         />
       )}
+
+      {data && (
+        <Modal
+          open={bookmarksOpen}
+          onClose={() => setBookmarksOpen(false)}
+          className="max-w-lg"
+          ariaLabel="Bookmarks"
+        >
+          <ModalHeader
+            title={`Bookmarks (${bookmarks.length})`}
+            onClose={() => setBookmarksOpen(false)}
+          />
+          <div className="max-h-[calc(60*var(--zvh))] overflow-y-auto px-4 py-2">
+            <BookmarkList
+              bookmarks={bookmarks}
+              verses={data.verses}
+              surahMap={surahMap}
+              onOpen={(t) => {
+                setBookmarksOpen(false);
+                navigateReader(t);
+              }}
+              onRemove={(id) => setBookmarks((b) => toggleBookmark(b, id))}
+            />
+          </div>
+        </Modal>
+      )}
+
+      <Modal
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        className="max-w-md"
+        ariaLabel="Keyboard shortcuts"
+      >
+        <ModalHeader title="Keyboard shortcuts" onClose={() => setHelpOpen(false)} />
+        <table className="m-4 w-[calc(100%-2rem)] text-sm">
+          <tbody>
+            {SHORTCUTS.map((sc) => (
+              <tr
+                key={sc.keys}
+                className="border-b border-slate-100 last:border-0 dark:border-slate-700/60"
+              >
+                <td className="whitespace-nowrap py-1.5 pr-4 font-mono text-xs text-slate-600 dark:text-slate-300">
+                  {sc.keys}
+                </td>
+                <td className="py-1.5 text-slate-700 dark:text-slate-200">{sc.does}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Modal>
 
       <SettingsModal
         open={settingsOpen}
@@ -239,10 +372,15 @@ export default function App() {
 
       {data && (
         <GlobalSearchModal
+          key={searchSeed.n}
+          initialQuery={searchSeed.q}
+          editionId={edition}
           open={searchOpen}
           onClose={() => setSearchOpen(false)}
           verses={data.verses}
           surahs={data.surahs}
+          colorMode={colorMode}
+          palette={theme.palette}
           onOpenReader={navigateReader}
         />
       )}
