@@ -358,7 +358,7 @@ export function DashboardView({
                 <Download size={15} /> PNG
               </IconButton>
               <IconButton
-                onClick={() => downloadCsv(csvRows(), `quran-${viz}`)}
+                onClick={() => void downloadCsv(csvRows(), `quran-${viz}`)}
                 title={t.dashboard.csv}
               >
                 <FileSpreadsheet size={15} /> CSV
