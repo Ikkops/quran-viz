@@ -4,6 +4,7 @@ import type { Verse } from "../../types/quran";
 import { histogram } from "../../data/stats";
 import { GenericTooltip } from "../tooltips";
 import { axisColor, type ChartContext } from "./common";
+import { useI18n } from "../../i18n/I18nContext";
 
 export function LengthHistogram({
   verses,
@@ -14,6 +15,7 @@ export function LengthHistogram({
   bucketSize: number;
   ctx: ChartContext;
 }) {
+  const { t } = useI18n();
   const buckets = useMemo(
     () =>
       histogram(
@@ -29,7 +31,7 @@ export function LengthHistogram({
           dataKey="label"
           tick={{ fontSize: 10, fill: axisColor(ctx.dark) }}
           label={{
-            value: "Words per verse",
+            value: t.charts.wordsPerVerse,
             position: "insideBottom",
             offset: -10,
             fontSize: 11,
@@ -38,10 +40,15 @@ export function LengthHistogram({
         />
         <YAxis tick={{ fontSize: 11, fill: axisColor(ctx.dark) }} />
         <Tooltip
-          content={<GenericTooltip unit="verses" />}
+          content={<GenericTooltip unit={t.tooltip.units.verses} />}
           cursor={{ fill: "rgba(148,163,184,0.12)" }}
         />
-        <Bar dataKey="count" name="Verses" fill={ctx.primary} radius={[4, 4, 0, 0]} />
+        <Bar
+          dataKey="count"
+          name={t.common.verses}
+          fill={ctx.primary}
+          radius={[4, 4, 0, 0]}
+        />
       </BarChart>
     </ResponsiveContainer>
   );

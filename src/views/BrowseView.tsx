@@ -6,9 +6,10 @@ import { divisionCards, type DivisionCard } from "../data/sections";
 import { normalizeArabic } from "../data/arabic";
 import { persisted, usePersistentState } from "../lib/usePersistentState";
 import { useTheme } from "../theme/ThemeContext";
+import { useI18n } from "../i18n/I18nContext";
 import { Card, SectionTitle, SegmentedControl, Select } from "../components/ui";
 import { SurahCard } from "../components/cards/SurahCard";
-import { PLACE_CAVEAT, placeColor, type ReaderTarget } from "../components/charts/common";
+import { placeColor, type ReaderTarget } from "../components/charts/common";
 
 type Kind = "surah" | "juz" | "manzil";
 type SurahSort = "mushaf" | "revelation" | "ayahs" | "words";
@@ -22,6 +23,8 @@ export function BrowseView({
   onOpen: (t: ReaderTarget) => void;
 }) {
   const { palette } = useTheme();
+  const i18n = useI18n();
+  const { t } = i18n;
   const [kind, setKind] = usePersistentState<Kind>(
     "qv.browse.kind",
     "surah",
@@ -58,6 +61,7 @@ export function BrowseView({
           .replace(/[-'\s]/g, "")
           .includes(lower) ||
         s.meaning.toLowerCase().includes(q.toLowerCase()) ||
+        i18n.meaning(s).toLowerCase().includes(q.toLowerCase()) ||
         normalizeArabic(s.nameAr).includes(qn)
       );
     });
@@ -68,29 +72,29 @@ export function BrowseView({
       words: (a, b) => b.wordCount - a.wordCount,
     };
     return [...list].sort(by[sort]);
-  }, [data.surahs, query, type, sort]);
+  }, [data.surahs, query, type, sort, i18n]);
 
   const subtitle =
     kind === "surah"
-      ? `${surahs.length} of 114 surahs · click a card to read. ${PLACE_CAVEAT}`
+      ? `${t.browse.surahSub(surahs.length)} ${t.placeCaveat}`
       : kind === "juz"
-        ? "The 30 juz · click a card to read from its start"
-        : "The 7 manzils (a week's recitation) · click a card to read";
+        ? t.browse.juzSub
+        : t.browse.manzilSub;
 
   return (
     <Card className="p-4">
       <SectionTitle
-        title="Browse"
+        title={t.browse.title}
         subtitle={subtitle}
         right={
           <SegmentedControl<Kind>
             value={kind}
             onChange={setKind}
-            ariaLabel="Browse by"
+            ariaLabel={t.browse.browseBy}
             options={[
-              { value: "surah", label: "Surah" },
-              { value: "juz", label: "Juz" },
-              { value: "manzil", label: "Manzil" },
+              { value: "surah", label: t.scope.surah },
+              { value: "juz", label: t.scope.juz },
+              { value: "manzil", label: t.scope.manzil },
             ]}
           />
         }
@@ -107,37 +111,37 @@ export function BrowseView({
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Name, number or meaning…"
-                aria-label="Filter surahs"
+                placeholder={t.browse.filterPh}
+                aria-label={t.browse.filterAria}
                 className="w-60 rounded-lg border border-slate-300 bg-white py-1.5 pl-8 pr-2.5 text-sm outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
               />
             </label>
             <div className="w-44">
               <Select
-                label="Sort"
+                label={t.browse.sort}
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SurahSort)}
               >
-                <option value="mushaf">Mushaf order</option>
-                <option value="revelation">Revelation order</option>
-                <option value="ayahs">Most ayahs</option>
-                <option value="words">Most words</option>
+                <option value="mushaf">{t.browse.mushaf}</option>
+                <option value="revelation">{t.browse.revelation}</option>
+                <option value="ayahs">{t.browse.mostAyahs}</option>
+                <option value="words">{t.browse.mostWords}</option>
               </Select>
             </div>
             <SegmentedControl<TypeFilter>
               value={type}
               onChange={setType}
-              ariaLabel="Revelation place"
+              ariaLabel={t.browse.placeAria}
               options={[
-                { value: "all", label: "All" },
-                { value: "Meccan", label: "Meccan" },
-                { value: "Medinan", label: "Medinan" },
+                { value: "all", label: t.common.all },
+                { value: "Meccan", label: t.place.Meccan },
+                { value: "Medinan", label: t.place.Medinan },
               ]}
             />
           </div>
           {surahs.length === 0 ? (
             <p className="py-10 text-center text-sm text-slate-400">
-              No surah matches “{query}”.
+              {t.browse.noMatch(query)}
             </p>
           ) : (
             <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -171,11 +175,7 @@ export function BrowseView({
         </div>
       )}
       {kind === "manzil" && (
-        <p className="mt-3 text-[11px] text-slate-400">
-          The manzil boundaries spell the mnemonic فمي بشوق (Fami bi-shawq): they start at
-          Al-Fatiha, Al-Ma&apos;idah, Yunus, Bani Isra&apos;il, Ash-Shu&apos;ara,
-          As-Saffat and Qaf.
-        </p>
+        <p className="mt-3 text-[11px] text-slate-400">{t.browse.manzilNote}</p>
       )}
     </Card>
   );
@@ -196,6 +196,7 @@ function DivisionCardView({
   surahColor: (s: number) => string;
   onOpen: () => void;
 }) {
+  const { t, n } = useI18n();
   const span = (a: number, b: number) => (a === b ? String(a) : `${a}–${b}`);
   const shown = card.surahs.slice(0, 8);
   return (
@@ -207,7 +208,7 @@ function DivisionCardView({
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="font-semibold text-slate-800 dark:text-slate-100">
-            {kind === "juz" ? "Juz" : "Manzil"} {card.n}
+            {t.scope[kind]} {card.n}
           </div>
           <div className="text-xs tabular-nums text-slate-500 dark:text-slate-400">
             {card.first.s}:{card.first.a} → {card.last.s}:{card.last.a}
@@ -243,18 +244,18 @@ function DivisionCardView({
         ))}
         {card.surahs.length > shown.length && (
           <span className="px-1 py-0.5 text-[11px] text-slate-400">
-            +{card.surahs.length - shown.length} more
+            {t.browse.more(card.surahs.length - shown.length)}
           </span>
         )}
       </div>
       <div className="grid grid-cols-4 gap-1 text-center text-[11px] text-slate-500 dark:text-slate-400">
-        <Stat value={card.ayahs} label="ayahs" />
-        <Stat value={card.words.toLocaleString()} label="words" />
-        <Stat value={span(...card.pages)} label="pages" />
+        <Stat value={card.ayahs} label={t.browse.ayahs} />
+        <Stat value={n(card.words)} label={t.browse.words} />
+        <Stat value={span(...card.pages)} label={t.browse.pages} />
         {kind === "manzil" ? (
-          <Stat value={span(...card.juzs)} label="juz" />
+          <Stat value={span(...card.juzs)} label={t.browse.juz} />
         ) : (
-          <Stat value={card.surahs.length} label="surahs" />
+          <Stat value={card.surahs.length} label={t.browse.surahs} />
         )}
       </div>
     </button>

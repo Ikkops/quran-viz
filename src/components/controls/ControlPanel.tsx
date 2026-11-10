@@ -12,6 +12,7 @@ import type { VizDef, VizId, VizUses } from "../../views/vizDefs";
 import type { ColorMode } from "../charts/common";
 import { useTheme } from "../../theme/ThemeContext";
 import { cx, Select, Slider } from "../ui";
+import { useI18n } from "../../i18n/I18nContext";
 
 /** Grouped, always-visible list of visualizations (a single-select listbox). */
 function VizList({
@@ -24,6 +25,7 @@ function VizList({
   onChange: (v: VizId) => void;
 }) {
   const { primary } = useTheme();
+  const { t } = useI18n();
   const refs = useRef(new Map<VizId, HTMLButtonElement>());
   const groups = [...new Set(defs.map((d) => d.group))];
   const onKey = (e: KeyboardEvent) => {
@@ -37,14 +39,14 @@ function VizList({
   return (
     <div
       role="listbox"
-      aria-label="Visualization"
+      aria-label={t.controls.visualization}
       onKeyDown={onKey}
       className="space-y-2.5"
     >
       {groups.map((g) => (
-        <div key={g} role="group" aria-label={g}>
+        <div key={g} role="group" aria-label={t.viz.groups[g]}>
           <div className="mb-0.5 px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-            {g}
+            {t.viz.groups[g]}
           </div>
           {defs
             .filter((d) => d.group === g)
@@ -74,7 +76,7 @@ function VizList({
                     className={active ? undefined : "text-slate-400"}
                     style={active ? { color: primary } : undefined}
                   />
-                  {d.label}
+                  {t.viz.labels[d.value]}
                 </button>
               );
             })}
@@ -111,6 +113,7 @@ export function ControlPanel({
   onHorizontal: (h: boolean) => void;
   onReset: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-4">
       <VizList defs={vizDefs} value={viz} onChange={onViz} />
@@ -118,24 +121,22 @@ export function ControlPanel({
       <div className="space-y-3 border-t border-slate-100 pt-3 dark:border-slate-700/60">
         {uses.range ? (
           <Select
-            label="Range"
+            label={t.controls.range}
             value={filter.mode}
             onChange={(e) => onFilter({ ...filter, mode: e.target.value as FilterMode })}
           >
-            <option value="all">Entire Quran</option>
-            <option value="surah">By surah range</option>
-            <option value="juz">By juz range</option>
+            <option value="all">{t.controls.entire}</option>
+            <option value="surah">{t.controls.bySurah}</option>
+            <option value="juz">{t.controls.byJuz}</option>
           </Select>
         ) : (
-          <p className="px-1 text-xs text-slate-400">
-            Whole Qur&apos;an (corpus aggregate) — no filters apply.
-          </p>
+          <p className="px-1 text-xs text-slate-400">{t.controls.noFilters}</p>
         )}
 
         {uses.range && filter.mode === "surah" && (
           <div className="grid grid-cols-2 gap-2">
             <Select
-              label="From surah"
+              label={t.controls.fromSurah}
               value={filter.surahRange[0]}
               onChange={(e) => {
                 const from = Math.min(Number(e.target.value), filter.surahRange[1]);
@@ -149,7 +150,7 @@ export function ControlPanel({
               ))}
             </Select>
             <Select
-              label="To surah"
+              label={t.controls.toSurah}
               value={filter.surahRange[1]}
               onChange={(e) => {
                 const to = Math.max(Number(e.target.value), filter.surahRange[0]);
@@ -168,7 +169,7 @@ export function ControlPanel({
         {uses.range && filter.mode === "juz" && (
           <div className="space-y-2">
             <Slider
-              label="Juz from"
+              label={t.controls.juzFrom}
               min={1}
               max={30}
               value={filter.juzRange[0]}
@@ -178,7 +179,7 @@ export function ControlPanel({
               }}
             />
             <Slider
-              label="Juz to"
+              label={t.controls.juzTo}
               min={1}
               max={30}
               value={filter.juzRange[1]}
@@ -192,28 +193,28 @@ export function ControlPanel({
 
         {uses.range && (
           <Select
-            label="Ayahs"
+            label={t.controls.ayahs}
             value={filter.place ?? "all"}
             onChange={(e) =>
               onFilter({ ...filter, place: e.target.value as PlaceFilter })
             }
-            title="Uses each ayah's traditional place, so Medinan ayahs inside Meccan surahs count as Medinan"
+            title={t.controls.placeTitle}
           >
-            <option value="all">All ayahs</option>
-            <option value="Meccan">Meccan ayahs only</option>
-            <option value="Medinan">Medinan ayahs only</option>
+            <option value="all">{t.controls.allAyahs}</option>
+            <option value="Meccan">{t.controls.meccanOnly}</option>
+            <option value="Medinan">{t.controls.medinanOnly}</option>
           </Select>
         )}
 
         {uses.sort && (
           <Select
-            label="Sort surahs by"
+            label={t.controls.sortBy}
             value={filter.sort}
             onChange={(e) => onFilter({ ...filter, sort: e.target.value as SortKey })}
           >
             {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
               <option key={k} value={k}>
-                {SORT_LABELS[k]}
+                {t.sort[k]}
               </option>
             ))}
           </Select>
@@ -221,23 +222,23 @@ export function ControlPanel({
 
         {uses.color && (
           <Select
-            label="Colour by"
+            label={t.controls.colorBy}
             value={colorMode}
             onChange={(e) => onColorMode(e.target.value as ColorMode)}
           >
-            <option value="type">Meccan / Medinan</option>
-            <option value="fawatih">Opening category</option>
+            <option value="type">{t.controls.byType}</option>
+            <option value="fawatih">{t.controls.byOpening}</option>
           </Select>
         )}
 
         {uses.layout && (
           <Select
-            label="Bar layout"
+            label={t.controls.layout}
             value={horizontal ? "h" : "v"}
             onChange={(e) => onHorizontal(e.target.value === "h")}
           >
-            <option value="v">Vertical</option>
-            <option value="h">Horizontal</option>
+            <option value="v">{t.controls.vertical}</option>
+            <option value="h">{t.controls.horizontal}</option>
           </Select>
         )}
 
@@ -246,7 +247,7 @@ export function ControlPanel({
           onClick={onReset}
           className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-200 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-50 hover:text-slate-700 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
         >
-          <RotateCcw size={13} /> Reset controls
+          <RotateCcw size={13} /> {t.controls.reset}
         </button>
       </div>
     </div>

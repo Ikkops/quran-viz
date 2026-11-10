@@ -190,6 +190,19 @@ Arabic font and the Arabic text scale live in `quranviz.theme` (`ThemeContext`);
 the reader's "Arabic size" slider writes that same `arabicScale`.
 localStorage is per origin, so settings only carry over on the same host:port.
 
+## UI language (English / Indonesian)
+
+All UI text lives in `src/i18n/en.ts` (source of truth; `Messages = typeof en`)
+and `src/i18n/id.ts` (typed `Messages`, so a missing key fails `tsc`). Components
+call `useI18n()` (`i18n/I18nContext.tsx`) for `t` (strings; params are functions),
+`n` (locale number format — use it instead of `toLocaleString()`), `place`,
+`category` and `meaning` (surah meaning; Indonesian meanings are a static list in
+`id.ts`). Data keys stay English (`"Meccan"`, fawatih categories, POS tags): translate at
+display time, never in `selectors`/data. The choice persists as `qv.lang`
+(default from `navigator.language`); outside the provider (tests) it is English.
+Never hard-code UI text in components: add it to both dictionaries. Dataset
+content (translations, topic names, root glosses, CSV headers) is not translated.
+
 ## Keyboard shortcuts and loading
 
 App-level shortcuts live in `lib/shortcuts.ts` (`shortcutFor` is pure and

@@ -3,6 +3,7 @@ import type { SimilarData, Surah, Verse } from "../../types/quran";
 import { filterSimilar, type SimilarPair } from "../../data/similar";
 import { Select, Slider } from "../ui";
 import type { ChartContext } from "./common";
+import { useI18n } from "../../i18n/I18nContext";
 
 // SVG user space; stretched to the container with preserveAspectRatio="none",
 // so strokes use vector-effect="non-scaling-stroke" and labels live in HTML.
@@ -28,6 +29,7 @@ export function SimilarArcs({
   surahMap: Map<number, Surah>;
   ctx: ChartContext;
 }) {
+  const { t, n } = useI18n();
   const [minScore, setMinScore] = useState(80);
   const [focus, setFocus] = useState<number | null>(null);
   const [hover, setHover] = useState<SimilarPair | null>(null);
@@ -80,7 +82,7 @@ export function SimilarArcs({
       <div className="flex flex-wrap items-end gap-4">
         <div className="w-56">
           <Slider
-            label="Minimum similarity score"
+            label={t.structure.minScore}
             min={50}
             max={100}
             step={5}
@@ -90,11 +92,11 @@ export function SimilarArcs({
         </div>
         <div className="w-64">
           <Select
-            label="Focus"
+            label={t.structure.focus}
             value={focus ?? ""}
             onChange={(e) => setFocus(e.target.value ? Number(e.target.value) : null)}
           >
-            <option value="">All surahs</option>
+            <option value="">{t.structure.allSurahs}</option>
             {bands.map((b) => (
               <option key={b.s} value={b.s}>
                 {b.s}. {surahMap.get(b.s)?.nameEn}
@@ -103,7 +105,7 @@ export function SimilarArcs({
           </Select>
         </div>
         <p className="pb-1 text-sm text-slate-500 dark:text-slate-400">
-          {pairs.length.toLocaleString()} pairs
+          {t.structure.pairs(n(pairs.length))}
         </p>
       </div>
 
@@ -113,7 +115,7 @@ export function SimilarArcs({
           preserveAspectRatio="none"
           className="h-full w-full"
           role="img"
-          aria-label="Arc diagram of similar verses across the mushaf"
+          aria-label={t.structure.arcAria}
           onMouseLeave={() => setHover(null)}
         >
           {drawOrder.map((p) => {
@@ -156,7 +158,7 @@ export function SimilarArcs({
               onClick={() => setFocus(focus === b.s ? null : b.s)}
             >
               <title>
-                {b.s}. {surahMap.get(b.s)?.nameEn} (click to focus)
+                {b.s}. {surahMap.get(b.s)?.nameEn} {t.structure.clickFocus}
               </title>
             </rect>
           ))}
@@ -167,13 +169,12 @@ export function SimilarArcs({
         {hover ? (
           <>
             <span className="font-medium">{label(hover.a)}</span> ↔{" "}
-            <span className="font-medium">{label(hover.b)}</span> · score {hover.score} ·{" "}
-            {hover.words} shared words · click to read
+            <span className="font-medium">{label(hover.b)}</span>{" "}
+            {t.structure.pairInfo(hover.score, hover.words)}
           </>
         ) : (
           <span className="text-slate-400">
-            Hover an arc to see the pair; click a surah in the band to focus it. Source:{" "}
-            {data.source}.
+            {t.structure.arcHint} {data.source}.
           </span>
         )}
       </p>

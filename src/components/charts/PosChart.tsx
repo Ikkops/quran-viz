@@ -1,6 +1,7 @@
 import type { PosDatum } from "../../types/quran";
 import { HorizontalBarChart } from "./HorizontalBarChart";
 import { TooltipShell } from "../tooltips";
+import { useI18n } from "../../i18n/I18nContext";
 
 interface TipProps {
   active?: boolean;
@@ -8,6 +9,7 @@ interface TipProps {
 }
 
 function PosTooltip({ active, payload }: TipProps) {
+  const { t, n } = useI18n();
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
@@ -16,7 +18,7 @@ function PosTooltip({ active, payload }: TipProps) {
         {d.label} <span className="text-[11px] text-slate-400">({d.tag})</span>
       </div>
       <div className="tabular-nums text-slate-600 dark:text-slate-300">
-        {d.count.toLocaleString()} segments
+        {t.charts.segments(n(d.count))}
       </div>
     </TooltipShell>
   );

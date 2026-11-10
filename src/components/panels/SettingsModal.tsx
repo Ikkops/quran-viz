@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Modal, ModalHeader, Select, Slider, Toggle } from "../ui";
 import { PALETTES, type PaletteKey } from "../../theme/palettes";
 import { ARABIC_FONTS, useTheme } from "../../theme/ThemeContext";
+import { LANGS, MESSAGES, useI18n, type Lang } from "../../i18n/I18nContext";
 
 export interface ChartSettings {
   bucketSize: number;
@@ -22,21 +23,42 @@ export function SettingsModal({
   onSettings: (s: ChartSettings) => void;
 }) {
   const theme = useTheme();
+  const { t, lang, setLang } = useI18n();
   const [themeCode, setThemeCode] = useState("");
   const [themeMsg, setThemeMsg] = useState<string | null>(null);
 
   return (
     <Modal open={open} onClose={onClose} className="max-w-md">
-      <ModalHeader title="Settings" onClose={onClose} />
+      <ModalHeader title={t.settings.title} onClose={onClose} />
       <div className="space-y-5 px-5 py-4">
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Appearance
+            {t.settings.language}
+          </p>
+          <Select
+            aria-label={t.settings.language}
+            value={lang}
+            onChange={(e) => setLang(e.target.value as Lang)}
+          >
+            {LANGS.map((l) => (
+              <option key={l} value={l}>
+                {MESSAGES[l].langName}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            {t.settings.appearance}
           </p>
           <div className="space-y-3">
-            <Toggle checked={theme.dark} onChange={theme.toggleDark} label="Dark mode" />
+            <Toggle
+              checked={theme.dark}
+              onChange={theme.toggleDark}
+              label={t.settings.darkMode}
+            />
             <Slider
-              label={`Interface scale — ${Math.round(settings.uiScale * 100)}%`}
+              label={t.settings.uiScale(Math.round(settings.uiScale * 100))}
               min={1}
               max={2}
               step={0.05}
@@ -47,7 +69,7 @@ export function SettingsModal({
             />
             <div>
               <span className="mb-1.5 block text-sm text-slate-600 dark:text-slate-300">
-                Colour palette
+                {t.settings.palette}
               </span>
               <div className="flex gap-2">
                 {(Object.keys(PALETTES) as PaletteKey[]).map((k) => (
@@ -86,11 +108,11 @@ export function SettingsModal({
 
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Quran text
+            {t.settings.quranText}
           </p>
           <div className="space-y-3">
             <Select
-              label="Arabic font"
+              label={t.settings.arabicFont}
               value={theme.arabicFont}
               onChange={(e) => theme.setArabicFont(e.target.value)}
             >
@@ -101,7 +123,7 @@ export function SettingsModal({
               ))}
             </Select>
             <Slider
-              label="Arabic font size"
+              label={t.settings.arabicSize}
               min={0.5}
               max={2}
               step={0.05}
@@ -119,11 +141,11 @@ export function SettingsModal({
 
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Charts
+            {t.settings.charts}
           </p>
           <div className="space-y-4">
             <Slider
-              label="Histogram bucket size (words)"
+              label={t.settings.bucket}
               min={1}
               max={20}
               value={settings.bucketSize}
@@ -132,7 +154,7 @@ export function SettingsModal({
               }
             />
             <Slider
-              label="Longest / shortest count"
+              label={t.settings.extremes}
               min={1}
               max={15}
               value={settings.extremesCount}
@@ -145,7 +167,7 @@ export function SettingsModal({
 
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-            Share theme
+            {t.settings.shareTheme}
           </p>
           <div className="space-y-2">
             <button
@@ -153,27 +175,27 @@ export function SettingsModal({
                 const code = theme.exportTheme();
                 setThemeCode(code);
                 navigator.clipboard?.writeText(code).catch(() => {});
-                setThemeMsg("Copied to clipboard");
+                setThemeMsg(t.settings.copied);
               }}
               className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
             >
-              Export current theme
+              {t.settings.exportTheme}
             </button>
             <div className="flex gap-2">
               <input
                 value={themeCode}
                 onChange={(e) => setThemeCode(e.target.value)}
-                placeholder="Paste a theme code…"
+                placeholder={t.settings.pasteTheme}
                 className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800"
               />
               <button
                 onClick={() => {
                   const ok = theme.importTheme(themeCode);
-                  setThemeMsg(ok ? "Theme applied" : "Invalid code");
+                  setThemeMsg(ok ? t.settings.applied : t.settings.invalid);
                 }}
                 className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
               >
-                Apply
+                {t.common.apply}
               </button>
             </div>
             {themeMsg && <p className="text-xs text-emerald-500">{themeMsg}</p>}

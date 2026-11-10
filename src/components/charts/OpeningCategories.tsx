@@ -16,6 +16,7 @@ import { FAWATIH_COLORS } from "../../theme/palettes";
 import { GenericTooltip } from "../tooltips";
 import { SurahCard } from "../cards/SurahCard";
 import { axisColor, type ChartContext } from "./common";
+import { useI18n } from "../../i18n/I18nContext";
 
 /** Surah counts per opening category. Click a bar to list its surahs as
  *  cards below the chart (in the dashboard's sort order and range). */
@@ -34,14 +35,16 @@ export function OpeningCategories({
   selected: string | null;
   onSelect: (category: string | null) => void;
 }) {
+  const { t, category } = useI18n();
   const rows = useMemo(() => {
     const counts = new Map<string, number>();
     for (const d of data) counts.set(d.category, (counts.get(d.category) ?? 0) + 1);
     return ALL_CATEGORIES.map((cat) => ({
       category: cat,
+      label: category(cat),
       count: counts.get(cat) ?? 0,
     })).filter((r) => r.count > 0);
-  }, [data]);
+  }, [data, category]);
   const members = selected ? data.filter((d) => d.category === selected) : [];
 
   return (
@@ -60,18 +63,18 @@ export function OpeningCategories({
             />
             <YAxis
               type="category"
-              dataKey="category"
+              dataKey="label"
               width={170}
               interval={0}
               tick={{ fontSize: 11, fill: axisColor(ctx.dark) }}
             />
             <Tooltip
-              content={<GenericTooltip unit="surahs — click to list them" />}
+              content={<GenericTooltip unit={t.charts.surahsClick} />}
               cursor={{ fill: "rgba(148,163,184,0.12)" }}
             />
             <Bar
               dataKey="count"
-              name="Surahs"
+              name={t.common.surahs}
               radius={[0, 4, 4, 0]}
               cursor="pointer"
               isAnimationActive={false}
@@ -93,7 +96,7 @@ export function OpeningCategories({
       </div>
 
       {selected ? (
-        <section aria-label={`${selected} surahs`}>
+        <section aria-label={t.charts.listAria(category(selected))}>
           <div className="mb-2 flex items-center gap-2">
             <span
               className="h-3 w-3 rounded-sm"
@@ -102,12 +105,12 @@ export function OpeningCategories({
               }}
             />
             <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-              {selected} · {members.length} surah{members.length === 1 ? "" : "s"}
+              {category(selected)} · {t.charts.surahsN(members.length)}
             </h4>
             <button
               type="button"
               onClick={() => onSelect(null)}
-              aria-label="Close surah list"
+              aria-label={t.charts.closeList}
               className="ml-auto rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
             >
               <X size={15} />
@@ -129,7 +132,7 @@ export function OpeningCategories({
           </div>
         </section>
       ) : (
-        <p className="text-xs text-slate-400">Click a bar to see the surahs in it.</p>
+        <p className="text-xs text-slate-400">{t.charts.clickBar}</p>
       )}
     </div>
   );

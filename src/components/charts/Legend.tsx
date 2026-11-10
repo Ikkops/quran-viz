@@ -1,6 +1,7 @@
 import { ALL_CATEGORIES } from "../../data/fawatih";
 import { FAWATIH_COLORS } from "../../theme/palettes";
-import { HIJRA_COLOR, PLACE_CAVEAT, type ColorMode } from "./common";
+import { useI18n } from "../../i18n/I18nContext";
+import { HIJRA_COLOR, type ColorMode } from "./common";
 
 function Item({
   color,
@@ -13,12 +14,13 @@ function Item({
   active: boolean;
   onClick: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      aria-label={`Filter by ${label}`}
+      aria-label={t.legend.filterBy(label)}
       className={
         "inline-flex items-center gap-1.5 rounded-full px-1.5 py-0.5 text-xs transition " +
         (active
@@ -55,6 +57,7 @@ export function Legend({
   /** The chart splits bars by ayah place: add the Hijra key and the caveat. */
   ayahLevel?: boolean;
 }) {
+  const { t, place, category } = useI18n();
   const isActive = (key: string) => activeKeys.size === 0 || activeKeys.has(key);
   const keys =
     colorMode === "type"
@@ -70,13 +73,13 @@ export function Legend({
     <div
       className="flex flex-wrap items-center gap-x-1 gap-y-1"
       role="group"
-      aria-label="Chart legend filter"
+      aria-label={t.legend.group}
     >
       {keys.map(([label, color]) => (
         <Item
           key={label}
           color={color}
-          label={label}
+          label={colorMode === "type" ? place(label) : category(label)}
           active={isActive(label)}
           onClick={() => onToggle(label)}
         />
@@ -84,25 +87,25 @@ export function Legend({
       {ayahLevel && colorMode === "type" && (
         <span
           className="inline-flex items-center gap-1.5 px-1.5 py-0.5 text-xs text-slate-600 dark:text-slate-300"
-          title="Revealed en route during the migration (22:52–55, 28:85, 47:13)"
+          title={t.legend.hijraTitle}
         >
           <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: HIJRA_COLOR }} />
-          Hijra (en route)
+          {t.legend.hijra}
         </span>
       )}
       {activeKeys.size > 0 && (
         <button
           type="button"
           onClick={() => activeKeys.forEach((k) => onToggle(k))}
-          aria-label="Show all categories"
+          aria-label={t.legend.showAllAria}
           className="ml-1 rounded-full px-1.5 py-0.5 text-xs text-slate-400 underline hover:text-slate-600 dark:hover:text-slate-200"
         >
-          show all
+          {t.common.showAll}
         </button>
       )}
       {ayahLevel && colorMode === "type" && (
         <p className="w-full px-1.5 text-[11px] text-slate-400">
-          Bars are split by each ayah&apos;s place. {PLACE_CAVEAT}
+          {t.legend.split} {t.placeCaveat}
         </p>
       )}
     </div>

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { Surah, Verse } from "../../types/quran";
 import { Badge } from "../ui";
 import type { ChartContext } from "./common";
+import { useI18n } from "../../i18n/I18nContext";
 
 function VerseCard({
   v,
@@ -13,6 +14,7 @@ function VerseCard({
   ctx: ChartContext;
 }) {
   const s = surahMap.get(v.s);
+  const { t } = useI18n();
   return (
     <button
       onClick={() => ctx.onOpen?.({ scope: "surah", value: v.s, anchor: v.id })}
@@ -22,7 +24,7 @@ function VerseCard({
         <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
           {s?.nameEn} {v.s}:{v.a}
         </span>
-        <Badge color={ctx.primary}>{v.w} words</Badge>
+        <Badge color={ctx.primary}>{t.charts.nWords(v.w)}</Badge>
       </div>
       <p dir="rtl" className="quran-text text-slate-800 dark:text-slate-100">
         {v.ar}
@@ -42,6 +44,7 @@ export function ExtremesPanel({
   surahMap: Map<number, Surah>;
   ctx: ChartContext;
 }) {
+  const { t } = useI18n();
   const { longest, shortest } = useMemo(() => {
     const sorted = [...verses].sort((a, b) => b.w - a.w);
     return {
@@ -54,7 +57,7 @@ export function ExtremesPanel({
     <div className="grid h-full grid-cols-1 gap-4 overflow-y-auto md:grid-cols-2">
       <div className="space-y-2">
         <h4 className="sticky top-0 bg-white/80 py-1 text-sm font-semibold text-slate-700 backdrop-blur dark:bg-slate-800/80 dark:text-slate-200">
-          Longest verses
+          {t.charts.longest}
         </h4>
         {longest.map((v) => (
           <VerseCard key={v.id} v={v} surahMap={surahMap} ctx={ctx} />
@@ -62,7 +65,7 @@ export function ExtremesPanel({
       </div>
       <div className="space-y-2">
         <h4 className="sticky top-0 bg-white/80 py-1 text-sm font-semibold text-slate-700 backdrop-blur dark:bg-slate-800/80 dark:text-slate-200">
-          Shortest verses
+          {t.charts.shortest}
         </h4>
         {shortest.map((v) => (
           <VerseCard key={v.id} v={v} surahMap={surahMap} ctx={ctx} />

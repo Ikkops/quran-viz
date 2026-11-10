@@ -13,6 +13,7 @@ import { rootSurahCounts, searchTopics } from "../../data/roots";
 import { cx, SegmentedControl } from "../ui";
 import { TooltipRow, TooltipShell } from "../tooltips";
 import { axisColor, type ChartContext } from "./common";
+import { useI18n } from "../../i18n/I18nContext";
 
 type Measure = "count" | "density";
 
@@ -35,6 +36,7 @@ function SurahRowTooltip({
   active?: boolean;
   payload?: { payload: SurahRow }[];
 }) {
+  const { t } = useI18n();
   if (!active || !payload?.length) return null;
   const r = payload[0].payload;
   return (
@@ -42,8 +44,8 @@ function SurahRowTooltip({
       <div className="mb-1 font-semibold text-slate-800 dark:text-slate-100">
         {r.s}. {r.name}
       </div>
-      <TooltipRow label="Tagged verses" value={r.count} />
-      <TooltipRow label="Per 100 verses" value={r.density.toFixed(1)} />
+      <TooltipRow label={t.charts.tagged} value={r.count} />
+      <TooltipRow label={t.charts.per100} value={r.density.toFixed(1)} />
     </TooltipShell>
   );
 }
@@ -69,6 +71,7 @@ export function TopicExplorer({
   selectedId: number | null;
   onSelectId: (id: number) => void;
 }) {
+  const { t: t2, n } = useI18n();
   const [measure, setMeasure] = useState<Measure>("count");
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
@@ -117,17 +120,17 @@ export function TopicExplorer({
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Find a topic: Moses, prayer, صبر…"
-          aria-label="Find a topic"
+          placeholder={t2.charts.findTopic}
+          aria-label={t2.charts.findTopicAria}
           className="w-56 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
         />
         <SegmentedControl<Measure>
           value={measure}
           onChange={setMeasure}
-          ariaLabel="Measure"
+          ariaLabel={t2.charts.measure}
           options={[
-            { value: "count", label: "Count" },
-            { value: "density", label: "Per 100 verses" },
+            { value: "count", label: t2.charts.count },
+            { value: "density", label: t2.charts.per100 },
           ]}
         />
       </div>
@@ -140,7 +143,7 @@ export function TopicExplorer({
               setSelectedId(t.id);
               setShowAll(false);
             }}
-            title={`${t.v.length.toLocaleString()} verses`}
+            title={t2.charts.nVerses(n(t.v.length))}
             className={cx(
               "rounded-full border px-2.5 py-0.5 text-sm transition",
               t.id === selected.id
@@ -153,7 +156,7 @@ export function TopicExplorer({
           </button>
         ))}
         {found.length === 0 && (
-          <span className="text-sm text-slate-400">No topic matches “{query}”.</span>
+          <span className="text-sm text-slate-400">{t2.charts.noTopic(query)}</span>
         )}
       </div>
 
@@ -167,8 +170,7 @@ export function TopicExplorer({
             <bdi className="font-arabic text-base">{selected.ar}</bdi>
           </>
         )}{" "}
-        — {tagged.length.toLocaleString()} verses in {inSurahs} of {surahIds.length}{" "}
-        surahs.
+        {t2.charts.topicSummary(n(tagged.length), inSurahs, surahIds.length)}
         {selected.desc && (
           <p className="mt-0.5 text-xs text-slate-400">{selected.desc}</p>
         )}
@@ -182,7 +184,7 @@ export function TopicExplorer({
               tick={{ fontSize: 10, fill: ac }}
               interval={rows.length > 40 ? 9 : 0}
               label={{
-                value: "Surah",
+                value: t2.common.surah,
                 position: "insideBottom",
                 offset: -12,
                 fontSize: 11,
@@ -220,9 +222,7 @@ export function TopicExplorer({
       </div>
 
       <div className="rounded-lg border border-slate-200 p-2 text-sm tabular-nums dark:border-slate-700">
-        <div className="mb-1 text-xs text-slate-400">
-          Tagged verses — click one to read it
-        </div>
+        <div className="mb-1 text-xs text-slate-400">{t2.charts.taggedClick}</div>
         <div className="flex flex-wrap gap-x-3 gap-y-1">
           {(showAll ? tagged : tagged.slice(0, TAGGED_PREVIEW)).map((v) => (
             <button
@@ -239,14 +239,12 @@ export function TopicExplorer({
               className="font-medium hover:underline"
               style={{ color: ctx.primary }}
             >
-              {showAll ? "Show fewer" : `Show all ${tagged.length.toLocaleString()}`}
+              {showAll ? t2.charts.showFewer : t2.charts.showAllN(n(tagged.length))}
             </button>
           )}
         </div>
       </div>
-      <p className="text-[11px] text-slate-400">
-        Source: Quranic Universal Library (QUL), ayah-topics resource 45.
-      </p>
+      <p className="text-[11px] text-slate-400">{t2.charts.topicSource}</p>
     </div>
   );
 }

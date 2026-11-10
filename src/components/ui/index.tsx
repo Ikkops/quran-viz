@@ -9,6 +9,7 @@ import {
   type SelectHTMLAttributes,
 } from "react";
 import { X } from "lucide-react";
+import { useI18n } from "../../i18n/I18nContext";
 
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
@@ -307,12 +308,13 @@ export function Modal({
     onWidthChange(Math.min(1, Math.max(min, cur + dir * 0.02)));
   };
 
+  const { t } = useI18n();
   const handle = (side: 1 | -1) => (
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize (drag; double-click to reset)"
-      title="Drag to resize · double-click to reset"
+      aria-label={t.ui.resize}
+      title={t.ui.resizeTitle}
       tabIndex={0}
       onPointerDown={startResize(side)}
       onDoubleClick={() => onWidthChange?.(null)}

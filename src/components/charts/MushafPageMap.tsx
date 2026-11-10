@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Surah, Verse } from "../../types/quran";
 import type { ChartContext } from "./common";
+import { useI18n } from "../../i18n/I18nContext";
 
 interface PageInfo {
   page: number;
@@ -20,6 +21,7 @@ export function MushafPageMap({
   surahMap: Map<number, Surah>;
   ctx: ChartContext;
 }) {
+  const { t } = useI18n();
   const [hover, setHover] = useState<PageInfo | null>(null);
   const [jump, setJump] = useState("");
 
@@ -71,19 +73,20 @@ export function MushafPageMap({
           value={jump}
           onChange={(e) => setJump(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && doJump()}
-          placeholder="Jump to page…"
+          placeholder={t.structure.jumpPage}
           className="w-32 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
         />
         <button
           onClick={doJump}
           className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
         >
-          Go
+          {t.common.go}
         </button>
         {hover && (
           <span className="truncate text-xs text-slate-500 dark:text-slate-400">
-            Page {hover.page} · {hover.surah ? surahMap.get(hover.surah)?.nameEn : ""}
-            {hover.range ? ` · ${hover.range}` : ""} · {hover.words} words
+            {t.structure.pageHover(hover.page)} ·{" "}
+            {hover.surah ? surahMap.get(hover.surah)?.nameEn : ""}
+            {hover.range ? ` · ${hover.range}` : ""} · {t.charts.nWords(hover.words)}
           </span>
         )}
       </div>

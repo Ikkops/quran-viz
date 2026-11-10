@@ -15,6 +15,7 @@ import { wordFrequency } from "../data/arabic";
 import { useTranslation } from "../data/useTranslation";
 import { persisted, usePersistentState } from "../lib/usePersistentState";
 import { useTheme } from "../theme/ThemeContext";
+import { useI18n } from "../i18n/I18nContext";
 import { downloadCsv, exportElementToPng } from "../lib/export";
 import { parseHash, serializeHash } from "../lib/hash";
 import { rootSurahCounts, topRootsInScope } from "../data/roots";
@@ -72,6 +73,7 @@ export function DashboardView({
   onSearch?: (query: string) => void;
 }) {
   const theme = useTheme();
+  const { t, n } = useI18n();
   // A shared link's view (in the hash) wins over the remembered one. Runs
   // before the persisted state below initialises from storage.
   useState(() => {
@@ -277,47 +279,51 @@ export function DashboardView({
       }
       case "pos":
         return (
-          morph?.pos.map((p) => ({ tag: p.tag, label: p.label, count: p.count })) ?? []
+          morph?.pos.map((p) => ({
+            tag: p.tag,
+            label: t.pos[p.tag] ?? p.label,
+            count: p.count,
+          })) ?? []
         );
       default:
         return [];
     }
   };
 
-  const scopeLine = `${surahData.length} surahs · ${filteredVerses.length.toLocaleString()} verses`;
+  const scopeLine = t.dashboard.scope(surahData.length, n(filteredVerses.length));
   const subtitle =
     viz === "pos"
       ? morph
-        ? `Whole Qur'an · ${morph.totalSegments.toLocaleString()} morphological segments · Quranic Arabic Corpus`
-        : "Loading the Quranic Arabic Corpus…"
+        ? t.dashboard.posSub(n(morph.totalSegments))
+        : t.dashboard.loadingCorpus
       : viz === "roots" || viz === "root-explorer"
-        ? `${scopeLine} · Quranic Arabic Corpus roots`
+        ? `${scopeLine} · ${t.dashboard.rootsSub}`
         : viz === "topic-explorer"
-          ? `${scopeLine} · ${topicsState.data?.length.toLocaleString() ?? "…"} QUL topics`
+          ? `${scopeLine} · ${t.dashboard.topicsSub(topicsState.data ? n(topicsState.data.length) : "…")}`
           : viz === "cloud"
-            ? `${scopeLine} · click a word to search for it`
+            ? `${scopeLine} · ${t.dashboard.cloudSub}`
             : viz === "opening"
-              ? `${scopeLine} · click a bar to list its surahs`
+              ? `${scopeLine} · ${t.dashboard.openingSub}`
               : def.autoHeight
                 ? scopeLine
-                : `${scopeLine} · drag the chart's corner to resize`;
+                : `${scopeLine} · ${t.dashboard.resizeSub}`;
 
   const headerControls =
     viz === "length" ? (
       <SegmentedControl<Metric>
         value={metric}
         onChange={setMetric}
-        ariaLabel="Metric"
-        options={METRICS}
+        ariaLabel={t.dashboard.metric}
+        options={METRICS.map((m) => ({ value: m.value, label: t.viz.metrics[m.value] }))}
       />
     ) : viz === "cloud" ? (
       <SegmentedControl<CloudLang>
         value={cloudLang}
         onChange={setCloudLang}
-        ariaLabel="Cloud language"
+        ariaLabel={t.dashboard.cloudLang}
         options={[
-          { value: "ar", label: "Arabic" },
-          { value: "en", label: "English" },
+          { value: "ar", label: t.dashboard.arabic },
+          { value: "en", label: t.dashboard.english },
         ]}
       />
     ) : null;
@@ -343,17 +349,17 @@ export function DashboardView({
 
       <Card className="min-w-0 p-4">
         <SectionTitle
-          title={def.label}
+          title={t.viz.labels[viz]}
           subtitle={subtitle}
           right={
             <div className="flex flex-wrap items-center justify-end gap-2">
               {headerControls}
-              <IconButton onClick={handleExport} title="Download the chart as an image">
+              <IconButton onClick={handleExport} title={t.dashboard.png}>
                 <Download size={15} /> PNG
               </IconButton>
               <IconButton
                 onClick={() => downloadCsv(csvRows(), `quran-${viz}`)}
-                title="Download the data behind this view"
+                title={t.dashboard.csv}
               >
                 <FileSpreadsheet size={15} /> CSV
               </IconButton>
@@ -503,6 +509,7 @@ export function DashboardView({
 }
 
 function LoadState({ error, onRetry }: { error: string | null; onRetry?: () => void }) {
+  const { t } = useI18n();
   return (
     <div
       className={cx(
@@ -511,14 +518,14 @@ function LoadState({ error, onRetry }: { error: string | null; onRetry?: () => v
       )}
       role={error ? "alert" : "status"}
     >
-      {error ? `Failed to load: ${error}` : "Loading…"}
+      {error ? t.common.failedToLoad(error) : t.common.loading}
       {error && onRetry && (
         <button
           type="button"
           onClick={onRetry}
           className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
         >
-          Retry
+          {t.common.retry}
         </button>
       )}
     </div>

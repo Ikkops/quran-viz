@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { Surah, Verse } from "../../types/quran";
 import { Badge } from "../ui";
 import type { ChartContext } from "./common";
+import { useI18n } from "../../i18n/I18nContext";
 
 /** The 15 prostration (sajda) verses, with their Mushaf location. */
 export function SajdaMarkers({
@@ -13,6 +14,7 @@ export function SajdaMarkers({
   surahMap: Map<number, Surah>;
   ctx: ChartContext;
 }) {
+  const { t } = useI18n();
   const sajdas = useMemo(() => verses.filter((v) => v.sajda === 1), [verses]);
 
   return (
@@ -30,8 +32,12 @@ export function SajdaMarkers({
                 {s?.nameEn} · {v.s}:{v.a}
               </span>
               <div className="flex gap-1">
-                <Badge>Juz {v.juz}</Badge>
-                <Badge color={ctx.primary}>Page {v.page}</Badge>
+                <Badge>
+                  {t.scope.juz} {v.juz}
+                </Badge>
+                <Badge color={ctx.primary}>
+                  {t.scope.page} {v.page}
+                </Badge>
               </div>
             </div>
             <p dir="rtl" className="quran-text text-slate-800 dark:text-slate-100">

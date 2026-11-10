@@ -1,7 +1,7 @@
 import { TRADITIONAL_COUNT } from "../../data/traditionalCounts";
 import type { Meta, Surah } from "../../types/quran";
 import { Card } from "../ui";
-import { PLACE_CAVEAT } from "./common";
+import { useI18n } from "../../i18n/I18nContext";
 
 function Stat({
   label,
@@ -28,6 +28,7 @@ function Stat({
 }
 
 export function StructureOverview({ surahs, meta }: { surahs: Surah[]; meta: Meta }) {
+  const { t: tr, n } = useI18n();
   const t = meta.totals;
   const byAyah = meta.classificationByAyah ?? meta.classification;
   const meccan = byAyah["Meccan"] ?? 0;
@@ -41,43 +42,41 @@ export function StructureOverview({ surahs, meta }: { surahs: Surah[]; meta: Met
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Surahs" value={surahCount} />
-        <Stat label="Verses" value={t.ayahs.toLocaleString()} />
+        <Stat label={tr.common.surah} value={surahCount} />
+        <Stat label={tr.common.verses} value={n(t.ayahs)} />
         <Stat
-          label="Words"
-          value={t.words.toLocaleString()}
-          sub={`~${TRADITIONAL_COUNT.words.toLocaleString()} traditional`}
+          label={tr.common.words}
+          value={n(t.words)}
+          sub={tr.structure.traditional(n(TRADITIONAL_COUNT.words))}
         />
         <Stat
-          label="Letters"
-          value={t.letters.toLocaleString()}
-          sub={`~${TRADITIONAL_COUNT.letters.toLocaleString()} traditional`}
+          label={tr.common.letters}
+          value={n(t.letters)}
+          sub={tr.structure.traditional(n(TRADITIONAL_COUNT.letters))}
         />
-        <Stat label="Mushaf pages" value={t.pages} />
-        <Stat label="Juz" value={t.juzs} />
-        <Stat label="Hizb" value={t.hizbs} />
-        <Stat label="Sajda verses" value={t.sajdas} />
+        <Stat label={tr.structure.mushafPages} value={t.pages} />
+        <Stat label={tr.scope.juz} value={t.juzs} />
+        <Stat label={tr.scope.hizb} value={t.hizbs} />
+        <Stat label={tr.structure.sajdaVerses} value={t.sajdas} />
         <Stat
-          label="Meccan ayahs"
-          value={meccan.toLocaleString()}
-          sub={`${meccanSurahs} surahs · ${(meta.classification["Meccan"] ?? 0).toLocaleString()} ayahs by surah`}
+          label={tr.structure.meccanAyahs}
+          value={n(meccan)}
+          sub={tr.structure.bySurah(meccanSurahs, n(meta.classification["Meccan"] ?? 0))}
         />
         <Stat
-          label="Medinan ayahs"
-          value={medinan.toLocaleString()}
-          sub={`${medinanSurahs} surahs · ${(meta.classification["Medinan"] ?? 0).toLocaleString()} ayahs by surah`}
+          label={tr.structure.medinanAyahs}
+          value={n(medinan)}
+          sub={tr.structure.bySurah(
+            medinanSurahs,
+            n(meta.classification["Medinan"] ?? 0),
+          )}
         />
         {hijra > 0 && (
-          <Stat
-            label="Revealed during the Hijra"
-            value={hijra}
-            sub="22:52–55, 28:85, 47:13"
-          />
+          <Stat label={tr.structure.hijra} value={hijra} sub="22:52–55, 28:85, 47:13" />
         )}
       </div>
       <p className="text-[11px] text-slate-400">
-        Ayah counts use each ayah&apos;s own place where it differs from its surah (e.g.
-        7:163–170 are Medinan inside a Meccan surah). {PLACE_CAVEAT}
+        {tr.structure.overviewNote} {tr.placeCaveat}
       </p>
     </div>
   );
