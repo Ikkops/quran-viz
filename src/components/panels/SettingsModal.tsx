@@ -102,9 +102,9 @@ export function SettingsModal({
             </Select>
             <Slider
               label="Arabic font size"
-              min={0.8}
+              min={0.5}
               max={2}
-              step={0.1}
+              step={0.05}
               value={theme.arabicScale}
               onChange={(e) => theme.setArabicScale(Number(e.target.value))}
             />

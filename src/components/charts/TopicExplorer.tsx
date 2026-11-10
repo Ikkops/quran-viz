@@ -16,6 +16,9 @@ import { axisColor, type ChartContext } from "./common";
 
 type Measure = "count" | "density";
 
+/** Tagged verses listed before "Show all" (about three rows). */
+const TAGGED_PREVIEW = 36;
+
 interface SurahRow {
   s: number;
   name: string;
@@ -55,15 +58,20 @@ export function TopicExplorer({
   verses,
   surahMap,
   ctx,
+  selectedId,
+  onSelectId: setSelectedId,
 }: {
   topics: Topic[];
   verses: Verse[];
   surahMap: Map<number, Surah>;
   ctx: ChartContext;
+  /** Selected topic id, owned by the dashboard so it is remembered. */
+  selectedId: number | null;
+  onSelectId: (id: number) => void;
 }) {
   const [measure, setMeasure] = useState<Measure>("count");
   const [query, setQuery] = useState("");
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   const inScope = useMemo(() => new Map(verses.map((v) => [v.id, v])), [verses]);
   const surahIds = useMemo(() => [...new Set(verses.map((v) => v.s))], [verses]);
@@ -104,7 +112,7 @@ export function TopicExplorer({
   const open = (v: Verse) => ctx.onOpen?.({ scope: "surah", value: v.s, anchor: v.id });
 
   return (
-    <div className="flex h-full flex-col gap-3 overflow-y-auto">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-3">
         <input
           value={query}
@@ -128,7 +136,10 @@ export function TopicExplorer({
         {matches.map((t) => (
           <button
             key={t.id}
-            onClick={() => setSelectedId(t.id)}
+            onClick={() => {
+              setSelectedId(t.id);
+              setShowAll(false);
+            }}
             title={`${t.v.length.toLocaleString()} verses`}
             className={cx(
               "rounded-full border px-2.5 py-0.5 text-sm transition",
@@ -163,7 +174,7 @@ export function TopicExplorer({
         )}
       </div>
 
-      <div className="min-h-[220px] flex-1">
+      <div className="h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={rows} margin={{ top: 8, right: 12, bottom: 24, left: 0 }}>
             <XAxis
@@ -208,9 +219,12 @@ export function TopicExplorer({
         </ResponsiveContainer>
       </div>
 
-      <div className="max-h-24 shrink-0 overflow-y-auto rounded-lg border border-slate-200 p-2 text-sm tabular-nums dark:border-slate-700">
+      <div className="rounded-lg border border-slate-200 p-2 text-sm tabular-nums dark:border-slate-700">
+        <div className="mb-1 text-xs text-slate-400">
+          Tagged verses — click one to read it
+        </div>
         <div className="flex flex-wrap gap-x-3 gap-y-1">
-          {tagged.map((v) => (
+          {(showAll ? tagged : tagged.slice(0, TAGGED_PREVIEW)).map((v) => (
             <button
               key={v.id}
               onClick={() => open(v)}
@@ -219,6 +233,15 @@ export function TopicExplorer({
               {v.s}:{v.a}
             </button>
           ))}
+          {tagged.length > TAGGED_PREVIEW && (
+            <button
+              onClick={() => setShowAll((x) => !x)}
+              className="font-medium hover:underline"
+              style={{ color: ctx.primary }}
+            >
+              {showAll ? "Show fewer" : `Show all ${tagged.length.toLocaleString()}`}
+            </button>
+          )}
         </div>
       </div>
       <p className="text-[11px] text-slate-400">

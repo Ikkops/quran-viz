@@ -1,17 +1,22 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
+  ArrowRight,
+  Bookmark as BookmarkIcon,
+  BookmarkCheck,
   ChevronLeft,
   ChevronRight,
-  Copy,
+  ClipboardCopy,
   ExternalLink,
   Info,
+  Link2,
   Search,
   Settings,
+  StickyNote,
   X,
 } from "lucide-react";
 import type { EditionsIndex, Surah, Verse } from "../../types/quran";
-import { READER_SCOPES } from "../charts/common";
+import { READER_SCOPES, SCOPE_MAX, surahColorById } from "../charts/common";
 import type { ColorMode, ReaderScope, ReaderTarget } from "../charts/common";
 import { useTranslation } from "../../data/useTranslation";
 import { useTajweed } from "../../data/useTajweed";
@@ -19,32 +24,35 @@ import { useWordByWord, type GlossLang } from "../../data/useWordByWord";
 import { useThemes } from "../../data/useThemes";
 import { useAsbab } from "../../data/useAsbab";
 import { useSurahInfo, type InfoLang } from "../../data/useSurahInfo";
-import { asbabByFirstAyah, themeHeadingAt, themeIndexById } from "../../data/sections";
+import {
+  asbabByFirstAyah,
+  tafsirGroupAt,
+  tafsirGroupLookup,
+  themeHeadingAt,
+  themeIndexById,
+} from "../../data/sections";
+import { useGroupedTafsir } from "../../data/useGroupedTafsir";
+import { persisted, usePersistentState } from "../../lib/usePersistentState";
 import {
   parseTajweed,
   RULE_COLORS,
-  splitTajweedWords,
+  alignTajweedToWords,
   TAJWEED_LEGEND,
 } from "../../data/tajweed";
 import type { TajweedSegment } from "../../data/tajweed";
-import { TAFSIR_EDITIONS, TRANSLITERATION_EDITION } from "../../data/editions";
+import {
+  TAFSIR_EDITIONS,
+  tafsirById,
+  TRANSLITERATION_EDITION,
+} from "../../data/editions";
 import { surahMapOf } from "../../data/selectors";
-import { categorizeOpening } from "../../data/fawatih";
 import { normalizeArabic } from "../../data/arabic";
-import { FAWATIH_COLORS } from "../../theme/palettes";
 import type { Palette } from "../../theme/palettes";
 import { Badge, cx, Modal, SegmentedControl, Select, Slider, Toggle } from "../ui";
 import { EditionSelect } from "./EditionSelect";
+import { BookmarkList } from "./BookmarkList";
+import { setBookmarkNote, toggleBookmark, type Bookmark } from "../../lib/bookmarks";
 
-const SCOPE_MAX: Record<ReaderScope, number> = {
-  surah: 114,
-  manzil: 7,
-  juz: 30,
-  hizb: 60,
-  rub: 240,
-  ruku: 558,
-  page: 604,
-};
 const SCOPE_LABEL: Record<ReaderScope, string> = {
   surah: "Surah",
   manzil: "Manzil",
@@ -74,7 +82,33 @@ function scopeField(v: Verse, scope: ReaderScope): number {
   return v[SCOPE_FIELD[scope]] as number;
 }
 
+/** Clipboard fallback for contexts where the async API is missing or denied
+ *  (embedded webviews, plain-HTTP hosts). Returns whether it worked. */
+function legacyCopy(text: string): boolean {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 const BASMALA = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
+
+// Persisted reader preferences (localStorage keys + validators).
+const K = "qv.reader.";
+const LANGS = ["en", "id"] as const;
+const tafsirIds = TAFSIR_EDITIONS.map((t) => t.id);
+const SCALE = persisted.number(0.5, 2);
+const WIDTH = (raw: unknown) => (raw === null ? null : persisted.number(0.2, 1)(raw));
 
 export function ReaderModal({
   target,
@@ -85,8 +119,12 @@ export function ReaderModal({
   onEditionChange,
   colorMode,
   palette,
+  arabicScale,
+  onArabicScale,
   onNavigate,
   onClose,
+  bookmarks,
+  onBookmarks,
 }: {
   target: ReaderTarget;
   surahs: Surah[];
@@ -96,32 +134,86 @@ export function ReaderModal({
   onEditionChange: (id: string) => void;
   colorMode: ColorMode;
   palette: Palette;
+  /** Global Arabic text scale (theme setting, persisted there). */
+  arabicScale: number;
+  onArabicScale: (s: number) => void;
   onNavigate: (t: ReaderTarget) => void;
   onClose: () => void;
+  /** Bookmarked ayahs (owned by App, persisted). */
+  bookmarks: Bookmark[];
+  onBookmarks: (b: Bookmark[]) => void;
 }) {
-  const [showTranslit, setShowTranslit] = useState(false);
-  const [showTafsir, setShowTafsir] = useState(false);
-  const [showTajweed, setShowTajweed] = useState(false);
-  const [showWords, setShowWords] = useState(false);
-  const [glossLang, setGlossLang] = useState<GlossLang>("en");
-  const [showThemes, setShowThemes] = useState(false);
-  const [showAsbab, setShowAsbab] = useState(false);
+  const [showTranslit, setShowTranslit] = usePersistentState(
+    K + "translit",
+    false,
+    persisted.bool,
+  );
+  const [showTafsir, setShowTafsir] = usePersistentState(
+    K + "tafsir",
+    false,
+    persisted.bool,
+  );
+  const [showTajweed, setShowTajweed] = usePersistentState(
+    K + "tajweed",
+    false,
+    persisted.bool,
+  );
+  const [showWords, setShowWords] = usePersistentState(
+    K + "words",
+    false,
+    persisted.bool,
+  );
+  const [glossLang, setGlossLang] = usePersistentState<GlossLang>(
+    K + "glossLang",
+    "en",
+    persisted.oneOf(LANGS),
+  );
+  const [showThemes, setShowThemes] = usePersistentState(
+    K + "themes",
+    false,
+    persisted.bool,
+  );
+  const [showAsbab, setShowAsbab] = usePersistentState(
+    K + "asbab",
+    false,
+    persisted.bool,
+  );
   // Ayah ids whose asbab narrations are expanded.
   const [openAsbab, setOpenAsbab] = useState<Set<number>>(() => new Set());
   const [showInfo, setShowInfo] = useState(false);
-  const [infoLang, setInfoLang] = useState<InfoLang>("en");
-  const [tafsirEdition, setTafsirEdition] = useState(TAFSIR_EDITIONS[0]);
+  const [infoLang, setInfoLang] = usePersistentState<InfoLang>(
+    K + "infoLang",
+    "en",
+    persisted.oneOf(LANGS),
+  );
+  const [tafsirEdition, setTafsirEdition] = usePersistentState(
+    K + "tafsirEdition",
+    TAFSIR_EDITIONS[0].id,
+    persisted.oneOf(tafsirIds),
+  );
+  const [width, setWidth] = usePersistentState<number | null>(K + "width", null, WIDTH);
   const [query, setQuery] = useState("");
-  const [copied, setCopied] = useState<number | null>(null);
+  // Last copy action, for the inline "Copied" / "Copy failed" note.
+  const [copied, setCopied] = useState<{ id: number; ok: boolean; what: string } | null>(
+    null,
+  );
+  const [showBookmarks, setShowBookmarks] = useState(false);
+  const [editingNote, setEditingNote] = useState<number | null>(null);
+  const [progress, setProgress] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [jumpValue, setJumpValue] = useState("");
-  const [arabicScale, setArabicScale] = useState(1);
-  const [translationScale, setTranslationScale] = useState(1);
+  const [translationScale, setTranslationScale] = usePersistentState(
+    K + "translationScale",
+    1,
+    SCALE,
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(false);
   const navSettledRef = useRef(false);
   const settingsRef = useRef<HTMLDivElement>(null);
   const gearRef = useRef<HTMLButtonElement>(null);
+  // `${glossLang}:${ayahId}` -> tajweed pieces per word-by-word item (static data).
+  const alignCache = useRef(new Map<string, TajweedSegment[][] | null>());
   const tajweedState = useTajweed(showTajweed);
   const wordByWordState = useWordByWord(showWords, glossLang);
   const themesState = useThemes(showThemes);
@@ -162,12 +254,8 @@ export function ReaderModal({
     onNavigate({ scope, value: scopeField(at, scope), anchor: at.id });
   };
 
-  const surahColorFor = (sid: number): string =>
-    colorMode === "fawatih"
-      ? (FAWATIH_COLORS[categorizeOpening(sid)] ?? FAWATIH_COLORS.Unknown)
-      : surahMap.get(sid)?.type === "Meccan"
-        ? palette.pie[0]
-        : palette.pie[1];
+  const verseColor = (v: Verse): string =>
+    surahColorById(v.s, colorMode, palette, surahMap, v.p);
 
   const boundaryLabels = (prev: Verse | null, v: Verse): string[] => {
     const out: string[] = [];
@@ -182,7 +270,23 @@ export function ReaderModal({
 
   const translation = useTranslation(edition);
   const translit = useTranslation(showTranslit ? TRANSLITERATION_EDITION : null);
-  const tafsir = useTranslation(showTafsir ? tafsirEdition : null);
+  const tafsirEd = tafsirById(tafsirEdition);
+  const tafsir = useTranslation(
+    showTafsir && tafsirEd.kind === "ayah" ? tafsirEd.id : null,
+  );
+  const scopeSurahs = useMemo(
+    () => [...new Set(scopeVerses.map((v) => v.s))],
+    [scopeVerses],
+  );
+  const groupedTafsir = useGroupedTafsir(
+    showTafsir && tafsirEd.kind === "grouped" ? tafsirEd.id : null,
+    scopeSurahs,
+  );
+  const tafsirGroups = useMemo(
+    () =>
+      groupedTafsir.data ? tafsirGroupLookup(scopeVerses, groupedTafsir.data) : null,
+    [groupedTafsir.data, scopeVerses],
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -240,7 +344,11 @@ export function ReaderModal({
   // re-pin to the true bottom so the final verse stays fully reachable.
   const onListScroll = useCallback(() => {
     const sc = scrollRef.current;
-    if (sc) atBottomRef.current = sc.scrollHeight - sc.scrollTop - sc.clientHeight < 8;
+    if (!sc) return;
+    const room = sc.scrollHeight - sc.clientHeight;
+    atBottomRef.current = room - sc.scrollTop < 8;
+    // Whole percent only, so scrolling doesn't re-render on every pixel.
+    setProgress(room > 0 ? Math.round((sc.scrollTop / room) * 100) : 100);
   }, []);
   const totalSize = rowVirtualizer.getTotalSize();
   useEffect(() => {
@@ -327,14 +435,44 @@ export function ReaderModal({
     );
   const subtitle =
     target.scope === "surah" && headerSurah
-      ? `${headerSurah.meaning} · ${headerSurah.type} · ${headerSurah.ayahCount} verses · ${headerSurah.wordCount.toLocaleString()} words`
+      ? `${headerSurah.meaning} · ${headerSurah.type} · revealed #${headerSurah.revelationOrder} · ${headerSurah.ayahCount} verses · ${headerSurah.wordCount.toLocaleString()} words`
       : `${scopeVerses.length} verses`;
 
-  const copyLink = (v: Verse) => {
-    navigator.clipboard?.writeText(`https://quran.com/${v.s}/${v.a}`);
-    setCopied(v.id);
-    setTimeout(() => setCopied((c) => (c === v.id ? null : c)), 1200);
+  const editionName =
+    editions.editions.find((e) => e.identifier === edition)?.englishName ?? edition;
+  const bookmarked = useMemo(() => new Map(bookmarks.map((b) => [b.id, b])), [bookmarks]);
+
+  // Report "Copied" only once the clipboard write actually succeeded.
+  const copy = (v: Verse, text: string, what: string) => {
+    const done = (ok: boolean) => {
+      setCopied({ id: v.id, ok, what });
+      setTimeout(() => setCopied((c) => (c?.id === v.id ? null : c)), 1500);
+    };
+    const viaAsync = navigator.clipboard?.writeText(text);
+    if (viaAsync)
+      viaAsync.then(
+        () => done(true),
+        () => done(legacyCopy(text)),
+      );
+    else done(legacyCopy(text));
   };
+  const copyLink = (v: Verse) => copy(v, `https://quran.com/${v.s}/${v.a}`, "link");
+  const copyText = (v: Verse) => {
+    const t = translation.data?.[v.id];
+    const name = surahMap.get(v.s)?.nameEn ?? `Surah ${v.s}`;
+    const text = [v.ar, t ? `${t} (${editionName})` : null, `— ${name} ${v.s}:${v.a}`]
+      .filter(Boolean)
+      .join("\n\n");
+    copy(v, text, "text");
+  };
+
+  // End-of-scope "continue" targets.
+  const nextTarget: ReaderTarget | null =
+    target.value < max ? { scope: target.scope, value: target.value + 1 } : null;
+  const nextRevealed =
+    target.scope === "surah" && headerSurah
+      ? surahs.find((x) => x.revelationOrder === headerSurah.revelationOrder + 1)
+      : undefined;
 
   const renderSegs = (segs: TajweedSegment[]) =>
     segs.map((seg, i) =>
@@ -361,16 +499,25 @@ export function ReaderModal({
           {renderArabic(v)}
         </p>
       );
+    // Tajweed colours cut to match the word-by-word items. If the texts can't
+    // be aligned the items are shown uncoloured — never the whole ayah twice.
     const marked = showTajweed ? tajweed?.[v.id] : null;
-    const twWords = marked ? splitTajweedWords(marked) : null;
-    const aligned = twWords && twWords.length === ws.length ? twWords : null;
+    let aligned: TajweedSegment[][] | null = null;
+    if (marked) {
+      const key = `${glossLang}:${v.id}`;
+      const cache = alignCache.current;
+      if (!cache.has(key))
+        cache.set(
+          key,
+          alignTajweedToWords(
+            marked,
+            ws.map(([ar]) => ar),
+          ),
+        );
+      aligned = cache.get(key) ?? null;
+    }
     return (
       <>
-        {marked && !aligned && (
-          <p dir="rtl" className="quran-text mb-1 text-slate-800 dark:text-slate-100">
-            {renderArabic(v)}
-          </p>
-        )}
         <div dir="rtl" className="flex flex-wrap gap-x-5 gap-y-1.5">
           {ws.map(([ar, en], i) => (
             <span key={i} className="flex flex-col items-center">
@@ -408,6 +555,8 @@ export function ReaderModal({
       fullHeight
       className="max-w-6xl"
       ariaLabel="Quran reader"
+      width={width}
+      onWidthChange={setWidth}
     >
       {/* ── Header ── */}
       <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-slate-700">
@@ -420,6 +569,38 @@ export function ReaderModal({
           )}
         </div>
         <div className="flex items-center gap-1">
+          <div className="relative">
+            <button
+              onClick={() => setShowBookmarks((x) => !x)}
+              aria-label="Bookmarks"
+              aria-pressed={showBookmarks}
+              title={`Bookmarks (${bookmarks.length})`}
+              className={cx(
+                "rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800",
+                showBookmarks &&
+                  "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300",
+              )}
+            >
+              <BookmarkIcon size={18} />
+            </button>
+            {showBookmarks && (
+              <div className="absolute right-0 top-full z-20 mt-1 max-h-[calc(60*var(--zvh))] w-80 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  Bookmarks
+                </p>
+                <BookmarkList
+                  bookmarks={bookmarks}
+                  verses={verses}
+                  surahMap={surahMap}
+                  onOpen={(t) => {
+                    setShowBookmarks(false);
+                    onNavigate(t);
+                  }}
+                  onRemove={(id) => onBookmarks(toggleBookmark(bookmarks, id))}
+                />
+              </div>
+            )}
+          </div>
           {target.scope === "surah" && (
             <button
               onClick={() => setShowInfo((v) => !v)}
@@ -474,8 +655,11 @@ export function ReaderModal({
                       label="Tafsir source"
                       className="ml-1"
                     >
-                      <option value="ar.muyassar">Al-Muyassar</option>
-                      <option value="ar.jalalayn">Al-Jalalayn</option>
+                      {TAFSIR_EDITIONS.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.label}
+                        </option>
+                      ))}
                     </Select>
                   )}
                   <Toggle
@@ -534,7 +718,7 @@ export function ReaderModal({
                     max={200}
                     step={5}
                     value={Math.round(arabicScale * 100)}
-                    onChange={(e) => setArabicScale(Number(e.target.value) / 100)}
+                    onChange={(e) => onArabicScale(Number(e.target.value) / 100)}
                   />
                   <Slider
                     label="Translation size"
@@ -548,7 +732,9 @@ export function ReaderModal({
                   {(tajweedState.error ||
                     wordByWordState.error ||
                     themesState.error ||
-                    asbabState.error) && (
+                    asbabState.error ||
+                    tafsir.error ||
+                    groupedTafsir.error) && (
                     <p className="text-xs text-rose-500">
                       Failed to load{" "}
                       {tajweedState.error
@@ -557,7 +743,9 @@ export function ReaderModal({
                           ? "word-by-word"
                           : themesState.error
                             ? "section theme"
-                            : "asbab"}{" "}
+                            : asbabState.error
+                              ? "asbab"
+                              : "tafsir"}{" "}
                       data.
                     </p>
                   )}
@@ -567,11 +755,20 @@ export function ReaderModal({
           </div>
           <button
             onClick={handleClose}
+            aria-label="Close reader"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
           >
             <X size={20} />
           </button>
         </div>
+      </div>
+
+      {/* ── Reading progress ── */}
+      <div className="h-0.5 shrink-0 bg-slate-100 dark:bg-slate-800" aria-hidden>
+        <div
+          className="h-full transition-[width] duration-150"
+          style={{ width: `${progress}%`, backgroundColor: palette.primary }}
+        />
       </div>
 
       {/* ── Surah introduction ── */}
@@ -670,6 +867,7 @@ export function ReaderModal({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search verse / number"
+            aria-label="Search verses in this view"
             className="rounded-lg border border-slate-300 bg-white py-1.5 pl-7 pr-2 text-sm outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
@@ -680,12 +878,6 @@ export function ReaderModal({
         ref={scrollRef}
         onScroll={onListScroll}
         className="min-h-[10rem] flex-1 overflow-y-auto px-5 py-4"
-        style={
-          {
-            "--arabic-scale": String(arabicScale),
-            "--translation-scale": String(translationScale),
-          } as React.CSSProperties
-        }
       >
         <div
           style={{
@@ -701,7 +893,7 @@ export function ReaderModal({
           )}
           {rowVirtualizer.getVirtualItems().map((vi) => {
             const v = filtered[vi.index];
-            const { showSurahHeader, labels, theme } = rowHeaders(vi.index, v);
+            const { showSurahHeader, labels, theme, prev } = rowHeaders(vi.index, v);
             const verseAsbab = asbab?.get(v.id);
             const s = surahMap.get(v.s);
             return (
@@ -754,9 +946,18 @@ export function ReaderModal({
                   }
                 >
                   <div className="mb-2 flex items-center gap-2">
-                    <Badge color={surahColorFor(v.s)}>
-                      {v.s}:{v.a}
-                    </Badge>
+                    <span
+                      title={
+                        v.p
+                          ? `${v.p === "Hijra" ? "Revealed during the Hijra" : `${v.p} ayah`} in a ${surahMap.get(v.s)?.type} surah (traditional attribution)`
+                          : undefined
+                      }
+                    >
+                      <Badge color={verseColor(v)}>
+                        {v.s}:{v.a}
+                        {v.p && <span aria-hidden>{v.p === "Hijra" ? " ⇢" : " •"}</span>}
+                      </Badge>
+                    </span>
                     {v.sajda === 1 && <Badge color="#f97316">Sajda</Badge>}
                     {verseAsbab && (
                       <button
@@ -769,12 +970,62 @@ export function ReaderModal({
                       </button>
                     )}
                     <span className="ml-auto flex items-center gap-1">
+                      {copied?.id === v.id && (
+                        <span
+                          className={cx(
+                            "text-xs",
+                            copied.ok ? "text-emerald-500" : "text-rose-500",
+                          )}
+                          role="status"
+                        >
+                          {copied.ok ? `Copied ${copied.what}` : "Copy failed"}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => onBookmarks(toggleBookmark(bookmarks, v.id))}
+                        aria-pressed={bookmarked.has(v.id)}
+                        aria-label={
+                          bookmarked.has(v.id) ? "Remove bookmark" : "Bookmark verse"
+                        }
+                        title={bookmarked.has(v.id) ? "Remove bookmark" : "Bookmark"}
+                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                        style={
+                          bookmarked.has(v.id) ? { color: palette.primary } : undefined
+                        }
+                      >
+                        {bookmarked.has(v.id) ? (
+                          <BookmarkCheck size={14} />
+                        ) : (
+                          <BookmarkIcon size={14} />
+                        )}
+                      </button>
+                      {bookmarked.has(v.id) && (
+                        <button
+                          onClick={() =>
+                            setEditingNote((x) => (x === v.id ? null : v.id))
+                          }
+                          aria-label="Edit bookmark note"
+                          title="Note"
+                          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                        >
+                          <StickyNote size={14} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => copyText(v)}
+                        aria-label="Copy verse text"
+                        title="Copy Arabic + translation + reference"
+                        className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                      >
+                        <ClipboardCopy size={14} />
+                      </button>
                       <button
                         onClick={() => copyLink(v)}
+                        aria-label="Copy quran.com link"
                         title="Copy quran.com link"
                         className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
                       >
-                        <Copy size={14} />
+                        <Link2 size={14} />
                       </button>
                       <a
                         href={`https://quran.com/${v.s}/${v.a}`}
@@ -785,11 +1036,37 @@ export function ReaderModal({
                       >
                         <ExternalLink size={14} />
                       </a>
-                      {copied === v.id && (
-                        <span className="text-xs text-emerald-500">copied</span>
-                      )}
                     </span>
                   </div>
+                  {bookmarked.has(v.id) &&
+                    (editingNote === v.id ? (
+                      <textarea
+                        autoFocus
+                        defaultValue={bookmarked.get(v.id)!.note}
+                        onBlur={(e) => {
+                          onBookmarks(
+                            setBookmarkNote(bookmarks, v.id, e.target.value.trim()),
+                          );
+                          setEditingNote(null);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            (e.target as HTMLTextAreaElement).blur();
+                          } else if (e.key === "Escape") setEditingNote(null);
+                        }}
+                        placeholder="Note for this bookmark (Enter to save)"
+                        aria-label="Bookmark note"
+                        rows={2}
+                        className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                      />
+                    ) : (
+                      bookmarked.get(v.id)!.note && (
+                        <p className="mb-2 text-xs italic text-slate-500 dark:text-slate-400">
+                          Note: {bookmarked.get(v.id)!.note}
+                        </p>
+                      )
+                    ))}
                   {showWords ? (
                     renderWordByWord(v)
                   ) : (
@@ -811,7 +1088,7 @@ export function ReaderModal({
                   >
                     {translation.loading ? "…" : (translation.data?.[v.id] ?? "")}
                   </p>
-                  {showTafsir && (
+                  {showTafsir && tafsirEd.kind === "ayah" && (
                     <p
                       className="mt-2 rounded-lg bg-slate-50 p-2 text-right font-arabic text-sm leading-loose text-slate-600 dark:bg-slate-800/60 dark:text-slate-300"
                       dir="rtl"
@@ -819,6 +1096,41 @@ export function ReaderModal({
                       {tafsir.loading ? "…" : (tafsir.data?.[v.id] ?? "")}
                     </p>
                   )}
+                  {showTafsir &&
+                    tafsirEd.kind === "grouped" &&
+                    (groupedTafsir.loading ? (
+                      <p className="mt-2 text-sm text-slate-400">…</p>
+                    ) : (
+                      (() => {
+                        const g = tafsirGroups
+                          ? tafsirGroupAt(tafsirGroups, v.id, prev?.id ?? null)
+                          : null;
+                        if (!g) return null;
+                        return (
+                          <div
+                            lang={tafsirEd.lang}
+                            className="mt-2 rounded-lg bg-slate-50 p-2 dark:bg-slate-800/60"
+                          >
+                            {g.to !== g.from && (
+                              <p className="mb-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                Verses {g.s}:{g.from}–{g.to}
+                              </p>
+                            )}
+                            <p
+                              className="whitespace-pre-line text-slate-600 dark:text-slate-300"
+                              style={{
+                                fontSize: `calc(0.8125rem * ${translationScale})`,
+                              }}
+                            >
+                              {g.text}
+                            </p>
+                            <p className="mt-1 text-[11px] text-slate-400">
+                              {tafsirEd.source}.
+                            </p>
+                          </div>
+                        );
+                      })()
+                    ))}
                   {verseAsbab && openAsbab.has(v.id) && (
                     <div className="mt-2 rounded-lg border border-sky-100 bg-sky-50/60 p-2 dark:border-sky-500/20 dark:bg-sky-500/5">
                       {verseAsbab.map((e) => {
@@ -852,6 +1164,31 @@ export function ReaderModal({
             );
           })}
         </div>
+        {!query.trim() && filtered.length > 0 && (nextTarget || nextRevealed) && (
+          <div className="flex flex-wrap items-center justify-center gap-2 border-t border-slate-100 pb-2 pt-4 dark:border-slate-700/60">
+            {nextTarget && (
+              <button
+                onClick={() => onNavigate(nextTarget)}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white"
+                style={{ backgroundColor: palette.primary }}
+              >
+                Continue to {SCOPE_LABEL[target.scope]} {nextTarget.value}
+                {target.scope === "surah" && surahMap.get(nextTarget.value)
+                  ? ` · ${surahMap.get(nextTarget.value)!.nameEn}`
+                  : ""}
+                <ArrowRight size={15} />
+              </button>
+            )}
+            {nextRevealed && (
+              <button
+                onClick={() => onNavigate({ scope: "surah", value: nextRevealed.id })}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Next in revelation order: {nextRevealed.id}. {nextRevealed.nameEn}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </Modal>
   );

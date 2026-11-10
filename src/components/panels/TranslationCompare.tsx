@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { persisted, usePersistentState } from "../../lib/usePersistentState";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Plus, X } from "lucide-react";
 import type { EditionsIndex, Surah, Verse } from "../../types/quran";
@@ -20,10 +21,31 @@ export function TranslationCompare({
   editions: EditionsIndex;
   primary: string;
 }) {
-  const [surahId, setSurahId] = useState(1);
-  const [picked, setPicked] = useState<string[]>([editions.default]);
+  const known = useMemo(
+    () => new Set(editions.editions.map((e) => e.identifier)),
+    [editions],
+  );
+  const [surahId, setSurahId] = usePersistentState("qv.compare.surah", 1, (raw) =>
+    Number.isInteger(raw) && (raw as number) >= 1 && (raw as number) <= 114
+      ? (raw as number)
+      : undefined,
+  );
+  // Editions removed by a data rebuild are dropped; never leave the list empty.
+  const [picked, setPicked] = usePersistentState<string[]>(
+    "qv.compare.editions",
+    [editions.default],
+    (raw) => {
+      if (!Array.isArray(raw)) return undefined;
+      const ok = raw.filter((x): x is string => typeof x === "string" && known.has(x));
+      return ok.length ? [...new Set(ok)] : undefined;
+    },
+  );
   const [adding, setAdding] = useState(editions.default);
-  const [showTranslit, setShowTranslit] = useState(false);
+  const [showTranslit, setShowTranslit] = usePersistentState(
+    "qv.compare.translit",
+    false,
+    persisted.bool,
+  );
 
   const idents = useMemo(
     () => (showTranslit ? [TRANSLITERATION_EDITION, ...picked] : picked),

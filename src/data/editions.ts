@@ -89,5 +89,49 @@ export function editionByIdentifier(
   return index.editions.find((e) => e.identifier === id);
 }
 
-export const TAFSIR_EDITIONS = ["ar.muyassar", "ar.jalalayn"];
+export interface TafsirEdition {
+  id: string;
+  label: string;
+  lang: "ar" | "id";
+  /** `ayah`: one note per ayah, a translation-style file (`useTranslation`).
+   *  `grouped`: one note per passage, per-surah files (`useGroupedTafsir`). */
+  kind: "ayah" | "grouped";
+  /** Provenance line shown under the note. */
+  source: string;
+}
+
+export const TAFSIR_EDITIONS: TafsirEdition[] = [
+  {
+    id: "ar.muyassar",
+    label: "Al-Muyassar (Arabic)",
+    lang: "ar",
+    kind: "ayah",
+    source: "Al-Tafsir al-Muyassar",
+  },
+  {
+    id: "ar.jalalayn",
+    label: "Al-Jalalayn (Arabic)",
+    lang: "ar",
+    kind: "ayah",
+    source: "Tafsir al-Jalalayn",
+  },
+  {
+    id: "id.mukhtasar-qul",
+    label: "Al-Mukhtasar (Indonesia)",
+    lang: "id",
+    kind: "grouped",
+    source: "Al-Mukhtasar fi Tafsir al-Qur'an (Indonesia), QUL tafsir resource 260",
+  },
+  {
+    id: "id.saadi-qul",
+    label: "As-Sa'di (Indonesia)",
+    lang: "id",
+    kind: "grouped",
+    source: "As-Sa'di, Taysir al-Karim al-Rahman (Indonesia), QUL tafsir resource 503",
+  },
+];
+
+export function tafsirById(id: string): TafsirEdition {
+  return TAFSIR_EDITIONS.find((t) => t.id === id) ?? TAFSIR_EDITIONS[0];
+}
 export const TRANSLITERATION_EDITION = "en.transliteration";

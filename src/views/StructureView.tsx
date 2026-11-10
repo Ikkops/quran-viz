@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
+import { persisted, usePersistentState } from "../lib/usePersistentState";
 import type { QuranData } from "../types/quran";
 import { surahMapOf } from "../data/selectors";
 import { useTheme } from "../theme/ThemeContext";
@@ -56,7 +57,11 @@ export function StructureView({
   onOpen: (t: ReaderTarget) => void;
 }) {
   const theme = useTheme();
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = usePersistentState<Tab>(
+    "qv.structure.tab",
+    "overview",
+    persisted.oneOf(Object.keys(TITLES) as Tab[]),
+  );
   const surahMap = useMemo(() => surahMapOf(data.surahs), [data.surahs]);
   const similar = useSimilar(tab === "similar");
 
@@ -120,9 +125,18 @@ export function StructureView({
               ctx={ctx}
             />
           ) : (
-            <p className="flex h-full items-center justify-center text-sm text-slate-400">
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-slate-400">
               {similar.error ? `Failed to load: ${similar.error}` : "Loading…"}
-            </p>
+              {similar.error && (
+                <button
+                  type="button"
+                  onClick={similar.retry}
+                  className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300"
+                >
+                  Retry
+                </button>
+              )}
+            </div>
           ))}
         {tab === "sajda" && (
           <SajdaMarkers verses={data.verses} surahMap={surahMap} ctx={ctx} />

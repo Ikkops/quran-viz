@@ -1,6 +1,6 @@
 import { ALL_CATEGORIES } from "../../data/fawatih";
 import { FAWATIH_COLORS } from "../../theme/palettes";
-import type { ColorMode } from "./common";
+import { HIJRA_COLOR, PLACE_CAVEAT, type ColorMode } from "./common";
 
 function Item({
   color,
@@ -46,11 +46,14 @@ export function Legend({
   pie,
   activeKeys,
   onToggle,
+  ayahLevel = false,
 }: {
   colorMode: ColorMode;
   pie: [string, string];
   activeKeys: Set<string>;
   onToggle: (key: string) => void;
+  /** The chart splits bars by ayah place: add the Hijra key and the caveat. */
+  ayahLevel?: boolean;
 }) {
   const isActive = (key: string) => activeKeys.size === 0 || activeKeys.has(key);
   const keys =
@@ -78,6 +81,15 @@ export function Legend({
           onClick={() => onToggle(label)}
         />
       ))}
+      {ayahLevel && colorMode === "type" && (
+        <span
+          className="inline-flex items-center gap-1.5 px-1.5 py-0.5 text-xs text-slate-600 dark:text-slate-300"
+          title="Revealed en route during the migration (22:52–55, 28:85, 47:13)"
+        >
+          <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: HIJRA_COLOR }} />
+          Hijra (en route)
+        </span>
+      )}
       {activeKeys.size > 0 && (
         <button
           type="button"
@@ -87,6 +99,11 @@ export function Legend({
         >
           show all
         </button>
+      )}
+      {ayahLevel && colorMode === "type" && (
+        <p className="w-full px-1.5 text-[11px] text-slate-400">
+          Bars are split by each ayah&apos;s place. {PLACE_CAVEAT}
+        </p>
       )}
     </div>
   );

@@ -15,17 +15,11 @@ import { axisColor, type ChartContext } from "./common";
 /** Words per hizb (1–60), coloured by parent juz. */
 export function HizbBreakdown({ verses, ctx }: { verses: Verse[]; ctx: ChartContext }) {
   const rows = useMemo(() => {
-    const words = new Map<
-      number,
-      { words: number; juz: number; first: number; firstS: number }
-    >();
+    const words = new Map<number, { words: number; juz: number; first: number }>();
     for (const v of verses) {
-      const r = words.get(v.hizb) ?? { words: 0, juz: v.juz, first: v.id, firstS: v.s };
+      const r = words.get(v.hizb) ?? { words: 0, juz: v.juz, first: v.id };
       r.words += v.w;
-      if (v.id < r.first) {
-        r.first = v.id;
-        r.firstS = v.s;
-      }
+      r.first = Math.min(r.first, v.id);
       words.set(v.hizb, r);
     }
     return [...words.entries()]
@@ -36,7 +30,6 @@ export function HizbBreakdown({ verses, ctx }: { verses: Verse[]; ctx: ChartCont
         words: r.words,
         juz: r.juz,
         first: r.first,
-        firstS: r.firstS,
       }));
   }, [verses]);
 
@@ -60,8 +53,8 @@ export function HizbBreakdown({ verses, ctx }: { verses: Verse[]; ctx: ChartCont
           cursor="pointer"
           isAnimationActive={false}
           onClick={(d: unknown) => {
-            const r = d as { firstS: number; first: number };
-            ctx.onOpen?.({ scope: "surah", value: r.firstS, anchor: r.first });
+            const r = d as { hizb: number; first: number };
+            ctx.onOpen?.({ scope: "hizb", value: r.hizb, anchor: r.first });
           }}
         >
           {rows.map((r) => (

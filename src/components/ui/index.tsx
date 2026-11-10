@@ -1,7 +1,10 @@
 import {
   useEffect,
   useRef,
+  useState,
   type ButtonHTMLAttributes,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type SelectHTMLAttributes,
 } from "react";
@@ -218,6 +221,8 @@ export function Modal({
   className,
   ariaLabel,
   fullHeight,
+  width,
+  onWidthChange,
 }: {
   open: boolean;
   onClose: () => void;
@@ -225,9 +230,108 @@ export function Modal({
   className?: string;
   ariaLabel?: string;
   fullHeight?: boolean;
+  /** Panel width as a fraction (0–1] of the overlay's content width; `null`
+   *  or omitted = the default (className) width. */
+  width?: number | null;
+  /** When set, the panel gets drag handles on both side edges. Called with the
+   *  new fraction on release, or `null` on double-click (reset to default). */
+  onWidthChange?: (width: number | null) => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
+  // Width while a drag is in progress (committed via onWidthChange on release).
+  const [liveWidth, setLiveWidth] = useState<number | null>(null);
+  // A drag that ends over the backdrop must not count as a backdrop click.
+  const justResized = useRef(false);
+  const shownWidth = liveWidth ?? width ?? null;
+
+  /** Overlay content width, in the panel's own CSS px. */
+  const availableWidth = () => {
+    const ov = overlayRef.current;
+    if (!ov) return 0;
+    const cs = getComputedStyle(ov);
+    return ov.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  };
+
+  // `side` is -1 for the left handle, +1 for the right. The panel is centred,
+  // so each edge moves by dx and the width changes by 2·dx.
+  const startResize = (side: 1 | -1) => (e: ReactPointerEvent<HTMLDivElement>) => {
+    const panel = panelRef.current;
+    if (!panel || !onWidthChange || e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const handle = e.currentTarget;
+    handle.setPointerCapture(e.pointerId);
+    const startX = e.clientX;
+    const startW = panel.offsetWidth;
+    // The app root has CSS `zoom`; pointer coordinates are viewport px while
+    // offsetWidth is the panel's CSS px. Convert with their ratio.
+    const scale = startW / (panel.getBoundingClientRect().width || startW);
+    const avail = availableWidth() || startW;
+    const minW = Math.min(480, avail);
+    const prevSelect = document.body.style.userSelect;
+    document.body.style.userSelect = "none";
+    let next: number | null = null;
+    const move = (ev: PointerEvent) => {
+      const dx = (ev.clientX - startX) * scale * side;
+      const w = Math.min(avail, Math.max(minW, startW + 2 * dx));
+      next = w / avail;
+      setLiveWidth(next);
+    };
+    const up = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", up);
+      handle.removeEventListener("pointercancel", up);
+      document.body.style.userSelect = prevSelect;
+      justResized.current = true;
+      setTimeout(() => (justResized.current = false), 0);
+      setLiveWidth(null);
+      if (next !== null) onWidthChange(next); // a plain click changes nothing
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", up);
+    handle.addEventListener("pointercancel", up);
+  };
+
+  const keyResize = (side: 1 | -1) => (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!onWidthChange || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+    e.preventDefault();
+    e.stopPropagation(); // keep the reader's ←/→ scope navigation out of it
+    const panel = panelRef.current;
+    const avail = availableWidth();
+    if (!panel || !avail) return;
+    const cur = shownWidth ?? panel.offsetWidth / avail;
+    const dir = (e.key === "ArrowRight" ? 1 : -1) * side;
+    const min = Math.min(480, avail) / avail;
+    onWidthChange(Math.min(1, Math.max(min, cur + dir * 0.02)));
+  };
+
+  const handle = (side: 1 | -1) => (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize (drag; double-click to reset)"
+      title="Drag to resize · double-click to reset"
+      tabIndex={0}
+      onPointerDown={startResize(side)}
+      onDoubleClick={() => onWidthChange?.(null)}
+      onKeyDown={keyResize(side)}
+      className={cx(
+        "group absolute inset-y-0 z-30 hidden w-2.5 cursor-ew-resize touch-none outline-none sm:block",
+        side < 0 ? "left-0" : "right-0",
+      )}
+    >
+      <span
+        className={cx(
+          "absolute inset-y-8 w-1 rounded-full transition",
+          "group-hover:bg-slate-300 group-focus-visible:bg-slate-400 dark:group-hover:bg-slate-600",
+          liveWidth !== null && "bg-slate-400 dark:bg-slate-500",
+          side < 0 ? "left-0.5" : "right-0.5",
+        )}
+      />
+    </div>
+  );
 
   // Close on Escape + restore focus on close.
   useEffect(() => {
@@ -273,13 +377,16 @@ export function Modal({
   if (!open) return null;
   return (
     <div
+      ref={overlayRef}
       className={cx(
         "fixed inset-0 z-50 flex bg-slate-900/50 backdrop-blur-sm",
         fullHeight
           ? "items-center justify-center p-4 sm:p-8"
           : "items-center justify-center p-4",
       )}
-      onClick={onClose}
+      onClick={() => {
+        if (!justResized.current) onClose();
+      }}
     >
       <div
         ref={panelRef}
@@ -295,11 +402,19 @@ export function Modal({
           fullHeight
             ? "flex h-full max-w-5xl flex-col overflow-y-auto"
             : "max-h-full max-w-3xl overflow-y-auto",
+          onWidthChange && "relative",
           className,
         )}
+        style={
+          shownWidth !== null
+            ? { width: `${shownWidth * 100}%`, maxWidth: "none" }
+            : undefined
+        }
         onClick={(e) => e.stopPropagation()}
       >
         {children}
+        {onWidthChange && handle(-1)}
+        {onWidthChange && handle(1)}
       </div>
     </div>
   );

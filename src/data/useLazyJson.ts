@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { dataUrl } from "./base";
 
 export interface LazyJsonState<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
+  /** Fetch again after an error (clears the failed attempt). */
+  retry?: () => void;
 }
 
 /** Module-global cache: url -> parsed data. Survives across hook instances. */
@@ -20,6 +22,12 @@ const inflight = new Map<string, Promise<unknown>>();
  */
 export function useLazyJson<T>(path: string, enabled = true): LazyJsonState<T> {
   const url = dataUrl(path);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    cache.delete(url);
+    inflight.delete(url);
+    setAttempt((n) => n + 1);
+  }, [url]);
   const [state, setState] = useState<LazyJsonState<T>>(() => {
     const cached = cache.get(url) as T | undefined;
     return { data: cached ?? null, loading: enabled && !cached, error: null };
@@ -63,7 +71,7 @@ export function useLazyJson<T>(path: string, enabled = true): LazyJsonState<T> {
     return () => {
       alive = false;
     };
-  }, [enabled, url, path]);
+  }, [enabled, url, path, attempt]);
 
-  return state;
+  return { ...state, retry };
 }

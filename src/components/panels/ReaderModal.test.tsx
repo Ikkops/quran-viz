@@ -27,6 +27,7 @@ import { ReaderModal } from "./ReaderModal";
 // resolves without a real network. The reader also lazy-loads tajweed /
 // wordbyword when their toggles are on; keep those off for this test.
 beforeEach(() => {
+  localStorage.clear();
   globalThis.fetch = vi.fn().mockResolvedValue({
     ok: true,
     json: async () => [null],
@@ -50,6 +51,8 @@ const surahs: Surah[] = [
     firstJuz: 1,
     lastJuz: 1,
     hasBismillah: false,
+    revelationOrder: 1,
+    exceptions: 0,
   },
 ];
 
@@ -117,8 +120,12 @@ function renderReader(overrides?: Partial<Parameters<typeof ReaderModal>[0]>) {
       onEditionChange={() => {}}
       colorMode="type"
       palette={palette}
+      arabicScale={1}
+      onArabicScale={() => {}}
       onNavigate={() => {}}
       onClose={() => {}}
+      bookmarks={[]}
+      onBookmarks={() => {}}
       {...overrides}
     />,
   );
@@ -193,5 +200,56 @@ describe("ReaderModal", () => {
     await user.type(jump, "abc{Enter}");
     expect(onNavigate).not.toHaveBeenCalled();
     expect(jump.value).toBe("1");
+  });
+
+  it("remembers display options and the intro language across reopen", async () => {
+    const user = userEvent.setup();
+    const first = renderReader();
+    await user.click(screen.getByRole("button", { name: /Reader settings/i }));
+    await user.click(screen.getByRole("button", { name: /Transliteration/i }));
+    await user.click(screen.getByRole("button", { name: /About this surah/i }));
+    await user.click(screen.getByRole("button", { name: "Indonesia" }));
+    first.unmount();
+
+    renderReader();
+    await user.click(screen.getByRole("button", { name: /Reader settings/i }));
+    const translit = screen.getByRole("button", { name: /Transliteration/i });
+    expect(translit.querySelector(".bg-emerald-500")).not.toBeNull();
+    expect(localStorage.getItem("qv.reader.infoLang")).toBe('"id"');
+    await user.click(screen.getByRole("button", { name: /About this surah/i }));
+    expect(screen.getByRole("button", { name: "Indonesia" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("bookmarks a verse through onBookmarks and shows bookmarked state", async () => {
+    const onBookmarks = vi.fn();
+    const { unmount } = renderReader({ onBookmarks });
+    await userEvent.click(screen.getAllByRole("button", { name: "Bookmark verse" })[0]);
+    expect(onBookmarks).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 1, note: "" }),
+    ]);
+    unmount();
+    renderReader({ bookmarks: [{ id: 1, note: "opening", at: 1 }] });
+    expect(screen.getByRole("button", { name: "Remove bookmark" })).toBeInTheDocument();
+    expect(screen.getByText("Note: opening")).toBeInTheDocument();
+  });
+
+  it("copies Arabic + reference and reports success or failure honestly", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    renderReader();
+    await userEvent.click(screen.getAllByRole("button", { name: "Copy verse text" })[0]);
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining(verses[0].ar));
+    expect(writeText.mock.calls[0][0]).toMatch(/— Al-Fatiha 1:1$/);
+    expect(await screen.findByText("Copied text")).toBeInTheDocument();
+
+    writeText.mockRejectedValueOnce(new Error("denied"));
+    await userEvent.click(screen.getAllByRole("button", { name: "Copy verse text" })[1]);
+    expect(await screen.findByText("Copy failed")).toBeInTheDocument();
   });
 });

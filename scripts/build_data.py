@@ -30,6 +30,8 @@ DB = REPO / "quran-database-main" / "quran.db"
 # QUL corpus (reference/quran-refs, built by reference/qul/build_db.py). Read
 # only, for the ruku'/manzil divisions and the similar-ayah pairs.
 QUL_DB = REPO / "reference" / "quran-refs" / "qul.db"
+PLACE_EXCEPTIONS = Path(__file__).resolve().parent / "data" / "ayah_place_exceptions.json"
+PLACES = ("Meccan", "Medinan", "Hijra")
 # Hadith corpus (reference/hadith/build_db.py); only its verified Arabic
 # asbab al-nuzul (`sahih-ar`) is exported.
 HADITH_DB = REPO / "reference" / "quran-refs" / "hadith.db"
@@ -42,6 +44,12 @@ QUL_TRANSLATIONS = {
     "kfc-id": ("id.kfc-qul", "King Fahd Complex",
                "King Fahd Quran Complex (QUL)"),
     "sabiq": ("id.sabiq-qul", "Sabiq", "Sabiq Company (QUL)"),
+}
+# QUL Indonesian tafsirs exported per surah as passage groups (see
+# group_tafsir): QUL edition -> identifier (src/data/editions.ts:TAFSIR_EDITIONS).
+QUL_TAFSIRS = {
+    "mukhtasar-id": "id.mukhtasar-qul",  # QUL tafsir/260, one note per ayah
+    "saadi-id": "id.saadi-qul",          # QUL tafsir/503, one note per passage
 }
 # Footnote residue in a handful of QUL Indonesian verses (kfc-id 1:2, 2:194;
 # sabiq 32:5, 71:14, 77:3): "puji30993>1", "Tuhan3", "dihormati 119,",
@@ -166,6 +174,28 @@ def clean_footnotes(text: str) -> str:
     return re.sub(r"\s{2,}", " ", text).strip()
 
 
+def group_tafsir(rows) -> dict[int, list[list]]:
+    """Collapse QUL tafsir rows (surah, ayah, group_key, text) into passages:
+    {surah: [[from_ayah, to_ayah, text], ...]}. QUL repeats a passage's text
+    on every ayah of its group (group_key = "s:first_ayah"), so keep it once;
+    passages with empty text are dropped."""
+    groups: dict[tuple[int, str], list] = {}
+    for surah, ayah, key, text in rows:
+        g = groups.get((surah, key))
+        if g is None:
+            groups[(surah, key)] = [ayah, ayah, (text or "").strip()]
+        else:
+            g[0] = min(g[0], ayah)
+            g[1] = max(g[1], ayah)
+    out: dict[int, list[list]] = {}
+    for (surah, _), g in groups.items():
+        if g[2]:
+            out.setdefault(surah, []).append(g)
+    for passages in out.values():
+        passages.sort(key=lambda g: g[0])
+    return out
+
+
 def pair_wbw(arabic: str, glosses: list[str]) -> list[list[str]]:
     """Pair an ayah's Arabic words with QUL word-by-word glosses. Pause marks
     are dropped; if the Arabic still has more tokens than glosses (37:130
@@ -245,6 +275,19 @@ def export_reference_extras(key_to_id: dict) -> list[dict]:
                       "englishName": english, "type": "translation",
                       "count": sum(1 for x in arr if x)})
     print(f"translations/: {len(extra)} QUL Indonesian editions")
+
+    # QUL Indonesian tafsirs -> tafsir/<ident>/<surah>.json passage lists.
+    for qed, ident in QUL_TAFSIRS.items():
+        by_surah = group_tafsir(qul.execute(
+            "SELECT surah, ayah, group_key, text FROM tafsirs "
+            "WHERE edition=? ORDER BY surah, ayah", (qed,)))
+        if len(by_surah) != 114:
+            sys.exit(f"{qed}: tafsir covers {len(by_surah)} surahs, expected 114")
+        out_dir = OUT / "tafsir" / ident
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for surah, passages in by_surah.items():
+            write_json(out_dir / f"{surah}.json", passages)
+        print(f"tafsir/{ident}/: {sum(map(len, by_surah.values()))} passages")
     qul.close()
 
     # Verified asbab al-nuzul (Arabic only): [first id, last id, [narrations]].
@@ -268,6 +311,28 @@ def export_reference_extras(key_to_id: dict) -> list[dict]:
     })
     print(f"asbab.json: {len(groups)} ayah ranges")
     return extra
+
+
+def load_place_exceptions(key_to_id: dict, surah_type: dict) -> dict[int, str]:
+    """Ayah id -> revelation place for ayahs whose place differs from their
+    surah's classification (see scripts/data/ayah_place_exceptions.json)."""
+    data = json.loads(PLACE_EXCEPTIONS.read_text(encoding="utf-8"))
+    out = {}
+    for s, a, place in data["items"]:
+        if place not in PLACES:
+            sys.exit(f"ayah_place_exceptions: bad place {place!r} at {s}:{a}")
+        if (s, a) not in key_to_id:
+            sys.exit(f"ayah_place_exceptions: no ayah {s}:{a}")
+        if place == surah_type[s]:
+            sys.exit(f"ayah_place_exceptions: {s}:{a} is already {place}")
+        out[key_to_id[(s, a)]] = place
+    return out
+
+
+def check_revelation_order(order: dict[int, int]) -> None:
+    """Every surah 1..114 needs a distinct revelation rank 1..114."""
+    if sorted(order) != list(range(1, 115)) or sorted(order.values()) != list(range(1, 115)):
+        sys.exit("qul.db chapters.revelation_order is not a permutation of 1..114")
 
 
 def load_qul(key_to_id: dict) -> dict:
@@ -297,10 +362,12 @@ def load_qul(key_to_id: dict) -> dict:
         k = (min(a, b), max(a, b))
         if k not in best or score > best[k][0]:
             best[k] = (score, words)
+    revelation = dict(qul.execute("SELECT surah, revelation_order FROM chapters"))
+    check_revelation_order(revelation)
     qul.close()
     pairs = sorted([a, b, sc, w] for (a, b), (sc, w) in best.items())
     return {"ruku": divisions["meta_ruku"], "manzil": divisions["meta_manzil"],
-            "similar": pairs}
+            "similar": pairs, "revelation": revelation}
 
 
 def main() -> None:
@@ -327,6 +394,8 @@ def main() -> None:
     ).fetchall()
     key_to_id = {(r["surah_id"], r["number_in_surah"]): r["id"] for r in ayahs}
     qul = load_qul(key_to_id)
+    surah_type = {r["id"]: r["type"] for r in db.execute("SELECT id, type FROM surahs")}
+    place_of = load_place_exceptions(key_to_id, surah_type)
     verses = []
     # per-surah aggregates
     agg = {}
@@ -349,6 +418,8 @@ def main() -> None:
             "manzil": qul["manzil"][r["id"]], "page": r["page"],
             "sajda": r["sajda"], "w": w, "l": l, "ar": text,
         })
+        if r["id"] in place_of:
+            verses[-1]["p"] = place_of[r["id"]]
         a = agg.setdefault(r["surah_id"], {
             "ayahCount": 0, "wordCount": 0, "letterCount": 0, "sajdaCount": 0,
             "pages": set(), "juzs": set(),
@@ -384,6 +455,8 @@ def main() -> None:
             "firstPage": min(a["pages"]), "lastPage": max(a["pages"]),
             "firstJuz": min(a["juzs"]), "lastJuz": max(a["juzs"]),
             "hasBismillah": r["id"] in has_basmala,
+            "revelationOrder": qul["revelation"][r["id"]],
+            "exceptions": sum(1 for v in verses if v["s"] == r["id"] and "p" in v),
         })
     write_json(OUT / "surahs.json", surahs)
     print(f"surahs.json: {len(surahs)} surahs")
@@ -596,6 +669,12 @@ def main() -> None:
             "letters": sum(v["l"] for v in verses),
         },
         "classification": classification,
+        # Ayah-level split using the per-ayah place exceptions (Hijra counted
+        # separately); "classification" stays the surah-level count.
+        "classificationByAyah": {
+            p: sum(1 for v in verses if v.get("p", surah_type[v["s"]]) == p)
+            for p in PLACES
+        },
         "juzs": juzs, "hizbs": hizbs,
         "countMethod": "words=whitespace split; letters=Arabic letters after "
                        "stripping diacritics",
