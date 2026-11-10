@@ -38,6 +38,13 @@ exists, the script gunzips it automatically) **and** `../reference/quran-refs/qu
 - **Tests** use jsdom + RTL (`vitest.config.ts`, `src/test/setup.ts`).
   `@tanstack/react-virtual` is mocked in tests (jsdom has 0-height container →
   0 virtual rows).
+- **Android (Capacitor 8)**: `npx cap sync android` copies `dist/` into
+  `android/app/src/main/assets/public/` (gitignored). `.github/workflows/android.yml`
+  builds it; `versionCode` = run number and release signing both come from env
+  vars in `android/app/build.gradle`. In the app, `<a download>` does nothing, so
+  `lib/export.ts` routes PNG/CSV through `@capacitor/filesystem` + `@capacitor/share`
+  when `Capacitor.isNativePlatform()`. `core.fileMode` is false here: keep
+  `android/gradlew` at mode 100755 in the index (`git update-index --chmod=+x`).
 
 ## Architecture: two stages, no backend
 

@@ -55,6 +55,20 @@ npm test             # vitest unit tests for the data utilities
 npm run build        # typecheck + production build to dist/
 ```
 
+## Android app
+
+The same build ships as an Android app via [Capacitor](https://capacitorjs.com/)
+(`capacitor.config.ts`, `android/`), with all data bundled so it works offline.
+
+- **Pull requests** build a signed APK and attach it to the Actions run.
+- **Pushes to `main`** build it and publish a GitHub Release `v1.0.<run>`.
+- On the tablet, [Obtainium](https://github.com/ImranR98/Obtainium) watches this
+  repo's releases and installs updates.
+
+One-time setup: the signing key lives in `~/.config/quran-viz-android/` (back it
+up — a lost key means uninstalling and reinstalling the app); run
+`scripts/android-set-secrets.sh` to copy it into the repo's Actions secrets.
+
 ## Stack
 
 Vite · React 18 · TypeScript · Tailwind CSS · Recharts · lucide-react.
