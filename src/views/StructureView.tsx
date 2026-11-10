@@ -3,6 +3,7 @@ import { persisted, usePersistentState } from "../lib/usePersistentState";
 import type { QuranData } from "../types/quran";
 import { surahMapOf } from "../data/selectors";
 import { useTheme } from "../theme/ThemeContext";
+import { useI18n } from "../i18n/I18nContext";
 import { Card, SectionTitle, SegmentedControl } from "../components/ui";
 import type { ChartContext, ReaderTarget } from "../components/charts/common";
 import { StructureOverview } from "../components/charts/StructureOverview";
@@ -24,30 +25,16 @@ type Tab =
   | "sajda"
   | "similar";
 
-const SUBTITLES: Record<Tab, string> = {
-  overview: "Totals and Meccan / Medinan split",
-  pages:
-    "Each cell is one of the 604 Mushaf pages; intensity = words. Click to read the page",
-  manzil:
-    "Words per manzil, the seven divisions for reciting the Qur'an over a week. Click to read the manzil",
-  juz: "Words per juz (1–30). Click a bar to read from the start of that juz",
-  hizb: "Words per hizb (1–60), coloured by parent juz. Click to read the hizb",
-  ruku: "Words per ruku' (1–558), alternating colour by surah. Click to read the ruku'. Source: QUL",
-  sajda: "The 15 prostration verses. Click to jump to the verse",
-  similar:
-    "Arcs join verses with overlapping wording, across the whole mushaf. Click an arc to read it",
-};
-
-const TITLES: Record<Tab, string> = {
-  overview: "Structure overview",
-  pages: "Mushaf page map",
-  manzil: "Manzil breakdown",
-  juz: "Juz breakdown",
-  hizb: "Hizb breakdown",
-  ruku: "Ruku' breakdown",
-  sajda: "Sajda markers",
-  similar: "Similar verses",
-};
+const TABS: Tab[] = [
+  "overview",
+  "pages",
+  "manzil",
+  "juz",
+  "hizb",
+  "ruku",
+  "sajda",
+  "similar",
+];
 
 export function StructureView({
   data,
@@ -57,10 +44,11 @@ export function StructureView({
   onOpen: (t: ReaderTarget) => void;
 }) {
   const theme = useTheme();
+  const { t } = useI18n();
   const [tab, setTab] = usePersistentState<Tab>(
     "qv.structure.tab",
     "overview",
-    persisted.oneOf(Object.keys(TITLES) as Tab[]),
+    persisted.oneOf(TABS),
   );
   const surahMap = useMemo(() => surahMapOf(data.surahs), [data.surahs]);
   const similar = useSimilar(tab === "similar");
@@ -80,22 +68,13 @@ export function StructureView({
   return (
     <Card className="p-4">
       <SectionTitle
-        title={TITLES[tab]}
-        subtitle={SUBTITLES[tab]}
+        title={t.structure.titles[tab]}
+        subtitle={t.structure.subtitles[tab]}
         right={
           <SegmentedControl<Tab>
             value={tab}
             onChange={setTab}
-            options={[
-              { value: "overview", label: "Overview" },
-              { value: "pages", label: "Pages" },
-              { value: "manzil", label: "Manzil" },
-              { value: "juz", label: "Juz" },
-              { value: "hizb", label: "Hizb" },
-              { value: "ruku", label: "Ruku'" },
-              { value: "sajda", label: "Sajda" },
-              { value: "similar", label: "Similar" },
-            ]}
+            options={TABS.map((k) => ({ value: k, label: t.structure.tabs[k] }))}
           />
         }
       />
@@ -126,14 +105,14 @@ export function StructureView({
             />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-slate-400">
-              {similar.error ? `Failed to load: ${similar.error}` : "Loading…"}
+              {similar.error ? t.common.failedToLoad(similar.error) : t.common.loading}
               {similar.error && (
                 <button
                   type="button"
                   onClick={similar.retry}
                   className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300"
                 >
-                  Retry
+                  {t.common.retry}
                 </button>
               )}
             </div>

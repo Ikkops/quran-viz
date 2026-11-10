@@ -45,7 +45,17 @@ export const LANG_NAMES: Record<string, string> = {
   bg: "Bulgarian",
 };
 
-export function langName(code: string): string {
+/** Language name for an edition code; with `locale`, localized through
+ *  `Intl.DisplayNames` (falls back to the English table). */
+export function langName(code: string, locale?: string): string {
+  if (locale && !locale.startsWith("en")) {
+    try {
+      const name = new Intl.DisplayNames([locale], { type: "language" }).of(code);
+      if (name && name !== code) return name.charAt(0).toUpperCase() + name.slice(1);
+    } catch {
+      /* unsupported code or runtime: use the table */
+    }
+  }
   return LANG_NAMES[code] ?? code.toUpperCase();
 }
 
@@ -59,8 +69,14 @@ export interface EditionGroup {
   editions: Edition[];
 }
 
-/** Groups translation editions by language for grouped selects. */
-export function groupTranslations(index: EditionsIndex): EditionGroup[] {
+/** Groups translation editions by language for grouped selects. `locale`
+ *  localizes the group labels; `first` (a language code) is listed first,
+ *  then English, then the rest alphabetically. */
+export function groupTranslations(
+  index: EditionsIndex,
+  locale?: string,
+  first = "en",
+): EditionGroup[] {
   const byLang = new Map<string, Edition[]>();
   for (const e of index.editions) {
     if (e.type !== "translation") continue;
@@ -71,14 +87,15 @@ export function groupTranslations(index: EditionsIndex): EditionGroup[] {
   return [...byLang.entries()]
     .map(([language, editions]) => ({
       language,
-      label: langName(language),
+      label: langName(language, locale),
       editions: editions.sort((a, b) => a.englishName.localeCompare(b.englishName)),
     }))
     .sort((a, b) => {
-      // English first, then alphabetical by language label.
-      if (a.language === "en") return -1;
-      if (b.language === "en") return 1;
-      return a.label.localeCompare(b.label);
+      for (const lead of [first, "en"]) {
+        if (a.language === lead) return -1;
+        if (b.language === lead) return 1;
+      }
+      return a.label.localeCompare(b.label, locale);
     });
 }
 

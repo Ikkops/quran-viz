@@ -7,6 +7,7 @@ import { useTranslations } from "../../data/useTranslation";
 import { editionByIdentifier, isRtl, TRANSLITERATION_EDITION } from "../../data/editions";
 import { Badge, Card, Select, Toggle } from "../ui";
 import { EditionSelect } from "./EditionSelect";
+import { useI18n } from "../../i18n/I18nContext";
 
 const BASMALA = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
 
@@ -21,6 +22,8 @@ export function TranslationCompare({
   editions: EditionsIndex;
   primary: string;
 }) {
+  const i18n = useI18n();
+  const { t } = i18n;
   const known = useMemo(
     () => new Set(editions.editions.map((e) => e.identifier)),
     [editions],
@@ -76,14 +79,14 @@ export function TranslationCompare({
     <div className="flex h-full flex-col gap-4">
       <Card className="flex flex-wrap items-end gap-4 p-4">
         <Select
-          label="Surah"
+          label={t.common.surah}
           value={surahId}
           onChange={(e) => setSurahId(Number(e.target.value))}
           className="min-w-[200px]"
         >
           {surahs.map((s) => (
             <option key={s.id} value={s.id}>
-              {s.number}. {s.nameEn} — {s.meaning}
+              {s.number}. {s.nameEn} — {i18n.meaning(s)}
             </option>
           ))}
         </Select>
@@ -92,20 +95,20 @@ export function TranslationCompare({
             index={editions}
             value={adding}
             onChange={setAdding}
-            label="Add translation"
+            label={t.compare.addTranslation}
           />
           <button
             onClick={addEdition}
             className="mb-[1px] inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium text-white"
             style={{ backgroundColor: primary }}
           >
-            <Plus size={15} /> Add
+            <Plus size={15} /> {t.compare.add}
           </button>
         </div>
         <Toggle
           checked={showTranslit}
           onChange={setShowTranslit}
-          label="Transliteration"
+          label={t.compare.transliteration}
         />
       </Card>
 

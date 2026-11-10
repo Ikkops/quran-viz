@@ -4,6 +4,7 @@ import { topRootsInScope } from "../../data/roots";
 import { HorizontalBarChart } from "./HorizontalBarChart";
 import { TooltipShell } from "../tooltips";
 import { Slider } from "../ui";
+import { useI18n } from "../../i18n/I18nContext";
 
 interface RootRow extends Record<string, unknown> {
   label: string;
@@ -20,6 +21,7 @@ function RootTooltip({
   active?: boolean;
   payload?: { payload: RootRow }[];
 }) {
+  const { t, n } = useI18n();
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   return (
@@ -32,9 +34,9 @@ function RootTooltip({
       </div>
       {d.gloss && <p className="mb-1 text-[11px] italic text-slate-400">{d.gloss}</p>}
       <div className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">
-        {d.count.toLocaleString()} occurrences
+        {t.charts.occurrences(n(d.count))}
       </div>
-      <p className="mt-1 text-[11px] text-slate-400">Click to explore this root</p>
+      <p className="mt-1 text-[11px] text-slate-400">{t.charts.exploreRoot}</p>
     </TooltipShell>
   );
 }
@@ -56,6 +58,7 @@ export function RootChart({
   dark: boolean;
   onPick?: (bw: string) => void;
 }) {
+  const { t } = useI18n();
   const [limit, setLimit] = useState(20);
   const scope = useMemo(() => new Set(verses.map((v) => v.id)), [verses]);
   const rows: RootRow[] = useMemo(
@@ -74,7 +77,7 @@ export function RootChart({
     <div className="flex flex-col gap-3">
       <div className="w-56">
         <Slider
-          label="Roots shown"
+          label={t.charts.rootsShown}
           min={10}
           max={40}
           step={5}

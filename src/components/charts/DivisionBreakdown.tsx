@@ -11,10 +11,9 @@ import {
 import type { Surah, Verse } from "../../types/quran";
 import { TooltipRow, TooltipShell } from "../tooltips";
 import { axisColor, type ChartContext } from "./common";
+import { useI18n } from "../../i18n/I18nContext";
 
 export type Division = "manzil" | "ruku";
-
-const LABEL: Record<Division, string> = { manzil: "Manzil", ruku: "Ruku'" };
 
 interface Row {
   n: number;
@@ -35,6 +34,7 @@ function DivisionTooltip({
   division: Division;
   surahMap: Map<number, Surah>;
 }) {
+  const { t, n } = useI18n();
   if (!active || !payload?.length) return null;
   const r = payload[0].payload;
   const from = surahMap.get(r.first.s)?.nameEn ?? r.first.s;
@@ -42,14 +42,14 @@ function DivisionTooltip({
   return (
     <TooltipShell>
       <div className="mb-1 font-semibold text-slate-800 dark:text-slate-100">
-        {LABEL[division]} {r.n}
+        {t.scope[division]} {r.n}
       </div>
       <p className="mb-1.5 text-[11px] text-slate-400">
         {from} {r.first.s}:{r.first.a} – {r.first.s === r.last.s ? "" : `${to} `}
         {r.last.s}:{r.last.a}
       </p>
-      <TooltipRow label="Verses" value={r.verses} />
-      <TooltipRow label="Words" value={r.words.toLocaleString()} />
+      <TooltipRow label={t.common.verses} value={r.verses} />
+      <TooltipRow label={t.common.words} value={n(r.words)} />
     </TooltipShell>
   );
 }
@@ -67,6 +67,7 @@ export function DivisionBreakdown({
   division: Division;
   ctx: ChartContext;
 }) {
+  const { t } = useI18n();
   const rows = useMemo(() => {
     const acc = new Map<number, Row>();
     for (const v of verses) {
@@ -96,7 +97,7 @@ export function DivisionBreakdown({
           tick={{ fontSize: 10, fill: axisColor(ctx.dark) }}
           interval={many ? 49 : 0}
           label={{
-            value: LABEL[division],
+            value: t.scope[division],
             position: "insideBottom",
             offset: -12,
             fontSize: 11,
@@ -110,7 +111,7 @@ export function DivisionBreakdown({
         />
         <Bar
           dataKey="words"
-          name="Words"
+          name={t.common.words}
           radius={many ? 0 : [3, 3, 0, 0]}
           cursor="pointer"
           isAnimationActive={false}

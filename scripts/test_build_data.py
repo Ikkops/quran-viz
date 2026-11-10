@@ -122,3 +122,46 @@ def test_place_exceptions_file_is_consistent():
     assert places[key_to_id[(2, 281)]] == "Meccan"
     assert places[key_to_id[(28, 85)]] == "Hijra"
     assert key_to_id[(22, 56)] not in places  # corrected: header says 52-55
+
+
+def _chrono_fixture():
+    import json
+    data = json.loads(bd.CHRONOLOGY.read_text(encoding="utf-8"))
+    medinan = {2, 3, 4, 5, 8, 9, 13, 22, 24, 33, 47, 48, 49, 55, 57, 58, 59, 60,
+               61, 62, 63, 64, 65, 66, 76, 98, 99, 110}
+    surah_type = {s: "Medinan" if s in medinan else "Meccan" for s in range(1, 115)}
+    key_to_id = {(s, a): s * 1000 + a for s in range(1, 115) for a in range(1, 300)}
+    return data, surah_type, key_to_id
+
+
+def test_chronology_file_is_consistent():
+    data, surah_type, key_to_id = _chrono_fixture()
+    # Treat every ayah as covered: the asbab-coverage rule is tested below.
+    bd.check_chronology(data, surah_type, key_to_id, set(key_to_id.values()))
+    assert data["surahs"]["8"]["period"] == "y2"
+    assert data["surahs"]["2"]["span"] == [1, 10]
+
+
+def test_chronology_rejects_bad_entries():
+    import copy
+    import pytest
+    data, surah_type, key_to_id = _chrono_fixture()
+    every = set(key_to_id.values())
+    cases = []
+    d = copy.deepcopy(data); del d["surahs"]["114"]; cases.append((d, every))
+    d = copy.deepcopy(data); d["surahs"]["1"]["period"] = "x9"; cases.append((d, every))
+    d = copy.deepcopy(data); d["surahs"]["96"]["event"] = 99; cases.append((d, every))
+    d = copy.deepcopy(data); d["surahs"]["1"]["period"] = "y3"; cases.append((d, every))
+    d = copy.deepcopy(data); d["surahs"]["8"]["refs"] = ["7:1"]; cases.append((d, every))
+    cases.append((data, set()))  # basis 'asbab' refs not covered
+    for d, covered in cases:
+        with pytest.raises(SystemExit):
+            bd.check_chronology(d, surah_type, key_to_id, covered)
+
+
+def test_chronology_type_note_allows_phase_mismatch():
+    import copy
+    data, surah_type, key_to_id = _chrono_fixture()
+    d = copy.deepcopy(data)
+    d["surahs"]["1"].update(period="y3", typeNote="test")
+    bd.check_chronology(d, surah_type, key_to_id, set(key_to_id.values()))

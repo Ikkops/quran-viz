@@ -2,6 +2,7 @@ import type { AyahPlace, Surah } from "../../types/quran";
 import type { Palette } from "../../theme/palettes";
 import type { PlaceException } from "../../data/selectors";
 import { placeColor } from "../charts/common";
+import { useI18n } from "../../i18n/I18nContext";
 
 /** Thin strip across the surah's ayahs, marking ayahs whose traditional place
  *  differs from the surah's (e.g. 7:163–170 Medinan in a Meccan surah). */
@@ -36,11 +37,11 @@ export function PlaceStrip({
   );
 }
 
-function summarize(exceptions: PlaceException[]): string {
+function summarize(exceptions: PlaceException[], i: ReturnType<typeof useI18n>): string {
   const by = new Map<AyahPlace, number[]>();
   for (const e of exceptions) by.set(e.p, [...(by.get(e.p) ?? []), e.a]);
   return [...by.entries()]
-    .map(([p, as]) => `${as.length} ${p === "Hijra" ? "during the Hijra" : p}`)
+    .map(([p, as]) => `${as.length} ${p === "Hijra" ? i.t.card.duringHijra : i.place(p)}`)
     .join(" · ");
 }
 
@@ -57,8 +58,10 @@ export function SurahCard({
   exceptions: PlaceException[];
   palette: Palette;
   onOpen: () => void;
-  extra?: string;
+  extra?: string | string[];
 }) {
+  const i = useI18n();
+  const { t, n } = i;
   const color = placeColor(surah.type, palette);
   const pages =
     surah.firstPage === surah.lastPage
@@ -86,7 +89,7 @@ export function SurahCard({
             {surah.nameEn}
           </div>
           <div className="truncate text-xs text-slate-500 dark:text-slate-400">
-            {surah.meaning}
+            {i.meaning(surah)}
           </div>
         </div>
         <span className="font-arabic text-lg leading-tight text-slate-700 dark:text-slate-200">
@@ -98,48 +101,51 @@ export function SurahCard({
           className="rounded-full px-1.5 py-0.5 font-medium"
           style={{ backgroundColor: `${color}22`, color }}
         >
-          {surah.type}
+          {i.place(surah.type)}
         </span>
         <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
-          Revealed #{surah.revelationOrder}
+          {t.card.revealed(surah.revelationOrder)}
         </span>
-        {extra && (
-          <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-slate-600 dark:bg-slate-700 dark:text-slate-300">
-            {extra}
+        {(Array.isArray(extra) ? extra : extra ? [extra] : []).map((x) => (
+          <span
+            key={x}
+            className="rounded-full bg-slate-100 px-1.5 py-0.5 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+          >
+            {x}
           </span>
-        )}
+        ))}
       </div>
       <div className="grid grid-cols-4 gap-1 text-center text-[11px] text-slate-500 dark:text-slate-400">
         <div>
           <div className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">
             {surah.ayahCount}
           </div>
-          ayahs
+          {t.browse.ayahs}
         </div>
         <div>
           <div className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">
-            {surah.wordCount.toLocaleString()}
+            {n(surah.wordCount)}
           </div>
-          words
+          {t.browse.words}
         </div>
         <div>
           <div className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">
             {pages.replace(/^pp?\. /, "")}
           </div>
-          {pages.startsWith("pp") ? "pages" : "page"}
+          {pages.startsWith("pp") ? t.browse.pages : t.browse.page}
         </div>
         <div>
           <div className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">
             {juz.replace("Juz ", "")}
           </div>
-          juz
+          {t.browse.juz}
         </div>
       </div>
       <PlaceStrip surah={surah} exceptions={exceptions} palette={palette} />
       <div className="min-h-[14px] text-[10px] text-slate-400">
         {exceptions.length > 0
-          ? `Exception ayahs: ${summarize(exceptions)}`
-          : `All ayahs ${surah.type}`}
+          ? t.card.exceptions(summarize(exceptions, i))
+          : t.card.allAyahs(i.place(surah.type))}
       </div>
     </button>
   );

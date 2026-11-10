@@ -14,6 +14,7 @@ import { cx, SegmentedControl, Select } from "../ui";
 import { TooltipRow, TooltipShell } from "../tooltips";
 import { HorizontalBarChart } from "./HorizontalBarChart";
 import { axisColor, type ChartContext } from "./common";
+import { useI18n } from "../../i18n/I18nContext";
 
 type Mode = "root" | "surah";
 type Measure = "count" | "density";
@@ -34,6 +35,7 @@ function SurahRowTooltip({
   active?: boolean;
   payload?: { payload: SurahRow }[];
 }) {
+  const { t } = useI18n();
   if (!active || !payload?.length) return null;
   const r = payload[0].payload;
   return (
@@ -41,8 +43,8 @@ function SurahRowTooltip({
       <div className="mb-1 font-semibold text-slate-800 dark:text-slate-100">
         {r.s}. {r.name}
       </div>
-      <TooltipRow label="Occurrences" value={r.count} />
-      <TooltipRow label="Per 1,000 words" value={r.density.toFixed(1)} />
+      <TooltipRow label={t.charts.occurrencesLabel} value={r.count} />
+      <TooltipRow label={t.charts.perK} value={r.density.toFixed(1)} />
     </TooltipShell>
   );
 }
@@ -61,6 +63,7 @@ function RootRowTooltip({
   active?: boolean;
   payload?: { payload: RootRow }[];
 }) {
+  const { t } = useI18n();
   if (!active || !payload?.length) return null;
   const r = payload[0].payload;
   return (
@@ -72,8 +75,8 @@ function RootRowTooltip({
         <span className="text-[11px] text-slate-400">({r.bw})</span>
       </div>
       {r.gloss && <p className="mb-1 text-[11px] italic text-slate-400">{r.gloss}</p>}
-      <TooltipRow label="In this surah" value={r.count} />
-      <p className="mt-1 text-[11px] text-slate-400">Click to see it across all surahs</p>
+      <TooltipRow label={t.charts.inSurah} value={r.count} />
+      <p className="mt-1 text-[11px] text-slate-400">{t.charts.acrossSurahs}</p>
     </TooltipShell>
   );
 }
@@ -99,6 +102,7 @@ export function RootExplorer({
   selectedBw: string;
   onSelectBw: (bw: string) => void;
 }) {
+  const { t, n } = useI18n();
   const [mode, setMode] = useState<Mode>("root");
   const [measure, setMeasure] = useState<Measure>("count");
   const [query, setQuery] = useState("");
@@ -163,10 +167,10 @@ export function RootExplorer({
         <SegmentedControl<Mode>
           value={mode}
           onChange={setMode}
-          ariaLabel="Explore by"
+          ariaLabel={t.charts.exploreBy}
           options={[
-            { value: "root", label: "By root" },
-            { value: "surah", label: "By surah" },
+            { value: "root", label: t.charts.byRoot },
+            { value: "surah", label: t.charts.bySurah },
           ]}
         />
         {mode === "root" ? (
@@ -174,17 +178,17 @@ export function RootExplorer({
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Find a root: كتب, ktb, write…"
-              aria-label="Find a root"
+              placeholder={t.charts.findRoot}
+              aria-label={t.charts.findRootAria}
               className="w-44 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
             />
             <SegmentedControl<Measure>
               value={measure}
               onChange={setMeasure}
-              ariaLabel="Measure"
+              ariaLabel={t.charts.measure}
               options={[
-                { value: "count", label: "Count" },
-                { value: "density", label: "Per 1k words" },
+                { value: "count", label: t.charts.count },
+                { value: "density", label: t.charts.perKShort },
               ]}
             />
           </>
@@ -193,7 +197,7 @@ export function RootExplorer({
             <Select
               value={activeSurah}
               onChange={(e) => setSurah(Number(e.target.value))}
-              aria-label="Surah"
+              aria-label={t.common.surah}
             >
               {surahIds.map((s) => (
                 <option key={s} value={s}>
@@ -212,7 +216,7 @@ export function RootExplorer({
               <button
                 key={r.bw}
                 onClick={() => setSelectedBw(r.bw)}
-                title={`${r.bw} · ${r.gloss} · ${r.v.length.toLocaleString()} occurrences`}
+                title={`${r.bw} · ${r.gloss} · ${t.charts.occurrences(n(r.v.length))}`}
                 className={cx(
                   "rounded-full border px-2.5 py-0.5 font-arabic text-base transition",
                   r.bw === selected.bw
@@ -227,7 +231,7 @@ export function RootExplorer({
               </button>
             ))}
             {found.length === 0 && (
-              <span className="text-sm text-slate-400">No root matches “{query}”.</span>
+              <span className="text-sm text-slate-400">{t.charts.noRoot(query)}</span>
             )}
           </div>
           <p className="text-sm text-slate-600 dark:text-slate-300">
@@ -238,8 +242,7 @@ export function RootExplorer({
             {selected.gloss && (
               <span className="italic text-slate-400"> “{selected.gloss}”</span>
             )}{" "}
-            — {total.toLocaleString()} occurrences in {inSurahs} of {surahIds.length}{" "}
-            surahs. Click a bar to read the first one.
+            {t.charts.rootSummary(n(total), inSurahs, surahIds.length)}
           </p>
           <div className="h-[280px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -252,7 +255,7 @@ export function RootExplorer({
                   tick={{ fontSize: 10, fill: ac }}
                   interval={surahRows.length > 40 ? 9 : 0}
                   label={{
-                    value: "Surah",
+                    value: t.common.surah,
                     position: "insideBottom",
                     offset: -12,
                     fontSize: 11,

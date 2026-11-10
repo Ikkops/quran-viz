@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { SurahDatum } from "../../data/selectors";
+import { useI18n } from "../../i18n/I18nContext";
 
 function Shell({ children }: { children: ReactNode }) {
   return (
@@ -44,17 +45,25 @@ const METRIC_SPLIT = {
   ayahCount: ["v", "verses"],
 } as const;
 
+type I18nT = ReturnType<typeof useI18n>;
+
 /** "incl. 132 in Medinan ayahs" lines for the stacked bar metric. */
-function exceptionNote(d: SurahDatum, metric: keyof typeof METRIC_SPLIT): string | null {
-  const [key, unit] = METRIC_SPLIT[metric];
+function exceptionNote(
+  d: SurahDatum,
+  metric: keyof typeof METRIC_SPLIT,
+  i: I18nT,
+): string | null {
+  const [key, unitKey] = METRIC_SPLIT[metric];
+  const unit = i.t.tooltip.units[unitKey];
   const sp = d.split[key];
   const parts = (["Meccan", "Medinan", "Hijra"] as const)
     .filter((p) => p !== d.type && sp[p] > 0)
-    .map(
-      (p) =>
-        `${sp[p].toLocaleString()} ${unit} in ${p === "Hijra" ? "ayahs revealed during the Hijra" : `${p} ayahs`}`,
+    .map((p) =>
+      p === "Hijra"
+        ? i.t.tooltip.inHijra(i.n(sp[p]), unit)
+        : i.t.tooltip.inPlace(i.n(sp[p]), unit, i.place(p)),
     );
-  return parts.length ? `incl. ${parts.join(", ")}` : null;
+  return parts.length ? i.t.tooltip.incl(parts.join(", ")) : null;
 }
 
 export function SurahTooltip({
@@ -62,11 +71,13 @@ export function SurahTooltip({
   payload,
   metric,
 }: TooltipProps & { metric?: string }) {
+  const i = useI18n();
+  const { t, n } = i;
   if (!active || !payload?.length) return null;
   const d = payload[0].payload;
   const note =
     metric && metric in METRIC_SPLIT
-      ? exceptionNote(d, metric as keyof typeof METRIC_SPLIT)
+      ? exceptionNote(d, metric as keyof typeof METRIC_SPLIT, i)
       : null;
   return (
     <Shell>
@@ -78,20 +89,26 @@ export function SurahTooltip({
           {d.nameAr}
         </span>
       </div>
-      <p className="mb-1.5 text-[11px] italic text-slate-400">{d.meaning}</p>
-      <Row label="Type" value={d.type} />
-      <Row label="Revealed" value={`#${d.revelationOrder}`} />
-      <Row label="Verses" value={d.ayahCount} />
-      <Row label="Words" value={d.wordCount.toLocaleString()} />
-      <Row label="Letters" value={d.letterCount.toLocaleString()} />
-      <Row label="Avg words/verse" value={d.avgWords.toFixed(1)} />
+      <p className="mb-1.5 text-[11px] italic text-slate-400">{i.meaning(d)}</p>
+      <Row label={t.tooltip.type} value={i.place(d.type)} />
+      <Row label={t.tooltip.revealed} value={`#${d.revelationOrder}`} />
+      <Row label={t.common.verses} value={d.ayahCount} />
+      <Row label={t.common.words} value={n(d.wordCount)} />
+      <Row label={t.common.letters} value={n(d.letterCount)} />
+      <Row
+        label={t.tooltip.avgWords}
+        value={d.avgWords.toLocaleString(t.locale, {
+          maximumFractionDigits: 1,
+          minimumFractionDigits: 1,
+        })}
+      />
       {note && (
         <p className="mt-1 max-w-56 text-[11px] text-slate-500 dark:text-slate-400">
           {note}
         </p>
       )}
       <p className="mt-1.5 border-t border-slate-100 pt-1 text-[11px] text-slate-400 dark:border-slate-700">
-        Opening: {d.category}
+        {t.tooltip.opening(i.category(d.category))}
       </p>
     </Shell>
   );
@@ -108,6 +125,7 @@ export function GenericTooltip({
   label?: string | number;
   unit?: string;
 }) {
+  const { n } = useI18n();
   if (!active || !payload?.length) return null;
   return (
     <Shell>
@@ -120,7 +138,7 @@ export function GenericTooltip({
         <Row
           key={i}
           label={p.name}
-          value={`${p.value.toLocaleString()}${unit ? ` ${unit}` : ""}`}
+          value={`${n(p.value)}${unit ? ` ${unit}` : ""}`}
           color={p.color}
         />
       ))}

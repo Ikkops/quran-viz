@@ -9,6 +9,7 @@ import { usePersistentState } from "../../lib/usePersistentState";
 import type { Palette } from "../../theme/palettes";
 import { surahColorById, type ColorMode, type ReaderTarget } from "../charts/common";
 import { Badge, Modal, ModalHeader, Toggle } from "../ui";
+import { useI18n } from "../../i18n/I18nContext";
 
 const MAX_RESULTS = 200;
 const MARK = "rounded bg-amber-200/70 px-0.5 dark:bg-amber-500/30";
@@ -69,6 +70,8 @@ export function GlobalSearchModal({
   /** Translation searched when "Also search translation" is on. */
   editionId?: string;
 }) {
+  const { t, n } = useI18n();
+  const surahWord = t.common.surah;
   const [query, setQuery] = useState(initialQuery);
   const [withTranslation, setWithTranslation] = usePersistentState(
     "qv.search.translation",
@@ -100,12 +103,12 @@ export function GlobalSearchModal({
       const s = surahMap.get(v.s);
       out.push({
         verse: v,
-        surahName: s ? `${s.number}. ${s.nameEn}` : `Surah ${v.s}`,
+        surahName: s ? `${s.number}. ${s.nameEn}` : `${surahWord} ${v.s}`,
         translation: inTranslation ? t : undefined,
       });
     }
     return out;
-  }, [q, qKey, keys, verses, surahMap, withTranslation, translation.data]);
+  }, [q, qKey, keys, verses, surahMap, withTranslation, translation.data, surahWord]);
 
   const openVerse = (v: Verse) => {
     onOpenReader({ scope: "surah", value: v.s, anchor: v.id });
@@ -117,13 +120,8 @@ export function GlobalSearchModal({
   };
 
   return (
-    <Modal
-      open={open}
-      onClose={onClose}
-      className="max-w-2xl"
-      ariaLabel="Search the Quran"
-    >
-      <ModalHeader title="Search the Quran" onClose={onClose} />
+    <Modal open={open} onClose={onClose} className="max-w-2xl" ariaLabel={t.search.title}>
+      <ModalHeader title={t.search.title} onClose={onClose} />
       <div className="border-b border-slate-200 px-5 py-3 dark:border-slate-700">
         <div className="relative">
           <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
@@ -137,14 +135,14 @@ export function GlobalSearchModal({
                 onEnter();
               }
             }}
-            placeholder="Arabic (any spelling), 2:255, or a translation word…"
-            aria-label="Search query"
+            placeholder={t.search.placeholder}
+            aria-label={t.search.queryAria}
             className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-9 text-sm dark:border-slate-700 dark:bg-slate-800"
           />
           {query && (
             <button
               onClick={() => setQuery("")}
-              aria-label="Clear search"
+              aria-label={t.search.clear}
               className="absolute right-2 top-2 rounded p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
             >
               <X size={14} />
@@ -154,16 +152,16 @@ export function GlobalSearchModal({
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <p className="text-xs text-slate-400">
             {q.length >= 2
-              ? `${results.length}${results.length >= MAX_RESULTS ? "+" : ""} matches${
-                  withTranslation && translation.loading ? " · loading translation…" : ""
+              ? `${t.search.matches(`${n(results.length)}${results.length >= MAX_RESULTS ? "+" : ""}`)}${
+                  withTranslation && translation.loading ? t.search.loadingTr : ""
                 }`
-              : "Type at least 2 characters, or a reference like 2:255"}
+              : t.search.hint}
           </p>
           {editionId && (
             <Toggle
               checked={withTranslation}
               onChange={setWithTranslation}
-              label="Also search translation"
+              label={t.search.alsoTr}
             />
           )}
         </div>
@@ -175,7 +173,10 @@ export function GlobalSearchModal({
             className="mb-2 flex w-full items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
           >
             <ArrowRight size={15} />
-            Go to {refVerse.s}:{refVerse.a} · {surahMap.get(refVerse.s)?.nameEn}
+            {t.search.goTo(
+              `${refVerse.s}:${refVerse.a}`,
+              surahMap.get(refVerse.s)?.nameEn ?? "",
+            )}
             <span className="ml-auto text-xs text-slate-400">Enter</span>
           </button>
         )}
@@ -208,7 +209,7 @@ export function GlobalSearchModal({
           );
         })}
         {q.length >= 2 && results.length === 0 && !refVerse && (
-          <p className="py-8 text-center text-sm text-slate-400">No matches found.</p>
+          <p className="py-8 text-center text-sm text-slate-400">{t.search.none}</p>
         )}
       </div>
     </Modal>

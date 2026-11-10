@@ -24,6 +24,7 @@ import { useWordByWord, type GlossLang } from "../../data/useWordByWord";
 import { useThemes } from "../../data/useThemes";
 import { useAsbab } from "../../data/useAsbab";
 import { useSurahInfo, type InfoLang } from "../../data/useSurahInfo";
+import { renderInline } from "../../lib/inlineMarkdown";
 import {
   asbabByFirstAyah,
   tafsirGroupAt,
@@ -52,20 +53,7 @@ import { Badge, cx, Modal, SegmentedControl, Select, Slider, Toggle } from "../u
 import { EditionSelect } from "./EditionSelect";
 import { BookmarkList } from "./BookmarkList";
 import { setBookmarkNote, toggleBookmark, type Bookmark } from "../../lib/bookmarks";
-
-const SCOPE_LABEL: Record<ReaderScope, string> = {
-  surah: "Surah",
-  manzil: "Manzil",
-  juz: "Juz",
-  hizb: "Hizb",
-  rub: "Rub'",
-  ruku: "Ruku'",
-  page: "Page",
-};
-const SCOPE_OPTIONS: { value: ReaderScope; label: string }[] = READER_SCOPES.map((s) => ({
-  value: s,
-  label: SCOPE_LABEL[s],
-}));
+import { useI18n } from "../../i18n/I18nContext";
 
 /** The Verse field each scope is keyed by. */
 const SCOPE_FIELD: Record<ReaderScope, keyof Verse> = {
@@ -143,6 +131,10 @@ export function ReaderModal({
   bookmarks: Bookmark[];
   onBookmarks: (b: Bookmark[]) => void;
 }) {
+  const i18n = useI18n();
+  const { t, n } = i18n;
+  const SCOPE_LABEL = t.scope;
+  const SCOPE_OPTIONS = READER_SCOPES.map((s) => ({ value: s, label: t.scope[s] }));
   const [showTranslit, setShowTranslit] = usePersistentState(
     K + "translit",
     false,
@@ -194,9 +186,11 @@ export function ReaderModal({
   const [width, setWidth] = usePersistentState<number | null>(K + "width", null, WIDTH);
   const [query, setQuery] = useState("");
   // Last copy action, for the inline "Copied" / "Copy failed" note.
-  const [copied, setCopied] = useState<{ id: number; ok: boolean; what: string } | null>(
-    null,
-  );
+  const [copied, setCopied] = useState<{
+    id: number;
+    ok: boolean;
+    what: "text" | "link";
+  } | null>(null);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [editingNote, setEditingNote] = useState<number | null>(null);
   const [progress, setProgress] = useState(0);
@@ -259,12 +253,12 @@ export function ReaderModal({
 
   const boundaryLabels = (prev: Verse | null, v: Verse): string[] => {
     const out: string[] = [];
-    if (!prev || prev.manzil !== v.manzil) out.push(`Manzil ${v.manzil}`);
-    if (!prev || prev.juz !== v.juz) out.push(`Juz ${v.juz}`);
-    if (!prev || prev.hizb !== v.hizb) out.push(`Hizb ${v.hizb}`);
-    if (!prev || prev.rub !== v.rub) out.push(`Rub' ${v.rub}`);
-    if (!prev || prev.ruku !== v.ruku) out.push(`Ruku' ${v.ruku}`);
-    if (!prev || prev.page !== v.page) out.push(`Page ${v.page}`);
+    if (!prev || prev.manzil !== v.manzil) out.push(`${t.scope.manzil} ${v.manzil}`);
+    if (!prev || prev.juz !== v.juz) out.push(`${t.scope.juz} ${v.juz}`);
+    if (!prev || prev.hizb !== v.hizb) out.push(`${t.scope.hizb} ${v.hizb}`);
+    if (!prev || prev.rub !== v.rub) out.push(`${t.scope.rub} ${v.rub}`);
+    if (!prev || prev.ruku !== v.ruku) out.push(`${t.scope.ruku} ${v.ruku}`);
+    if (!prev || prev.page !== v.page) out.push(`${t.scope.page} ${v.page}`);
     return out;
   };
 
@@ -435,15 +429,21 @@ export function ReaderModal({
     );
   const subtitle =
     target.scope === "surah" && headerSurah
-      ? `${headerSurah.meaning} · ${headerSurah.type} · revealed #${headerSurah.revelationOrder} · ${headerSurah.ayahCount} verses · ${headerSurah.wordCount.toLocaleString()} words`
-      : `${scopeVerses.length} verses`;
+      ? t.reader.meta(
+          i18n.meaning(headerSurah),
+          i18n.place(headerSurah.type),
+          headerSurah.revelationOrder,
+          headerSurah.ayahCount,
+          n(headerSurah.wordCount),
+        )
+      : t.reader.nVerses(scopeVerses.length);
 
   const editionName =
     editions.editions.find((e) => e.identifier === edition)?.englishName ?? edition;
   const bookmarked = useMemo(() => new Map(bookmarks.map((b) => [b.id, b])), [bookmarks]);
 
   // Report "Copied" only once the clipboard write actually succeeded.
-  const copy = (v: Verse, text: string, what: string) => {
+  const copy = (v: Verse, text: string, what: "text" | "link") => {
     const done = (ok: boolean) => {
       setCopied({ id: v.id, ok, what });
       setTimeout(() => setCopied((c) => (c?.id === v.id ? null : c)), 1500);
@@ -458,9 +458,9 @@ export function ReaderModal({
   };
   const copyLink = (v: Verse) => copy(v, `https://quran.com/${v.s}/${v.a}`, "link");
   const copyText = (v: Verse) => {
-    const t = translation.data?.[v.id];
-    const name = surahMap.get(v.s)?.nameEn ?? `Surah ${v.s}`;
-    const text = [v.ar, t ? `${t} (${editionName})` : null, `— ${name} ${v.s}:${v.a}`]
+    const tr = translation.data?.[v.id];
+    const name = surahMap.get(v.s)?.nameEn ?? `${t.common.surah} ${v.s}`;
+    const text = [v.ar, tr ? `${tr} (${editionName})` : null, `— ${name} ${v.s}:${v.a}`]
       .filter(Boolean)
       .join("\n\n");
     copy(v, text, "text");
@@ -554,7 +554,7 @@ export function ReaderModal({
       onClose={handleClose}
       fullHeight
       className="max-w-6xl"
-      ariaLabel="Quran reader"
+      ariaLabel={t.reader.aria}
       width={width}
       onWidthChange={setWidth}
     >
@@ -572,9 +572,9 @@ export function ReaderModal({
           <div className="relative">
             <button
               onClick={() => setShowBookmarks((x) => !x)}
-              aria-label="Bookmarks"
+              aria-label={t.reader.bookmarks}
               aria-pressed={showBookmarks}
-              title={`Bookmarks (${bookmarks.length})`}
+              title={t.app.bookmarks(bookmarks.length)}
               className={cx(
                 "rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800",
                 showBookmarks &&
@@ -586,7 +586,7 @@ export function ReaderModal({
             {showBookmarks && (
               <div className="absolute right-0 top-full z-20 mt-1 max-h-[calc(60*var(--zvh))] w-80 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-lg dark:border-slate-700 dark:bg-slate-800">
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Bookmarks
+                  {t.reader.bookmarks}
                 </p>
                 <BookmarkList
                   bookmarks={bookmarks}
@@ -604,9 +604,9 @@ export function ReaderModal({
           {target.scope === "surah" && (
             <button
               onClick={() => setShowInfo((v) => !v)}
-              aria-label="About this surah"
+              aria-label={t.reader.about}
               aria-pressed={showInfo}
-              title="About this surah"
+              title={t.reader.about}
               className={cx(
                 "rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800",
                 showInfo &&
@@ -620,7 +620,7 @@ export function ReaderModal({
             <button
               ref={gearRef}
               onClick={() => setShowSettings((v) => !v)}
-              aria-label="Reader settings"
+              aria-label={t.reader.settings}
               className={cx(
                 "rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800",
                 showSettings &&
@@ -635,24 +635,24 @@ export function ReaderModal({
                 className="absolute right-0 top-full z-20 mt-1 w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-lg dark:border-slate-700 dark:bg-slate-800"
               >
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                  Display options
+                  {t.reader.display}
                 </p>
                 <div className="flex flex-col gap-2.5">
                   <Toggle
                     checked={showTranslit}
                     onChange={setShowTranslit}
-                    label="Transliteration"
+                    label={t.reader.transliteration}
                   />
                   <Toggle
                     checked={showTafsir}
                     onChange={setShowTafsir}
-                    label="Tafsir context"
+                    label={t.reader.tafsir}
                   />
                   {showTafsir && (
                     <Select
                       value={tafsirEdition}
                       onChange={(e) => setTafsirEdition(e.target.value)}
-                      label="Tafsir source"
+                      label={t.reader.tafsirSource}
                       className="ml-1"
                     >
                       {TAFSIR_EDITIONS.map((t) => (
@@ -665,7 +665,7 @@ export function ReaderModal({
                   <Toggle
                     checked={showTajweed}
                     onChange={setShowTajweed}
-                    label="Tajweed colours"
+                    label={t.reader.tajweed}
                   />
                   {showTajweed && (
                     <div className="ml-1 flex flex-wrap gap-x-2 gap-y-0.5 rounded-lg bg-slate-50 p-2 dark:bg-slate-900/60">
@@ -678,7 +678,7 @@ export function ReaderModal({
                             className="h-2.5 w-2.5 rounded-sm"
                             style={{ backgroundColor: r.color }}
                           />
-                          {r.name}
+                          {t.tajweed[r.code] ?? r.name}
                         </span>
                       ))}
                     </div>
@@ -686,34 +686,34 @@ export function ReaderModal({
                   <Toggle
                     checked={showWords}
                     onChange={setShowWords}
-                    label="Word by word"
+                    label={t.reader.wbw}
                   />
                   {showWords && (
                     <Select
                       value={glossLang}
                       onChange={(e) => setGlossLang(e.target.value as GlossLang)}
-                      label="Gloss language"
+                      label={t.reader.glossLang}
                       className="ml-1"
                     >
-                      <option value="en">English</option>
-                      <option value="id">Indonesian (QUL)</option>
+                      <option value="en">{t.reader.glossEn}</option>
+                      <option value="id">{t.reader.glossId}</option>
                     </Select>
                   )}
                   <Toggle
                     checked={showThemes}
                     onChange={setShowThemes}
-                    label="Section themes"
+                    label={t.reader.themes}
                   />
                   <Toggle
                     checked={showAsbab}
                     onChange={setShowAsbab}
-                    label="Asbab al-nuzul"
+                    label={t.reader.asbab}
                   />
 
                   <hr className="border-slate-200 dark:border-slate-700" />
 
                   <Slider
-                    label="Arabic size"
+                    label={t.reader.arabicSize}
                     min={50}
                     max={200}
                     step={5}
@@ -721,7 +721,7 @@ export function ReaderModal({
                     onChange={(e) => onArabicScale(Number(e.target.value) / 100)}
                   />
                   <Slider
-                    label="Translation size"
+                    label={t.reader.trSize}
                     min={50}
                     max={200}
                     step={5}
@@ -736,17 +736,17 @@ export function ReaderModal({
                     tafsir.error ||
                     groupedTafsir.error) && (
                     <p className="text-xs text-rose-500">
-                      Failed to load{" "}
-                      {tajweedState.error
-                        ? "tajweed"
-                        : wordByWordState.error
-                          ? "word-by-word"
-                          : themesState.error
-                            ? "section theme"
-                            : asbabState.error
-                              ? "asbab"
-                              : "tafsir"}{" "}
-                      data.
+                      {t.reader.failed(
+                        tajweedState.error
+                          ? t.reader.failedWhat.tajweed
+                          : wordByWordState.error
+                            ? t.reader.failedWhat.wbw
+                            : themesState.error
+                              ? t.reader.failedWhat.themes
+                              : asbabState.error
+                                ? t.reader.failedWhat.asbab
+                                : t.reader.failedWhat.tafsir,
+                      )}
                     </p>
                   )}
                 </div>
@@ -755,7 +755,7 @@ export function ReaderModal({
           </div>
           <button
             onClick={handleClose}
-            aria-label="Close reader"
+            aria-label={t.reader.close}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
           >
             <X size={20} />
@@ -776,12 +776,12 @@ export function ReaderModal({
         <div className="max-h-[40%] shrink-0 overflow-y-auto border-b border-slate-200 bg-slate-50/60 px-5 py-3 dark:border-slate-700 dark:bg-slate-800/40">
           <div className="mb-2 flex items-center justify-between gap-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              About this surah
+              {t.reader.about}
             </p>
             <SegmentedControl<InfoLang>
               value={infoLang}
               onChange={setInfoLang}
-              ariaLabel="Introduction language"
+              ariaLabel={t.reader.infoLang}
               options={[
                 { value: "en", label: "English" },
                 { value: "id", label: "Indonesia" },
@@ -790,14 +790,15 @@ export function ReaderModal({
           </div>
           <div className="whitespace-pre-line text-sm leading-relaxed text-slate-700 dark:text-slate-200">
             {infoState.loading
-              ? "Loading…"
+              ? t.common.loading
               : infoState.error
-                ? `Failed to load: ${infoState.error}`
-                : (infoState.data?.[target.value] ?? "No introduction available.")}
+                ? t.common.failedToLoad(infoState.error)
+                : infoState.data?.[target.value]
+                  ? renderInline(infoState.data[target.value]!)
+                  : t.reader.noInfo}
           </div>
           <p className="mt-2 text-[11px] text-slate-400">
-            Source: Quranic Universal Library (QUL), surah-info resource{" "}
-            {infoLang === "en" ? "3 (English)" : "454 (Indonesian)"}.
+            {t.reader.infoSource(infoLang === "en")}
           </p>
         </div>
       )}
@@ -818,7 +819,7 @@ export function ReaderModal({
           disabled={target.value <= 1}
           className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-30 dark:text-slate-300 dark:hover:bg-slate-800"
         >
-          <ChevronLeft size={16} /> Prev {SCOPE_LABEL[target.scope]}
+          <ChevronLeft size={16} /> {t.reader.prev(SCOPE_LABEL[target.scope])}
         </button>
         <span className="flex select-none items-center gap-1 text-xs tabular-nums text-slate-400">
           <input
@@ -837,7 +838,7 @@ export function ReaderModal({
               }
             }}
             inputMode="numeric"
-            aria-label={`Jump to ${SCOPE_LABEL[target.scope]}`}
+            aria-label={t.reader.jump(SCOPE_LABEL[target.scope])}
             className="w-12 rounded border border-slate-300 bg-white px-1 py-0.5 text-center text-xs tabular-nums text-slate-600 outline-none focus:border-slate-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
           />
           / {max}
@@ -847,7 +848,7 @@ export function ReaderModal({
           disabled={target.value >= max}
           className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 disabled:opacity-30 dark:text-slate-300 dark:hover:bg-slate-800"
         >
-          Next {SCOPE_LABEL[target.scope]} <ChevronRight size={16} />
+          {t.reader.next(SCOPE_LABEL[target.scope])} <ChevronRight size={16} />
         </button>
       </div>
 
@@ -858,7 +859,7 @@ export function ReaderModal({
             index={editions}
             value={edition}
             onChange={onEditionChange}
-            label="Translation"
+            label={t.reader.translation}
           />
         </div>
         <div className="relative">
@@ -866,8 +867,8 @@ export function ReaderModal({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search verse / number"
-            aria-label="Search verses in this view"
+            placeholder={t.reader.searchPh}
+            aria-label={t.reader.searchAria}
             className="rounded-lg border border-slate-300 bg-white py-1.5 pl-7 pr-2 text-sm outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
           />
         </div>
@@ -887,9 +888,7 @@ export function ReaderModal({
           }}
         >
           {filtered.length === 0 && (
-            <p className="py-8 text-center text-sm text-slate-400">
-              No verses match your search.
-            </p>
+            <p className="py-8 text-center text-sm text-slate-400">{t.reader.noMatch}</p>
           )}
           {rowVirtualizer.getVirtualItems().map((vi) => {
             const v = filtered[vi.index];
@@ -949,7 +948,12 @@ export function ReaderModal({
                     <span
                       title={
                         v.p
-                          ? `${v.p === "Hijra" ? "Revealed during the Hijra" : `${v.p} ayah`} in a ${surahMap.get(v.s)?.type} surah (traditional attribution)`
+                          ? t.reader.exceptionTitle(
+                              v.p === "Hijra"
+                                ? t.reader.exHijra
+                                : t.reader.exAyah(i18n.place(v.p)),
+                              i18n.place(surahMap.get(v.s)?.type ?? ""),
+                            )
                           : undefined
                       }
                     >
@@ -958,14 +962,14 @@ export function ReaderModal({
                         {v.p && <span aria-hidden>{v.p === "Hijra" ? " ⇢" : " •"}</span>}
                       </Badge>
                     </span>
-                    {v.sajda === 1 && <Badge color="#f97316">Sajda</Badge>}
+                    {v.sajda === 1 && <Badge color="#f97316">{t.reader.sajda}</Badge>}
                     {verseAsbab && (
                       <button
                         onClick={() => toggleAsbab(v.id)}
                         aria-expanded={openAsbab.has(v.id)}
                         className="rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-700 hover:bg-sky-200 dark:bg-sky-500/15 dark:text-sky-300"
                       >
-                        Asbab al-nuzul (
+                        {t.reader.asbab} (
                         {verseAsbab.reduce((n, e) => n + e.texts.length, 0)})
                       </button>
                     )}
@@ -978,16 +982,22 @@ export function ReaderModal({
                           )}
                           role="status"
                         >
-                          {copied.ok ? `Copied ${copied.what}` : "Copy failed"}
+                          {copied.ok ? t.reader.copied(copied.what) : t.reader.copyFailed}
                         </span>
                       )}
                       <button
                         onClick={() => onBookmarks(toggleBookmark(bookmarks, v.id))}
                         aria-pressed={bookmarked.has(v.id)}
                         aria-label={
-                          bookmarked.has(v.id) ? "Remove bookmark" : "Bookmark verse"
+                          bookmarked.has(v.id)
+                            ? t.reader.removeBookmark
+                            : t.reader.bookmarkVerse
                         }
-                        title={bookmarked.has(v.id) ? "Remove bookmark" : "Bookmark"}
+                        title={
+                          bookmarked.has(v.id)
+                            ? t.reader.removeBookmark
+                            : t.reader.bookmark
+                        }
                         className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
                         style={
                           bookmarked.has(v.id) ? { color: palette.primary } : undefined
@@ -1004,8 +1014,8 @@ export function ReaderModal({
                           onClick={() =>
                             setEditingNote((x) => (x === v.id ? null : v.id))
                           }
-                          aria-label="Edit bookmark note"
-                          title="Note"
+                          aria-label={t.reader.editNote}
+                          title={t.reader.note}
                           className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
                         >
                           <StickyNote size={14} />
@@ -1013,16 +1023,16 @@ export function ReaderModal({
                       )}
                       <button
                         onClick={() => copyText(v)}
-                        aria-label="Copy verse text"
-                        title="Copy Arabic + translation + reference"
+                        aria-label={t.reader.copyText}
+                        title={t.reader.copyTextTitle}
                         className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
                       >
                         <ClipboardCopy size={14} />
                       </button>
                       <button
                         onClick={() => copyLink(v)}
-                        aria-label="Copy quran.com link"
-                        title="Copy quran.com link"
+                        aria-label={t.reader.copyLink}
+                        title={t.reader.copyLink}
                         className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
                       >
                         <Link2 size={14} />
@@ -1031,7 +1041,7 @@ export function ReaderModal({
                         href={`https://quran.com/${v.s}/${v.a}`}
                         target="_blank"
                         rel="noreferrer"
-                        title="Open on quran.com"
+                        title={t.reader.openQc}
                         className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
                       >
                         <ExternalLink size={14} />
@@ -1055,15 +1065,15 @@ export function ReaderModal({
                             (e.target as HTMLTextAreaElement).blur();
                           } else if (e.key === "Escape") setEditingNote(null);
                         }}
-                        placeholder="Note for this bookmark (Enter to save)"
-                        aria-label="Bookmark note"
+                        placeholder={t.reader.notePh}
+                        aria-label={t.reader.noteAria}
                         rows={2}
                         className="mb-2 w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                       />
                     ) : (
                       bookmarked.get(v.id)!.note && (
                         <p className="mb-2 text-xs italic text-slate-500 dark:text-slate-400">
-                          Note: {bookmarked.get(v.id)!.note}
+                          {t.reader.notePrefix(bookmarked.get(v.id)!.note)}
                         </p>
                       )
                     ))}
@@ -1113,7 +1123,7 @@ export function ReaderModal({
                           >
                             {g.to !== g.from && (
                               <p className="mb-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                                Verses {g.s}:{g.from}–{g.to}
+                                {t.reader.versesRange(`${g.s}:${g.from}–${g.to}`)}
                               </p>
                             )}
                             <p
@@ -1139,7 +1149,7 @@ export function ReaderModal({
                           <div key={e.last}>
                             {e.last !== e.first && last && (
                               <p className="mb-1 text-[11px] text-slate-500 dark:text-slate-400">
-                                Verses {v.s}:{v.a}–{last.a}
+                                {t.reader.versesRange(`${v.s}:${v.a}–${last.a}`)}
                               </p>
                             )}
                             {e.texts.map((t, i) => (
@@ -1155,7 +1165,7 @@ export function ReaderModal({
                         );
                       })}
                       <p className="text-[11px] text-slate-400">
-                        Arabic only. {asbabState.data?.source}.
+                        {t.reader.arabicOnly} {asbabState.data?.source}.
                       </p>
                     </div>
                   )}
@@ -1172,7 +1182,7 @@ export function ReaderModal({
                 className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white"
                 style={{ backgroundColor: palette.primary }}
               >
-                Continue to {SCOPE_LABEL[target.scope]} {nextTarget.value}
+                {t.reader.continueTo(SCOPE_LABEL[target.scope], nextTarget.value)}
                 {target.scope === "surah" && surahMap.get(nextTarget.value)
                   ? ` · ${surahMap.get(nextTarget.value)!.nameEn}`
                   : ""}
@@ -1184,7 +1194,7 @@ export function ReaderModal({
                 onClick={() => onNavigate({ scope: "surah", value: nextRevealed.id })}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
               >
-                Next in revelation order: {nextRevealed.id}. {nextRevealed.nameEn}
+                {t.reader.nextRevealed(nextRevealed.id, nextRevealed.nameEn)}
               </button>
             )}
           </div>

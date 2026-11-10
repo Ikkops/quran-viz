@@ -1,6 +1,7 @@
 import type { EditionsIndex } from "../../types/quran";
 import { groupTranslations } from "../../data/editions";
 import { Select } from "../ui";
+import { useI18n } from "../../i18n/I18nContext";
 
 /** Single-edition select, grouped by language. */
 export function EditionSelect({
@@ -14,7 +15,8 @@ export function EditionSelect({
   onChange: (id: string) => void;
   label?: string;
 }) {
-  const groups = groupTranslations(index);
+  const { t, lang } = useI18n();
+  const groups = groupTranslations(index, t.locale, lang);
   return (
     <Select label={label} value={value} onChange={(e) => onChange(e.target.value)}>
       {groups.map((g) => (

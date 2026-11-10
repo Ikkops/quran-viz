@@ -2,6 +2,7 @@ import { Trash2 } from "lucide-react";
 import type { Surah, Verse } from "../../types/quran";
 import type { Bookmark } from "../../lib/bookmarks";
 import type { ReaderTarget } from "../charts/common";
+import { useI18n } from "../../i18n/I18nContext";
 
 /** Bookmarked ayahs, newest first, with their notes. */
 export function BookmarkList({
@@ -17,12 +18,9 @@ export function BookmarkList({
   onOpen: (t: ReaderTarget) => void;
   onRemove: (id: number) => void;
 }) {
+  const { t } = useI18n();
   if (!bookmarks.length)
-    return (
-      <p className="py-6 text-center text-sm text-slate-400">
-        No bookmarks yet. Use the bookmark icon on any verse in the reader.
-      </p>
-    );
+    return <p className="py-6 text-center text-sm text-slate-400">{t.bookmarks.empty}</p>;
   const sorted = [...bookmarks].sort((a, b) => b.at - a.at);
   return (
     <ul className="divide-y divide-slate-100 dark:divide-slate-700/60">
@@ -55,7 +53,7 @@ export function BookmarkList({
             <button
               type="button"
               onClick={() => onRemove(b.id)}
-              aria-label={`Remove bookmark ${v.s}:${v.a}`}
+              aria-label={t.bookmarks.remove(`${v.s}:${v.a}`)}
               className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-slate-800"
             >
               <Trash2 size={14} />

@@ -11,9 +11,11 @@ import {
 import type { Verse } from "../../types/quran";
 import { GenericTooltip } from "../tooltips";
 import { axisColor, type ChartContext } from "./common";
+import { useI18n } from "../../i18n/I18nContext";
 
 /** Words per hizb (1–60), coloured by parent juz. */
 export function HizbBreakdown({ verses, ctx }: { verses: Verse[]; ctx: ChartContext }) {
+  const { t } = useI18n();
   const rows = useMemo(() => {
     const words = new Map<number, { words: number; juz: number; first: number }>();
     for (const v of verses) {
@@ -43,12 +45,12 @@ export function HizbBreakdown({ verses, ctx }: { verses: Verse[]; ctx: ChartCont
         />
         <YAxis tick={{ fontSize: 11, fill: axisColor(ctx.dark) }} />
         <Tooltip
-          content={<GenericTooltip unit="words" />}
+          content={<GenericTooltip unit={t.tooltip.units.words} />}
           cursor={{ fill: "rgba(148,163,184,0.12)" }}
         />
         <Bar
           dataKey="words"
-          name="Words"
+          name={t.common.words}
           radius={[3, 3, 0, 0]}
           cursor="pointer"
           isAnimationActive={false}
