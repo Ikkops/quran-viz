@@ -15,8 +15,11 @@ describe("shortcutFor", () => {
       kind: "search",
     });
     expect(shortcutFor(k("/"), false, false)).toEqual({ kind: "search" });
-    expect(shortcutFor(k("2"), false, false)).toEqual({ kind: "view", view: "browse" });
-    expect(shortcutFor(k("?"), false, false)).toEqual({ kind: "help" });
+    expect(shortcutFor(k("2"), false, false)).toEqual({
+      kind: "view",
+      view: "structure",
+    });
+    expect(shortcutFor(k("?"), false, false)).toEqual({ kind: "view", view: "settings" });
     expect(shortcutFor(k("b"), false, false)).toEqual({ kind: "bookmarks" });
   });
   it("stays out of the way while typing or with a window open", () => {

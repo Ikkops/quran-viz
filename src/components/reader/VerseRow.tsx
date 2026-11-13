@@ -1,21 +1,20 @@
 import type { ReactNode } from "react";
 import {
   Bookmark as BookmarkIcon,
-  BookmarkCheck,
+  Pin as PinIcon,
   ClipboardCopy,
   ExternalLink,
   Link2,
   MoreHorizontal,
   PanelRight,
   Play,
-  StickyNote,
 } from "lucide-react";
 import type { Surah, Verse, WordByWordData } from "../../types/quran";
-import type { Bookmark } from "../../lib/bookmarks";
+import type { Collection, Pin } from "../../lib/marks";
 import type { TafsirGroup, AsbabEntry } from "../../data/sections";
 import { alignTajweedToWords, type TajweedSegment } from "../../data/tajweed";
 import { useI18n } from "../../i18n/I18nContext";
-import { Badge, cx, QuietIconButton } from "../ui";
+import { cx, QuietIconButton } from "../ui";
 import { AyahEnd, AyahText, TajweedSegs } from "./AyahText";
 import { BASMALA, boundaryLabels, type ReaderMode } from "./readerShared";
 
@@ -69,11 +68,10 @@ export interface RowContext {
   playingId: number | undefined;
   inEditedRange: (id: number) => boolean;
   playFrom: (id: number) => void;
-  bookmarked: Map<number, Bookmark>;
-  toggleBookmark: (id: number) => void;
-  editingNote: number | null;
-  setEditingNote: (id: number | null) => void;
-  saveNote: (id: number, note: string) => void;
+  /** Pins on an ayah and collections holding it. */
+  marksAt: Map<number, { pins: Pin[]; collections: Collection[] }>;
+  /** Open the sheet that pins this ayah or files it in collections. */
+  openMark: (id: number, kind: "pin" | "collection") => void;
   copied: { id: number; ok: boolean; what: "text" | "link" } | null;
   copyText: (v: Verse) => void;
   copyLink: (v: Verse) => void;
@@ -195,7 +193,13 @@ export function VerseRow({
   const ref = `${v.s}:${v.a}`;
   const labels = boundaryLabels(prev, v, t.scope);
   const theme = ctx.themeAt(v.id, prev?.id ?? null);
-  const bm = ctx.bookmarked.get(v.id);
+  const marks = ctx.marksAt.get(v.id);
+  const pin = marks?.pins[0];
+  const held = marks?.collections ?? [];
+  const notes = held.flatMap((c) => {
+    const note = c.items.find((i) => i.id === v.id)?.note;
+    return note ? [{ key: c.id, name: c.name, note }] : [];
+  });
   const playing = ctx.audioOn && ctx.playingId === v.id;
   const selected = ctx.selectedId === v.id;
   const menuOpen = ctx.menuFor === v.id;
@@ -242,12 +246,10 @@ export function VerseRow({
             onClick={() => ctx.openContext(v.id)}
             aria-label={t.reader.openContext(ref)}
             title={exception ?? t.reader.openContext(ref)}
-            className="inline-flex items-center justify-center rounded-full touch:min-h-11 touch:min-w-11"
+            className="inline-flex min-w-8 items-center justify-center rounded-full border border-line px-2 py-0.5 text-sm tabular-nums text-ink-muted hover:border-ink-subtle hover:text-ink touch:min-h-11 touch:min-w-11 touch:border-0"
           >
-            <Badge color={ctx.verseColor(v)} className="tabular-nums">
-              {ref}
-              {v.p && <span aria-hidden>{v.p === "Hijra" ? " ⇢" : " •"}</span>}
-            </Badge>
+            {v.a}
+            {v.p && <span aria-hidden>{v.p === "Hijra" ? " ⇢" : " •"}</span>}
           </button>
           {v.sajda === 1 && (
             <span className="text-xs font-semibold text-rubric">{t.reader.sajda}</span>
@@ -284,11 +286,28 @@ export function VerseRow({
               </QuietIconButton>
             )}
             <QuietIconButton
-              label={bm ? t.reader.removeBookmark : t.reader.bookmarkVerse}
-              pressed={!!bm}
-              onClick={() => ctx.toggleBookmark(v.id)}
+              label={pin ? t.marks.pinnedAs(pin.name) : t.marks.pinAyah}
+              onClick={() => ctx.openMark(v.id, "pin")}
             >
-              {bm ? <BookmarkCheck size={16} /> : <BookmarkIcon size={16} />}
+              <PinIcon
+                size={16}
+                style={pin ? { color: pin.color } : undefined}
+                fill={pin ? pin.color : "none"}
+              />
+            </QuietIconButton>
+            <QuietIconButton
+              label={
+                held.length
+                  ? t.marks.savedIn(held.map((c) => c.name).join(", "))
+                  : t.marks.saveAyah
+              }
+              onClick={() => ctx.openMark(v.id, "collection")}
+            >
+              <BookmarkIcon
+                size={16}
+                style={held[0] ? { color: held[0].color } : undefined}
+                fill={held[0] ? held[0].color : "none"}
+              />
             </QuietIconButton>
             <QuietIconButton
               label={t.reader.openContext(ref)}
@@ -335,50 +354,17 @@ export function VerseRow({
                   >
                     {t.reader.openQc}
                   </MenuItem>
-                  {bm && (
-                    <MenuItem
-                      icon={<StickyNote size={15} />}
-                      onClick={() => {
-                        ctx.setEditingNote(v.id);
-                        close();
-                      }}
-                    >
-                      {t.reader.editNote}
-                    </MenuItem>
-                  )}
                 </div>
               )}
             </span>
           </span>
         </div>
 
-        {bm &&
-          (ctx.editingNote === v.id ? (
-            <textarea
-              autoFocus
-              defaultValue={bm.note}
-              onBlur={(e) => {
-                ctx.saveNote(v.id, e.target.value.trim());
-                ctx.setEditingNote(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  (e.target as HTMLTextAreaElement).blur();
-                } else if (e.key === "Escape") ctx.setEditingNote(null);
-              }}
-              placeholder={t.reader.notePh}
-              aria-label={t.reader.noteAria}
-              rows={2}
-              className="mb-2 w-full rounded-lg border border-line bg-surface px-2 py-1 text-sm text-ink"
-            />
-          ) : (
-            bm.note && (
-              <p className="mb-2 text-sm italic text-ink-muted">
-                {t.reader.notePrefix(bm.note)}
-              </p>
-            )
-          ))}
+        {notes.map((x) => (
+          <p key={x.key} className="mb-2 text-sm italic text-ink-muted">
+            {t.reader.notePrefix(x.note)}
+          </p>
+        ))}
 
         {ctx.showWords ? (
           <WordByWord v={v} ctx={ctx} />
@@ -394,39 +380,15 @@ export function VerseRow({
           </p>
         )}
 
-        {ctx.mode === "compare" ? (
-          <div className="mt-2 grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(16rem,1fr))]">
-            {ctx.translations.map((tr) => (
-              <div key={tr.id} className="min-w-0">
-                <p className="mb-0.5 text-xs font-medium text-ink-subtle">{tr.name}</p>
-                <p
-                  lang={tr.lang}
-                  dir={tr.rtl ? "rtl" : "ltr"}
-                  className={
-                    tr.rtl
-                      ? "font-arabic text-lg leading-loose text-ink"
-                      : "font-reading leading-relaxed text-ink"
-                  }
-                  style={tr.rtl ? undefined : trSize}
-                >
-                  {tr.data?.[v.id] ?? (tr.loading ? "…" : "")}
-                </p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          ctx.translations[0] && (
-            <p
-              lang={ctx.translations[0].lang}
-              dir={ctx.translations[0].rtl ? "rtl" : "ltr"}
-              className="mt-2 max-w-[68ch] font-reading leading-relaxed text-ink"
-              style={trSize}
-            >
-              {ctx.translations[0].loading
-                ? "…"
-                : (ctx.translations[0].data?.[v.id] ?? "")}
-            </p>
-          )
+        {ctx.translations[0] && (
+          <p
+            lang={ctx.translations[0].lang}
+            dir={ctx.translations[0].rtl ? "rtl" : "ltr"}
+            className="mt-2 max-w-[68ch] font-reading leading-relaxed text-ink"
+            style={trSize}
+          >
+            {ctx.translations[0].loading ? "…" : (ctx.translations[0].data?.[v.id] ?? "")}
+          </p>
         )}
 
         {ctx.inlineTafsir && <InlineTafsir v={v} prev={prev} ctx={ctx} />}

@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowRight, Plus, X } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { EditionsIndex, Surah, Verse } from "../../types/quran";
 import { SCOPE_MAX, surahColorById } from "../charts/common";
-import type { ColorMode, ReaderScope, ReaderTarget } from "../charts/common";
-import { useTranslation, useTranslations } from "../../data/useTranslation";
+import type { ColorMode, ReaderTarget } from "../charts/common";
+import { useTranslation } from "../../data/useTranslation";
 import { useTajweed } from "../../data/useTajweed";
 import { useWordByWord } from "../../data/useWordByWord";
 import { useThemes } from "../../data/useThemes";
@@ -19,7 +19,6 @@ import {
   themeIndexById,
 } from "../../data/sections";
 import { useGroupedTafsir } from "../../data/useGroupedTafsir";
-import { usePersistentState } from "../../lib/usePersistentState";
 import { useElementWidth } from "../../lib/useElementWidth";
 import { TAJWEED_LEGEND, type TajweedSegment } from "../../data/tajweed";
 import {
@@ -35,8 +34,9 @@ import { normalizeArabic } from "../../data/arabic";
 import type { Palette } from "../../theme/palettes";
 import { cx, SegmentedControl, Select, Sheet, Slider, Toggle } from "../ui";
 import { EditionSelect } from "../panels/EditionSelect";
-import { BookmarkList } from "../panels/BookmarkList";
-import { setBookmarkNote, toggleBookmark, type Bookmark } from "../../lib/bookmarks";
+import { marksByAyah, type Marks } from "../../lib/marks";
+import { MarkSheet } from "../marks/MarkSheet";
+import { GoToSheet } from "./GoToSheet";
 import { useI18n } from "../../i18n/I18nContext";
 import {
   LOCAL_RECITERS,
@@ -54,7 +54,6 @@ import {
   deleteReciterAudio,
   downloadSurahs,
   isNativeApp,
-  moveAudioTo,
   useAudioDownloads,
   type SurahJob,
 } from "../../data/audioStore";
@@ -93,9 +92,11 @@ export interface ReaderViewProps {
   onNavigate: (t: ReaderTarget) => void;
   /** Leave the reader (back to the view it was opened from). */
   onClose: () => void;
-  /** Bookmarked ayahs (owned by App, persisted). */
-  bookmarks: Bookmark[];
-  onBookmarks: (b: Bookmark[]) => void;
+  /** Pins and collections (owned by App, persisted). */
+  marks: Marks;
+  onMarks: (m: Marks) => void;
+  /** The ayah being read (it stayed on screen, or is being recited). */
+  onRead?: (id: number) => void;
   /** Open a root or topic in the dashboard explorers. */
   onExplore?: (t: ExploreTarget) => void;
   /** Phone shell: leave room for the status bar and the bottom tab bar. */
@@ -107,8 +108,7 @@ export interface ReaderViewProps {
 /**
  * The reader as a page (DESIGN.md "Layout"): the text column, the "Konteks
  * ayat" panel docked beside it on wide layouts (a sheet otherwise), and the
- * mini-player under it. Ayahs are laid out one by one, as mushaf pages, or
- * with several translations side by side.
+ * mini-player under it. Ayahs are laid out one by one or as mushaf pages.
  */
 export function ReaderView({
   target,
@@ -123,8 +123,9 @@ export function ReaderView({
   onArabicScale,
   onNavigate,
   onClose,
-  bookmarks,
-  onBookmarks,
+  marks,
+  onMarks,
+  onRead,
   onExplore,
   phone,
   dark = false,
@@ -141,9 +142,13 @@ export function ReaderView({
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [copied, setCopied] = useState<RowContext["copied"]>(null);
-  const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [editingNote, setEditingNote] = useState<number | null>(null);
+  const [goToOpen, setGoToOpen] = useState(false);
+  // The ayah being pinned or added to a collection.
+  const [markFor, setMarkFor] = useState<{
+    id: number;
+    kind: "pin" | "collection";
+  } | null>(null);
   const [menuFor, setMenuFor] = useState<number | null>(null);
   // The ayah at the top of the list: the strip's "you are here" mark.
   const [topId, setTopId] = useState<number | undefined>(undefined);
@@ -159,39 +164,29 @@ export function ReaderView({
   // `${glossLang}:${ayahId}` -> tajweed pieces per word-by-word item (static data).
   const alignCache = useRef(new Map<string, TajweedSegment[][] | null>());
 
-  // Compared translations (compare layout); editions gone after a data
-  // rebuild are dropped and the list is never empty.
-  const known = useMemo(
-    () => new Set(editions.editions.map((e) => e.identifier)),
-    [editions],
-  );
-  const [picked, setPicked] = usePersistentState<string[]>(
-    "qv.compare.editions",
-    [edition],
-    (raw) => {
-      if (!Array.isArray(raw)) return undefined;
-      const ok = raw.filter((x): x is string => typeof x === "string" && known.has(x));
-      return ok.length ? [...new Set(ok)] : undefined;
-    },
-  );
-  const [adding, setAdding] = useState(editions.default);
-
   const surahMap = useMemo(() => surahMapOf(surahs), [surahs]);
   const scopeVerses = useMemo(
     () => verses.filter((v) => scopeField(v, target.scope) === target.value),
     [verses, target.scope, target.value],
   );
   const anchorId = target.anchor ?? scopeVerses[0]?.id;
-  const [selectedId, setSelectedId] = useState<number | undefined>(anchorId);
-  useEffect(() => setSelectedId(anchorId), [anchorId]);
+  // Only an ayah someone chose is selected: the one a link or a jump named, or
+  // one tapped for its context. Opening a surah selects nothing.
+  const [selectedId, setSelectedId] = useState<number | undefined>(target.anchor);
+  useEffect(
+    () => setSelectedId(target.anchor),
+    [target.anchor, target.scope, target.value],
+  );
   const inScope = (id: number | undefined) =>
     id !== undefined && scopeVerses.some((v) => v.id === id);
-  const selected = verses[(inScope(selectedId) ? selectedId! : (anchorId ?? 1)) - 1];
+  const highlightId = inScope(selectedId) ? selectedId : undefined;
+  // The context panel always has an ayah to show: the chosen one, else the first.
+  const selected = verses[(highlightId ?? anchorId ?? 1) - 1];
 
   // ── Data ──
   const tajweedState = useTajweed(p.showTajweed);
   const wordByWordState = useWordByWord(p.showWords && mode !== "mushaf", p.glossLang);
-  const themesState = useThemes(p.showThemes && mode !== "mushaf");
+  const themesState = useThemes(p.showThemes && mode !== "mushaf", i18n.lang);
   const asbabState = useAsbab(p.showAsbab && mode !== "mushaf");
   const infoState = useSurahInfo(p.infoLang, showInfo && target.scope === "surah");
   const themes = themesState.data;
@@ -204,7 +199,6 @@ export function ReaderView({
     [asbabState.data],
   );
   const translation = useTranslation(mode === "ayah" ? edition : null);
-  const compared = useTranslations(mode === "compare" ? picked : []);
   const translit = useTranslation(
     p.showTranslit && mode !== "mushaf" ? TRANSLITERATION_EDITION : null,
   );
@@ -355,26 +349,6 @@ export function ReaderView({
         ),
       ),
       busy: !!act || !!downloads.moving,
-      locations: downloads.volumes.map((v) => ({
-        id: v.id,
-        label: v.removable ? t.reader.audio.sdCard : t.reader.audio.internal,
-        free: formatBytes(v.free),
-      })),
-      location: downloads.location?.id ?? null,
-      cardMissing: downloads.cardMissing,
-      moving: downloads.moving,
-      moveError: downloads.moveError,
-      onLocation: (id: string) => {
-        const to = downloads.volumes.find((v) => v.id === id);
-        const label = to?.removable ? t.reader.audio.sdCard : t.reader.audio.internal;
-        if (
-          bytes === 0 ||
-          window.confirm(t.reader.audio.moveConfirm(label, formatBytes(bytes)))
-        ) {
-          rec.stop();
-          void moveAudioTo(id);
-        }
-      },
       onDownloadAll: () =>
         downloadSurahs(
           reciterId,
@@ -431,13 +405,13 @@ export function ReaderView({
     const q = query.trim().toLowerCase();
     if (!q || mode === "mushaf") return scopeVerses;
     const arQuery = normalizeArabic(query.trim());
-    const tr = mode === "compare" ? compared.map.get(picked[0]) : translation.data;
+    const tr = translation.data;
     return scopeVerses.filter((v) => {
       if (`${v.s}:${v.a}` === q || String(v.a) === q) return true;
       const text = tr?.[v.id]?.toLowerCase() ?? "";
       return text.includes(q) || normalizeArabic(v.ar).includes(arQuery);
     });
-  }, [scopeVerses, query, mode, translation.data, compared.map, picked]);
+  }, [scopeVerses, query, mode, translation.data]);
   const pages = useMemo(
     () => (mode === "mushaf" ? groupByPage(scopeVerses) : null),
     [mode, scopeVerses],
@@ -581,13 +555,6 @@ export function ReaderView({
     };
   }, [menuFor]);
 
-  const changeScope = (scope: ReaderScope) => {
-    if (scope === target.scope) return;
-    const at = verses[(selected?.id ?? anchorId ?? 1) - 1] ?? scopeVerses[0];
-    if (!at) return;
-    onNavigate({ scope, value: scopeField(at, scope), anchor: at.id });
-  };
-
   const openContext = (id: number) => {
     setSelectedId(id);
     if (docked) p.setShowContext(true);
@@ -638,12 +605,8 @@ export function ReaderView({
   };
   const copyLink = (v: Verse) => copy(v, `https://quran.com/${v.s}/${v.a}`, "link");
   const copyText = (v: Verse) => {
-    const tr =
-      mode === "compare" ? compared.map.get(picked[0])?.[v.id] : translation.data?.[v.id];
-    const trName =
-      mode === "compare"
-        ? (editionByIdentifier(editions, picked[0])?.englishName ?? picked[0])
-        : editionName;
+    const tr = translation.data?.[v.id];
+    const trName = editionName;
     const name = surahMap.get(v.s)?.nameEn ?? `${t.common.surah} ${v.s}`;
     const text = [v.ar, tr ? `${tr} (${trName})` : null, `— ${name} ${v.s}:${v.a}`]
       .filter(Boolean)
@@ -651,7 +614,22 @@ export function ReaderView({
     copy(v, text, "text");
   };
 
-  const bookmarked = useMemo(() => new Map(bookmarks.map((b) => [b.id, b])), [bookmarks]);
+  const marksAt = useMemo(() => marksByAyah(marks), [marks]);
+  const refOf = (id: number) => {
+    const v = verses[id - 1];
+    return v ? `${surahMap.get(v.s)?.nameEn ?? ""} ${v.s}:${v.a}` : "";
+  };
+
+  // Last read (Home): the ayah at the top once it has stayed there a few
+  // seconds, so scrolling past doesn't count; while reciting, the ayah heard.
+  const readId = playingId ?? topId ?? (count > 0 ? scopeVerses[0]?.id : undefined);
+  useEffect(() => {
+    if (!onRead || readId === undefined) return;
+    const timer = setTimeout(() => onRead(readId), playingId ? 0 : 3000);
+    return () => clearTimeout(timer);
+    // onRead is a fresh closure each render; the ayah is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readId, playingId]);
 
   const column = (id: string, data: (string | null)[] | null, loading: boolean) => {
     const e = editionByIdentifier(editions, id);
@@ -664,10 +642,9 @@ export function ReaderView({
       loading,
     } satisfies RowTranslation;
   };
-  const translations: RowTranslation[] =
-    mode === "compare"
-      ? picked.map((id) => column(id, compared.map.get(id) ?? null, compared.loading))
-      : [column(edition, translation.data, translation.loading)];
+  const translations: RowTranslation[] = [
+    column(edition, translation.data, translation.loading),
+  ];
 
   const rowCtx: RowContext = {
     mode,
@@ -719,15 +696,12 @@ export function ReaderView({
     playingId,
     inEditedRange: (id) => !!loopRange && id >= range.from && id <= range.to,
     playFrom,
-    bookmarked,
-    toggleBookmark: (id) => onBookmarks(toggleBookmark(bookmarks, id)),
-    editingNote,
-    setEditingNote,
-    saveNote: (id, note) => onBookmarks(setBookmarkNote(bookmarks, id, note)),
+    marksAt,
+    openMark: (id, kind) => setMarkFor({ id, kind }),
     copied,
     copyText,
     copyLink,
-    selectedId: selected?.id,
+    selectedId: highlightId,
     openContext,
     menuFor,
     setMenuFor,
@@ -736,6 +710,8 @@ export function ReaderView({
   // End-of-scope "continue" targets.
   const nextTarget: ReaderTarget | null =
     target.value < max ? { scope: target.scope, value: target.value + 1 } : null;
+  const prevTarget: ReaderTarget | null =
+    target.value > 1 ? { scope: target.scope, value: target.value - 1 } : null;
   const nextRevealed = headerSurah
     ? surahs.find((x) => x.revelationOrder === headerSurah.revelationOrder + 1)
     : undefined;
@@ -810,11 +786,11 @@ export function ReaderView({
       )}
       <Toggle checked={p.showThemes} onChange={p.setShowThemes} label={t.reader.themes} />
       <Toggle checked={p.showAsbab} onChange={p.setShowAsbab} label={t.reader.asbab} />
-      {reciter && (
+      {docked && (
         <Toggle
-          checked={p.showAudio}
-          onChange={p.setShowAudio}
-          label={t.reader.recitationPlayer}
+          checked={p.showContext}
+          onChange={p.setShowContext}
+          label={t.reader.contextPanel}
         />
       )}
       <hr className="border-line" />
@@ -882,50 +858,22 @@ export function ReaderView({
       aria-label={t.reader.aria}
       className={cx(
         "flex h-[calc(100*var(--zvh))] min-w-0 flex-col bg-paper",
-        phone &&
-          "pb-[calc(3.5rem+env(safe-area-inset-bottom))] pt-[env(safe-area-inset-top)]",
+        "pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]",
       )}
     >
       <ReaderToolbar
         title={title}
-        subtitle={subtitle}
+        subtitle={narrow ? null : subtitle}
         onBack={onClose}
-        scope={target.scope}
-        value={target.value}
-        max={max}
-        onScope={changeScope}
-        onGo={go}
+        onGoTo={() => setGoToOpen(true)}
         mode={mode}
         onMode={p.setMode}
-        narrow={narrow}
         searchOpen={searchOpen || !!query}
         onSearchOpen={setSearchOpen}
         query={query}
         onQuery={setQuery}
-        infoAvailable={target.scope === "surah"}
-        showInfo={showInfo}
-        onInfo={() => setShowInfo((x) => !x)}
-        contextToggle={
-          docked
-            ? { on: p.showContext, toggle: () => p.setShowContext(!p.showContext) }
-            : null
-        }
-        bookmarksOpen={bookmarksOpen}
-        onBookmarksOpen={setBookmarksOpen}
-        bookmarks={
-          <>
-            <p className="mb-1 text-sm font-semibold text-ink">{t.reader.bookmarks}</p>
-            <BookmarkList
-              bookmarks={bookmarks}
-              verses={verses}
-              surahMap={surahMap}
-              onOpen={(tg) => {
-                setBookmarksOpen(false);
-                onNavigate(tg);
-              }}
-              onRemove={(id) => onBookmarks(toggleBookmark(bookmarks, id))}
-            />
-          </>
+        player={
+          reciter ? { on: p.showAudio, toggle: () => p.setShowAudio(!p.showAudio) } : null
         }
         settingsOpen={settingsOpen}
         onSettingsOpen={setSettingsOpen}
@@ -984,54 +932,6 @@ export function ReaderView({
         </div>
       )}
 
-      {mode === "compare" && (
-        <div className="flex shrink-0 flex-wrap items-end gap-2 border-b border-line px-3 py-2">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-            <span className="sr-only">{t.reader.compareEditions}</span>
-            {picked.map((id) => {
-              const e = editionByIdentifier(editions, id);
-              const name = e?.englishName ?? id;
-              return (
-                <span
-                  key={id}
-                  className="inline-flex items-center gap-1 rounded-md border border-line bg-surface py-0.5 pl-2 pr-0.5 text-sm text-ink"
-                >
-                  {name}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPicked((cur) =>
-                        cur.length > 1 ? cur.filter((x) => x !== id) : cur,
-                      )
-                    }
-                    disabled={picked.length <= 1}
-                    aria-label={t.reader.removeEdition(name)}
-                    className="rounded p-1 text-ink-subtle hover:bg-surface-sunken hover:text-ink disabled:opacity-30"
-                  >
-                    <X size={13} />
-                  </button>
-                </span>
-              );
-            })}
-          </div>
-          <div className="flex items-end gap-1.5">
-            <EditionSelect
-              index={editions}
-              value={adding}
-              onChange={setAdding}
-              label={t.compare.addTranslation}
-            />
-            <button
-              type="button"
-              onClick={() => !picked.includes(adding) && setPicked([...picked, adding])}
-              className="inline-flex h-[2.125rem] touch:min-h-11 items-center gap-1 rounded-lg bg-illumination px-3 text-sm font-medium text-white dark:text-paper"
-            >
-              <Plus size={15} aria-hidden /> {t.compare.add}
-            </button>
-          </div>
-        </div>
-      )}
-
       <div className="flex min-h-0 flex-1">
         <div
           ref={scrollRef}
@@ -1074,7 +974,7 @@ export function ReaderView({
                         verses={page}
                         surahMap={surahMap}
                         tajweed={p.showTajweed ? tajweedState.data : null}
-                        selectedId={selected?.id}
+                        selectedId={highlightId}
                         playingId={audioOn ? playingId : undefined}
                         onSelect={openContext}
                       />
@@ -1089,8 +989,18 @@ export function ReaderView({
                 );
               })}
             </div>
-            {!query.trim() && count > 0 && (nextTarget || nextRevealed) && (
+            {!query.trim() && count > 0 && (prevTarget || nextTarget || nextRevealed) && (
               <div className="flex flex-wrap items-center justify-center gap-2 pb-2 pt-4">
+                {prevTarget && (
+                  <button
+                    type="button"
+                    onClick={() => onNavigate(prevTarget)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-line px-4 py-2.5 text-sm text-ink-muted touch:min-h-11 hover:bg-surface-sunken"
+                  >
+                    <ArrowLeft size={15} aria-hidden />
+                    {t.reader.prev(t.scope[target.scope])}
+                  </button>
+                )}
                 {nextTarget && (
                   <button
                     type="button"
@@ -1154,6 +1064,57 @@ export function ReaderView({
         closeLabel={t.reader.closeContext}
       >
         {contextPanel()}
+      </Sheet>
+
+      <Sheet
+        open={goToOpen}
+        onClose={() => setGoToOpen(false)}
+        title={t.reader.goTo}
+        side={phone ? "bottom" : "right"}
+        closeLabel={t.common.close}
+      >
+        {goToOpen && selected && (
+          <GoToSheet
+            surahs={surahs}
+            verses={verses}
+            scope={target.scope}
+            at={verses[(inScope(topId) ? topId! : selected.id) - 1] ?? selected}
+            onGo={(tg) => {
+              setGoToOpen(false);
+              onNavigate(tg);
+            }}
+            onInfo={(surah) => {
+              setGoToOpen(false);
+              setShowInfo(true);
+              if (target.scope !== "surah" || target.value !== surah)
+                onNavigate({ scope: "surah", value: surah });
+            }}
+          />
+        )}
+      </Sheet>
+
+      <Sheet
+        open={!!markFor}
+        onClose={() => setMarkFor(null)}
+        title={
+          markFor
+            ? (markFor.kind === "pin" ? t.marks.pinTitle : t.marks.saveTitle)(
+                refOf(markFor.id),
+              )
+            : ""
+        }
+        side={phone ? "bottom" : "right"}
+        closeLabel={t.common.close}
+      >
+        {markFor && (
+          <MarkSheet
+            kind={markFor.kind}
+            ayah={markFor.id}
+            refOf={refOf}
+            marks={marks}
+            onMarks={onMarks}
+          />
+        )}
       </Sheet>
 
       <Sheet

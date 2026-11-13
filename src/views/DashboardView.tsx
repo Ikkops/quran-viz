@@ -52,7 +52,7 @@ import { RootExplorer } from "../components/charts/RootExplorer";
 import { useTopics } from "../data/useTopics";
 import { buildTopicTree, topicName } from "../data/topics";
 import { TopicExplorer } from "../components/charts/TopicExplorer";
-import type { ChartSettings } from "../components/panels/SettingsModal";
+import type { ChartSettings } from "./SettingsView";
 import {
   dashboardToParams,
   METRICS,
@@ -613,7 +613,7 @@ export function DashboardView({
       />
     ) : null;
 
-  const question = t.viz.questions[viz];
+  const question = t.viz.labels[viz];
   const Icon = def.icon;
 
   return (
@@ -637,7 +637,7 @@ export function DashboardView({
                   type="button"
                   onClick={() => setMenuOpen(true)}
                   aria-haspopup="dialog"
-                  title={t.dashboard.changeQuestion}
+                  title={t.dashboard.changeChart}
                   className="inline-flex items-start gap-2 text-left hover:text-illumination"
                 >
                   <Icon
@@ -748,7 +748,7 @@ export function DashboardView({
       <Sheet
         open={menuOpen && !sideMenu}
         onClose={() => setMenuOpen(false)}
-        title={t.dashboard.questions}
+        title={t.dashboard.charts}
         side={width < 560 ? "bottom" : "right"}
         closeLabel={t.common.close}
       >

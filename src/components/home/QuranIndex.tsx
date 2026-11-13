@@ -1,46 +1,42 @@
-import { useMemo } from "react";
-import { LayoutGrid, List, Search } from "lucide-react";
-import type { ChronologyData, QuranData, RevelationType, Surah } from "../types/quran";
-import { exceptionsBySurah, surahMapOf } from "../data/selectors";
-import { divisionCards, type DivisionCard } from "../data/sections";
-import { asbabCountBySurah, ceRange, groupByTimeline } from "../data/chronology";
-import { useChronology } from "../data/useChronology";
-import { useAsbab } from "../data/useAsbab";
-import type { Palette } from "../theme/palettes";
-import type { PlaceException } from "../data/selectors";
-import { normalizeArabic } from "../data/arabic";
-import { persisted, usePersistentState } from "../lib/usePersistentState";
-import { useTheme } from "../theme/ThemeContext";
-import { useI18n } from "../i18n/I18nContext";
-import { Card, SectionTitle, SegmentedControl, Select, cx } from "../components/ui";
-import { SurahCard } from "../components/cards/SurahCard";
-import { placeColor, type ReaderTarget } from "../components/charts/common";
-import { PetaMushaf } from "../components/peta/PetaMushaf";
-import { DivisionList, SurahList, type SurahSort } from "../components/peta/SurahList";
-import type { ExploreTarget } from "../components/reader/VerseContextPanel";
+import { useMemo, useState } from "react";
+import { LayoutGrid, List, Search, SlidersHorizontal } from "lucide-react";
+import type { ChronologyData, QuranData, RevelationType, Surah } from "../../types/quran";
+import { exceptionsBySurah, surahMapOf } from "../../data/selectors";
+import { divisionCards, type DivisionCard } from "../../data/sections";
+import { asbabCountBySurah, ceRange, groupByTimeline } from "../../data/chronology";
+import { useChronology } from "../../data/useChronology";
+import { useAsbab } from "../../data/useAsbab";
+import type { Palette } from "../../theme/palettes";
+import type { PlaceException } from "../../data/selectors";
+import { normalizeArabic } from "../../data/arabic";
+import { persisted, usePersistentState } from "../../lib/usePersistentState";
+import { useTheme } from "../../theme/ThemeContext";
+import { useI18n } from "../../i18n/I18nContext";
+import { SegmentedControl, Select, cx } from "../ui";
+import { SurahCard } from "../cards/SurahCard";
+import { placeColor, type ReaderTarget } from "../charts/common";
+import { DivisionList, type SurahSort } from "../peta/SurahList";
+import { SurahRow } from "./SurahRow";
 
 type Kind = "surah" | "juz" | "manzil";
 type Layout = "list" | "cards";
 type TypeFilter = "all" | RevelationType;
 
 /**
- * The Peta view: the Peta Mushaf on top, then the index of surahs, juz and
- * manzils as a dense list (or cards).
+ * The index on Home: surahs, juz or manzils. Surahs come as two-line rows
+ * (number, name, meaning and place, calligraphic name) or as cards; the
+ * filter is always in reach, and sort, place and layout sit behind one
+ * button so the head stays a single row.
  */
-export function BrowseView({
+export function QuranIndex({
   data,
   onOpen,
-  lastRead,
-  bookmarks,
-  onExplore,
+  onSearch,
 }: {
   data: QuranData;
   onOpen: (t: ReaderTarget) => void;
-  /** Ayah id of the last-read position. */
-  lastRead?: number;
-  /** Bookmarked ayah ids. */
-  bookmarks: number[];
-  onExplore: (t: ExploreTarget) => void;
+  /** Open the app-wide search (offered when the filter finds no surah). */
+  onSearch: () => void;
 }) {
   const { palette } = useTheme();
   const i18n = useI18n();
@@ -67,6 +63,8 @@ export function BrowseView({
     "list",
     persisted.oneOf(["list", "cards"] as const),
   );
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  const changed = sort !== "mushaf" || type !== "all" || layout !== "list";
   const surahMap = useMemo(() => surahMapOf(data.surahs), [data.surahs]);
   const exceptions = useMemo(() => exceptionsBySurah(data.verses), [data.verses]);
   const juzCards = useMemo(() => divisionCards(data.verses, "juz"), [data.verses]);
@@ -107,76 +105,70 @@ export function BrowseView({
     return [...list].sort(by[sort]);
   }, [data.surahs, query, type, sort, i18n]);
 
-  const subtitle =
+  const note =
     kind === "surah"
-      ? `${t.browse.surahSub(surahs.length)} ${t.placeCaveat}`
+      ? t.placeCaveat
       : kind === "juz"
         ? t.browse.juzSub
         : t.browse.manzilSub;
 
   return (
-    <div className="flex flex-col gap-4">
-      <PetaMushaf
-        verses={data.verses}
-        surahMap={surahMap}
-        lastRead={lastRead}
-        bookmarks={bookmarks}
-        onOpen={onOpen}
-        onExplore={onExplore}
-      />
-      <Card className="p-4">
-        <SectionTitle
-          title={t.browse.title}
-          subtitle={subtitle}
-          right={
-            <div className="flex flex-wrap items-center gap-2">
-              <SegmentedControl<Kind>
-                value={kind}
-                onChange={setKind}
-                ariaLabel={t.browse.browseBy}
-                options={[
-                  { value: "surah", label: t.scope.surah },
-                  { value: "juz", label: t.scope.juz },
-                  { value: "manzil", label: t.scope.manzil },
-                ]}
-              />
-              <SegmentedControl<Layout>
-                value={layout}
-                onChange={setLayout}
-                ariaLabel={t.browse.layoutAria}
-                options={[
-                  {
-                    value: "list",
-                    label: t.browse.layoutList,
-                    icon: <List size={15} aria-hidden />,
-                  },
-                  {
-                    value: "cards",
-                    label: t.browse.layoutCards,
-                    icon: <LayoutGrid size={15} aria-hidden />,
-                  },
-                ]}
-              />
-            </div>
-          }
+    <section aria-label={t.browse.title} className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <SegmentedControl<Kind>
+          value={kind}
+          onChange={setKind}
+          ariaLabel={t.browse.browseBy}
+          options={[
+            { value: "surah", label: t.scope.surah },
+            { value: "juz", label: t.scope.juz },
+            { value: "manzil", label: t.scope.manzil },
+          ]}
         />
-
         {kind === "surah" && (
-          <>
-            <div className="mb-3 flex flex-wrap items-end gap-3">
-              <label className="relative">
-                <Search
-                  size={14}
-                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-subtle"
-                />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t.browse.filterPh}
-                  aria-label={t.browse.filterAria}
-                  className="w-60 rounded-lg min-h-10 touch:min-h-11 border border-line bg-surface py-1.5 pl-8 pr-2.5 text-sm text-ink"
-                />
-              </label>
+          <label className="relative min-w-[10rem] flex-1">
+            <Search
+              size={15}
+              aria-hidden
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle"
+            />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t.browse.filterPh}
+              aria-label={t.browse.filterAria}
+              className="min-h-10 w-full rounded-lg border border-line bg-surface pl-9 pr-3 text-sm text-ink placeholder:text-ink-subtle touch:min-h-11"
+            />
+          </label>
+        )}
+        <button
+          type="button"
+          onClick={() => setOptionsOpen((o) => !o)}
+          aria-expanded={optionsOpen}
+          aria-label={t.browse.options}
+          title={t.browse.options}
+          className={cx(
+            "relative ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border transition-colors touch:h-11 touch:w-11",
+            optionsOpen
+              ? "border-illumination text-illumination"
+              : "border-line text-ink-muted hover:border-ink-subtle hover:text-ink",
+          )}
+        >
+          <SlidersHorizontal size={17} aria-hidden />
+          {changed && (
+            <span
+              aria-hidden
+              className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-illumination"
+            />
+          )}
+        </button>
+      </div>
+
+      {optionsOpen && (
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-line bg-surface p-3">
+          {kind === "surah" && (
+            <>
               <div className="w-44">
                 <Select
                   label={t.browse.sort}
@@ -200,100 +192,131 @@ export function BrowseView({
                   { value: "Medinan", label: t.place.Medinan },
                 ]}
               />
-            </div>
-            {surahs.length === 0 ? (
-              <p className="py-10 text-center text-sm text-ink-subtle">
-                {t.browse.noMatch(query)}
-              </p>
-            ) : timeline ? (
-              chronoState.data ? (
-                <Timeline
-                  surahs={surahs}
-                  chrono={chronoState.data}
-                  keepEmpty={!query.trim() && type === "all"}
-                  exceptions={exceptions}
-                  asbabCounts={asbabCounts}
-                  palette={palette}
-                  onOpen={(id) => onOpen({ scope: "surah", value: id })}
-                />
-              ) : (
-                <div
-                  className={
-                    chronoState.error
-                      ? "flex flex-col items-center gap-2 py-10 text-sm text-rose-500"
-                      : "py-10 text-center text-sm text-ink-subtle"
-                  }
-                  role={chronoState.error ? "alert" : "status"}
-                >
-                  {chronoState.error
-                    ? t.common.failedToLoad(chronoState.error)
-                    : t.browse.timelineLoading}
-                  {chronoState.error && (
-                    <button
-                      type="button"
-                      onClick={chronoState.retry}
-                      className="rounded-lg border border-ink-subtle px-3 py-1 text-xs font-medium text-ink-muted hover:bg-paper dark:hover:bg-surface"
-                    >
-                      {t.common.retry}
-                    </button>
-                  )}
-                </div>
-              )
-            ) : layout === "list" ? (
-              <SurahList
+            </>
+          )}
+          <SegmentedControl<Layout>
+            value={layout}
+            onChange={setLayout}
+            ariaLabel={t.browse.layoutAria}
+            options={[
+              {
+                value: "list",
+                label: t.browse.layoutList,
+                icon: <List size={15} aria-hidden />,
+              },
+              {
+                value: "cards",
+                label: t.browse.layoutCards,
+                icon: <LayoutGrid size={15} aria-hidden />,
+              },
+            ]}
+          />
+          <p className="basis-full text-xs text-ink-subtle">{note}</p>
+        </div>
+      )}
+
+      {kind === "surah" && (
+        <>
+          {surahs.length === 0 ? (
+            <p className="px-2 py-6 text-sm text-ink-muted">
+              {t.browse.noMatch(query)}{" "}
+              <button
+                type="button"
+                onClick={onSearch}
+                className="font-medium text-illumination underline-offset-2 hover:underline"
+              >
+                {t.home.searchInstead}
+              </button>
+            </p>
+          ) : timeline ? (
+            chronoState.data ? (
+              <Timeline
                 surahs={surahs}
+                chrono={chronoState.data}
+                keepEmpty={!query.trim() && type === "all"}
                 exceptions={exceptions}
+                asbabCounts={asbabCounts}
                 palette={palette}
-                sort={sort}
-                onSort={setSort}
                 onOpen={(id) => onOpen({ scope: "surah", value: id })}
               />
             ) : (
-              <div className="grid gap-2.5 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
-                {surahs.map((s) => (
-                  <SurahCard
-                    key={s.id}
-                    surah={s}
-                    exceptions={exceptions.get(s.id) ?? []}
-                    palette={palette}
-                    onOpen={() => onOpen({ scope: "surah", value: s.id })}
-                  />
-                ))}
+              <div
+                className={
+                  chronoState.error
+                    ? "flex flex-col items-center gap-2 py-10 text-sm text-rose-500"
+                    : "py-10 text-center text-sm text-ink-subtle"
+                }
+                role={chronoState.error ? "alert" : "status"}
+              >
+                {chronoState.error
+                  ? t.common.failedToLoad(chronoState.error)
+                  : t.browse.timelineLoading}
+                {chronoState.error && (
+                  <button
+                    type="button"
+                    onClick={chronoState.retry}
+                    className="rounded-lg border border-ink-subtle px-3 py-1 text-xs font-medium text-ink-muted hover:bg-paper dark:hover:bg-surface"
+                  >
+                    {t.common.retry}
+                  </button>
+                )}
               </div>
-            )}
-          </>
-        )}
+            )
+          ) : layout === "list" ? (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-x-8">
+              {surahs.map((x) => (
+                <SurahRow
+                  key={x.id}
+                  s={x}
+                  onOpen={() => onOpen({ scope: "surah", value: x.id })}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-2.5 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
+              {surahs.map((s) => (
+                <SurahCard
+                  key={s.id}
+                  surah={s}
+                  exceptions={exceptions.get(s.id) ?? []}
+                  palette={palette}
+                  onOpen={() => onOpen({ scope: "surah", value: s.id })}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
-        {kind !== "surah" && layout === "list" && (
-          <DivisionList
-            cards={kind === "juz" ? juzCards : manzilCards}
-            kind={kind}
-            juzNames={kind === "juz" ? (n) => data.meta.juzs[n - 1]?.nameAr : undefined}
-            surahName={(s) => surahMap.get(s)?.nameEn ?? String(s)}
-            surahColor={(s) => placeColor(surahMap.get(s)?.type ?? "Meccan", palette)}
-            onOpen={(n) => onOpen({ scope: kind, value: n })}
-          />
-        )}
-        {kind !== "surah" && layout === "cards" && (
-          <div className="grid gap-2.5 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
-            {(kind === "juz" ? juzCards : manzilCards).map((c) => (
-              <DivisionCardView
-                key={c.n}
-                card={c}
-                kind={kind}
-                nameAr={kind === "juz" ? data.meta.juzs[c.n - 1]?.nameAr : undefined}
-                surahName={(s) => surahMap.get(s)?.nameEn ?? String(s)}
-                surahColor={(s) => placeColor(surahMap.get(s)?.type ?? "Meccan", palette)}
-                onOpen={() => onOpen({ scope: kind, value: c.n })}
-              />
-            ))}
-          </div>
-        )}
-        {kind === "manzil" && (
-          <p className="mt-3 text-xs text-ink-subtle">{t.browse.manzilNote}</p>
-        )}
-      </Card>
-    </div>
+      {kind !== "surah" && layout === "list" && (
+        <DivisionList
+          cards={kind === "juz" ? juzCards : manzilCards}
+          kind={kind}
+          juzNames={kind === "juz" ? (n) => data.meta.juzs[n - 1]?.nameAr : undefined}
+          surahName={(s) => surahMap.get(s)?.nameEn ?? String(s)}
+          surahColor={(s) => placeColor(surahMap.get(s)?.type ?? "Meccan", palette)}
+          onOpen={(n) => onOpen({ scope: kind, value: n })}
+        />
+      )}
+      {kind !== "surah" && layout === "cards" && (
+        <div className="grid gap-2.5 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
+          {(kind === "juz" ? juzCards : manzilCards).map((c) => (
+            <DivisionCardView
+              key={c.n}
+              card={c}
+              kind={kind}
+              nameAr={kind === "juz" ? data.meta.juzs[c.n - 1]?.nameAr : undefined}
+              surahName={(s) => surahMap.get(s)?.nameEn ?? String(s)}
+              surahColor={(s) => placeColor(surahMap.get(s)?.type ?? "Meccan", palette)}
+              onOpen={() => onOpen({ scope: kind, value: c.n })}
+            />
+          ))}
+        </div>
+      )}
+      {kind === "manzil" && (
+        <p className="mt-3 text-xs text-ink-subtle">{t.browse.manzilNote}</p>
+      )}
+    </section>
   );
 }
 

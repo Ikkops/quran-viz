@@ -28,8 +28,8 @@ export function scopeField(v: Verse, scope: ReaderScope): number {
 export const BASMALA = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
 
 /** How the reader lays out its ayahs. */
-export type ReaderMode = "ayah" | "mushaf" | "compare";
-export const READER_MODES: readonly ReaderMode[] = ["ayah", "mushaf", "compare"];
+export type ReaderMode = "ayah" | "mushaf";
+export const READER_MODES: readonly ReaderMode[] = ["ayah", "mushaf"];
 
 /** Tabs of the "Konteks ayat" panel. */
 export type ContextTab = "tafsir" | "words" | "asbab" | "similar" | "roots";

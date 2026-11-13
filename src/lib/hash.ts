@@ -6,9 +6,16 @@ import {
 } from "../components/charts/common";
 
 /** Top-level views. ("compare" became a reader layout; old links open the dashboard.) */
-/** "home" is where the app opens: continue reading, the surah index, activity. */
-export type View = "home" | "dashboard" | "browse" | "structure";
-export const VIEWS: readonly View[] = ["home", "dashboard", "browse", "structure"];
+/** "home" is where the app opens: last read and the index. The old "browse"
+ *  (Map) view is now the dashboard's Map tab: `#browse` opens it. */
+export type View = "home" | "dashboard" | "structure" | "activity" | "settings";
+export const VIEWS: readonly View[] = [
+  "home",
+  "dashboard",
+  "structure",
+  "activity",
+  "settings",
+];
 const MAX_AYAH = 6236;
 
 export interface HashState {
@@ -26,10 +33,14 @@ export function parseHash(hash: string): HashState {
   const h = hash.replace(/^#/, "");
   const [head, ...rest] = h.split("/r/");
   const [viewPart, query = ""] = head.split("?");
-  const view = (VIEWS as readonly string[]).includes(viewPart)
-    ? (viewPart as View)
-    : "home";
-  const params = Object.fromEntries(new URLSearchParams(query));
+  const view =
+    viewPart === "browse"
+      ? "dashboard"
+      : (VIEWS as readonly string[]).includes(viewPart)
+        ? (viewPart as View)
+        : "home";
+  const params: Record<string, string> = Object.fromEntries(new URLSearchParams(query));
+  if (viewPart === "browse") params.tab = "map";
   const readerPart = rest.join("/r/");
   if (!readerPart) return { view, params, reader: null };
   const segs = readerPart.split("/");

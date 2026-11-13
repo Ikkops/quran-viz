@@ -38,6 +38,66 @@
   --rubric: 232 122 104;
 }
 
+[data-theme="cream"] {
+  --paper: 251 246 236;
+  --surface: 255 253 248;
+  --surface-sunken: 242 235 220;
+  --line: 224 214 194;
+  --ink: 42 36 27;
+  --ink-muted: 88 78 63;
+  --ink-subtle: 102 91 75;
+  --makki: 142 86 18;
+  --madani: 12 112 88;
+  --hijra: 80 94 131;
+  --illumination: 31 79 160;
+  --rubric: 169 54 38;
+}
+
+[data-theme="sepia"] {
+  --paper: 241 228 204;
+  --surface: 248 238 219;
+  --surface-sunken: 232 217 188;
+  --line: 208 189 153;
+  --ink: 51 36 26;
+  --ink-muted: 84 64 45;
+  --ink-subtle: 95 74 53;
+  --makki: 124 74 12;
+  --madani: 10 92 72;
+  --hijra: 69 82 122;
+  --illumination: 28 70 144;
+  --rubric: 153 47 32;
+}
+
+[data-theme="warm-dark"] {
+  --paper: 26 21 18;
+  --surface: 36 29 24;
+  --surface-sunken: 19 15 12;
+  --line: 58 47 39;
+  --ink: 237 228 216;
+  --ink-muted: 194 181 165;
+  --ink-subtle: 163 149 132;
+  --makki: 217 160 90;
+  --madani: 70 185 150;
+  --hijra: 147 162 196;
+  --illumination: 134 169 238;
+  --rubric: 232 122 104;
+}
+
+[data-theme="black"] {
+  --paper: 0 0 0;
+  --surface: 15 15 18;
+  --surface-sunken: 7 7 9;
+  --line: 38 38 44;
+  --ink: 228 230 234;
+  --ink-muted: 169 174 184;
+  --ink-subtle: 138 144 156;
+  --makki: 217 160 90;
+  --madani: 70 185 150;
+  --hijra: 147 162 196;
+  --illumination: 134 169 238;
+  --rubric: 232 122 104;
+}
+
 body {
   margin: 0;
   font-family: var(--font-ui);
@@ -70,6 +130,24 @@ body {
   html {
     scroll-behavior: auto;
   }
+}
+
+/* KFGQPC Uthmanic Script HAFS (King Fahd Complex, shipped unmodified) and the
+   surah-name ligature face ("001" … "114" draw the calligraphic names). */
+@font-face {
+  font-family: "KFGQPC Hafs";
+  src: url("./assets/fonts/UthmanicHafs1Ver18.ttf") format("truetype");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Surah Names";
+  src: url("./assets/fonts/sura_names.woff2") format("woff2");
+  font-display: block;
+}
+.font-surah {
+  font-family: "Surah Names";
+  font-feature-settings: "liga" 1;
+  line-height: 1;
 }
 
 .font-arabic {

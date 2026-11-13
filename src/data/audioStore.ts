@@ -32,10 +32,12 @@ export const isNativeApp = (): boolean => Capacitor.isNativePlatform();
 
 /** A place the app may keep audio. */
 export interface AudioVolume {
-  /** "internal", or the SD card folder's path. */
+  /** "internal", the SD card folder's path, or the chosen folder's path. */
   id: string;
-  /** file:// URI of the app's folder on that volume. */
+  /** file:// URI of the app's folder on that volume (or of the chosen folder). */
   uri: string;
+  /** A folder the learner chose: reciter folders sit directly inside it. */
+  custom?: boolean;
   removable: boolean;
   free: number;
   total: number;
@@ -43,6 +45,14 @@ export interface AudioVolume {
 
 interface AudioStoragePlugin {
   volumes(): Promise<{ volumes: AudioVolume[] }>;
+  /** Whether "All files access" is granted. */
+  access(): Promise<{ granted: boolean }>;
+  /** Open the system screen that grants it. */
+  requestAccess(): Promise<void>;
+  /** The system folder picker; rejects with "cancelled" or "unsupported". */
+  pickFolder(): Promise<{ path: string }>;
+  /** A chosen folder as a volume. */
+  folder(o: { path: string }): Promise<AudioVolume & { writable: boolean }>;
 }
 const AudioStorage = registerPlugin<AudioStoragePlugin>("AudioStorage");
 
@@ -117,7 +127,8 @@ function writeLocation(id: string) {
   }
 }
 
-const audioDir = (v: AudioVolume) => `${v.uri.replace(/\/$/, "")}/audio`;
+const audioDir = (v: AudioVolume) =>
+  v.custom ? v.uri.replace(/\/$/, "") : `${v.uri.replace(/\/$/, "")}/audio`;
 const folderIn = (v: AudioVolume, reciter: string) => `${audioDir(v)}/${reciter}`;
 function folder(reciter: string): string {
   if (!state.location) throw new Error("storage");
@@ -139,10 +150,13 @@ let ready: Promise<void> | null = null;
 /** List the volumes and settle on the stored one (internal if it's gone). */
 function init(): Promise<void> {
   ready ??= AudioStorage.volumes()
-    .then(({ volumes }) => {
+    .then(async ({ volumes }) => {
       const internal = volumes.find((v) => v.id === "internal") ?? volumes[0];
       const want = readLocation();
-      const chosen = volumes.find((v) => v.id === want);
+      let chosen = volumes.find((v) => v.id === want);
+      // A folder the learner chose: usable while it exists and can be written
+      // (the card is in, "All files access" still granted).
+      if (!chosen && want?.startsWith("/")) chosen = await customFolder(want);
       update({ volumes });
       if (internal)
         selectVolume(chosen ?? internal, !!want && want !== "internal" && !chosen);
@@ -154,18 +168,66 @@ function init(): Promise<void> {
   return ready;
 }
 
+async function customFolder(path: string): Promise<AudioVolume | undefined> {
+  try {
+    const v = await AudioStorage.folder({ path });
+    return v.writable ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Whether Android lets the app write to any folder ("All files access"). */
+export async function hasFolderAccess(): Promise<boolean> {
+  try {
+    return (await AudioStorage.access()).granted;
+  } catch {
+    return false;
+  }
+}
+
+/** Open the system screen where the learner grants that access. */
+export async function requestFolderAccess(): Promise<void> {
+  await AudioStorage.requestAccess();
+}
+
+/**
+ * Let the learner pick a folder and move the audio there. Resolves to what
+ * happened: "moved", "cancelled", "unsupported" (a folder from another
+ * provider, such as a cloud drive) or "unwritable".
+ */
+export async function chooseAudioFolder(): Promise<
+  "moved" | "cancelled" | "unsupported" | "unwritable"
+> {
+  let path: string;
+  try {
+    path = (await AudioStorage.pickFolder()).path;
+  } catch (e) {
+    const why = e instanceof Error ? e.message : String(e);
+    return why.includes("unsupported") ? "unsupported" : "cancelled";
+  }
+  const v = await customFolder(path);
+  if (!v) return "unwritable";
+  await moveAudioTo(v);
+  return "moved";
+}
+
 /** Ask Android again (a card inserted or removed while the app runs). */
 export async function refreshVolumes(): Promise<void> {
   try {
     const { volumes } = await AudioStorage.volumes();
-    const now = volumes.find((v) => v.id === state.location?.id);
+    const now = state.location?.custom
+      ? await customFolder(state.location.id)
+      : volumes.find((v) => v.id === state.location?.id);
     update({
       volumes,
       // Free space changes as files are written; keep the figures current.
       location: now ?? state.location,
     });
     const want = readLocation();
-    const card = volumes.find((v) => v.id === want);
+    const card =
+      volumes.find((v) => v.id === want) ??
+      (state.cardMissing && want?.startsWith("/") ? await customFolder(want) : undefined);
     if (state.cardMissing && card) selectVolume(card);
   } catch {
     // Keep what we had.
@@ -334,10 +396,11 @@ async function listFiles(dir: string): Promise<{ name: string; size: number }[]>
  * downloaded (copy, then delete the original, file by file). Downloads stop
  * first. If the target is short of space nothing is moved.
  */
-export async function moveAudioTo(id: string): Promise<void> {
+export async function moveAudioTo(target: string | AudioVolume): Promise<void> {
   await init();
   const from = state.location;
-  const to = state.volumes.find((v) => v.id === id);
+  const to =
+    typeof target === "string" ? state.volumes.find((v) => v.id === target) : target;
   if (!to || !from || to.id === from.id || state.moving) return;
   cancelDownloads();
   // Wait for the files in flight to land.
@@ -377,10 +440,13 @@ export async function moveAudioTo(id: string): Promise<void> {
         update({ moving: { done, total } });
       }
     }
-    if (!state.cardMissing)
-      await Filesystem.rmdir({ path: audioDir(from), recursive: true }).catch(
-        () => undefined,
-      );
+    // Tidy up the emptied folders, never anything else that sits beside them.
+    if (!state.cardMissing) {
+      for (const { reciter } of plan)
+        await Filesystem.rmdir({ path: folderIn(from, reciter) }).catch(() => undefined);
+      if (!from.custom)
+        await Filesystem.rmdir({ path: audioDir(from) }).catch(() => undefined);
+    }
   } catch (e) {
     // Files copied so far stay at the target; the rest stay where they were.
     // Point at the target anyway only if everything got there.

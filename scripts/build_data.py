@@ -41,6 +41,7 @@ CHRONO_BASES = ("asbab", "sirah", "urutan")
 # Curated topic tree (Topic explorer): categories + duplicate merges, and the
 # Indonesian (optionally English) name of every topic cluster.
 TOPIC_TAXONOMY = Path(__file__).resolve().parent / "data" / "topic_taxonomy.json"
+THEMES_ID = Path(__file__).resolve().parent / "data" / "themes_id.json"
 TOPIC_NAMES = Path(__file__).resolve().parent / "data" / "topic_names_id.tsv"
 # Hadith corpus (reference/hadith/build_db.py); only its verified Arabic
 # asbab al-nuzul (`sahih-ar`) is exported.
@@ -375,10 +376,22 @@ def export_reference_extras(key_to_id: dict, surah_type: dict) -> list[dict]:
     aid = lambda s, a: key_to_id[(s, a)]  # noqa: E731
 
     # Section themes (English): [first ayah id, last ayah id, theme].
-    themes = [[aid(s, lo), aid(s, hi), t] for t, s, lo, hi in qul.execute(
-        "SELECT theme, surah, ayah_from, ayah_to FROM themes ORDER BY surah, ayah_from")]
+    # QUL lists every section twice; keep each (surah, range) once.
+    rows = list(dict.fromkeys(qul.execute(
+        "SELECT theme, surah, ayah_from, ayah_to FROM themes ORDER BY surah, ayah_from")))
+    themes = [[aid(s, lo), aid(s, hi), t] for t, s, lo, hi in rows]
     write_json(OUT / "themes.json", themes)
     step(f"themes.json: {len(themes)} sections")
+    # Indonesian headings: scripts/data/themes_id.json, keyed "surah:from-to"
+    # (translated from QUL's English). Every section needs one.
+    themes_id = json.loads(THEMES_ID.read_text(encoding="utf-8"))
+    missing = [f"{s}:{lo}-{hi}" for _, s, lo, hi in rows
+               if not themes_id.get(f"{s}:{lo}-{hi}", "").strip()]
+    if missing:
+        sys.exit(f"themes_id.json lacks {len(missing)} sections, e.g. {missing[:5]}")
+    write_json(OUT / "themes-id.json",
+               [[aid(s, lo), aid(s, hi), themes_id[f"{s}:{lo}-{hi}"]] for _, s, lo, hi in rows])
+    step(f"themes-id.json: {len(rows)} sections")
 
     # Topics: QUL's duplicate-ridden topic list folded into the curated tree
     # (scripts/topics.py, scripts/data/topic_taxonomy.json + topic_names_id.tsv).

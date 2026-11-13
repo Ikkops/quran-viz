@@ -216,7 +216,10 @@ are mirrored as RGB-channel variables in `src/index.css` (`:root` and `.dark`);
 the fonts as `font-ui` / `font-reading`. Makki/Madani/Hijra colours mean place of
 revelation only. Fonts are self-hosted through Fontsource in `src/fonts.ts`
 (never Google Fonts: the APK must render offline); a new Qur'an font must cover
-U+06D6–U+06ED and be added there and to `ARABIC_FONTS`. `<meta theme-color>`
+U+06D6–U+06ED and be added there and to `ARABIC_FONTS`. The default is KFGQPC
+Uthmanic Script HAFS (`src/assets/fonts/UthmanicHafs1Ver18.ttf`, shipped
+unmodified as its licence requires, `@font-face` in `index.css`); it draws
+Arabic-Indic digits as the ayah medallion, so `AyahEnd` omits U+06DD for it. `<meta theme-color>`
 follows the dark toggle (`ThemeContext`). The Interface scale (CSS `zoom`) is
 capped by `effectiveUiScale` (`lib/uiScale.ts`) so the layout never drops below
 `MIN_LAYOUT_PX` (380) on narrow screens; it measures `documentElement.clientWidth`,
@@ -236,21 +239,18 @@ wrapping sidebar (`flex-[1_1_14rem]` / `flex-[999_1_24rem]`), and `isWideLayout`
 (`lib/uiScale.ts`, layout ≥ `RAIL_MIN_LAYOUT_PX` 720) for the navigation. Avoid
 new `sm:`/`md:`/`lg:` breakpoints for structure.
 
-**Shell** (`components/shell/Navigation.tsx`). Wide layouts get `NavRail`
-(brand + totals, primary Read button, search, Home and the three views, then
-bookmarks, shortcuts, settings); narrow ones get `TopBar` (search, bookmarks,
-settings) and `BottomTabs` (Home + three views, ≥56px targets). While the
-reader is open, Home is the current tab and the phone `TopBar` is replaced by
-the reader's own head. The rail's Read button and Home's first card open the
-reader at `qv.lastRead` or Al-Fatihah. Language and dark mode live only in Settings. Each
-view's scroll position is recorded when the view changes (`changeView` in
-`App.tsx`, not from scroll events) and restored on return. Android's back
-gesture (`lib/androidBack.ts`, `@capacitor/app`) closes an open dialog with a
-synthetic Escape (so popovers close first), else goes back in history, else
-exits. Search: a Latin-script query always searches a translation, in the UI
-language (`searchEditionFor` in `data/searchEdition.ts`: the reader's edition if
-it matches, else `id.kemenag-qul` / `en.sahih`); the "also search translation"
-toggle adds the translation to Arabic queries.
+**Shell** (`components/shell/Navigation.tsx`). At every width: `TopBar`
+(brand, the page's name, search) and `BottomTabs` with the five views (Home,
+Dashboard, Structure, Activity, Settings; ≥56px targets). There is no side rail.
+While the reader is open both are hidden: the reader draws its own head and
+fills the screen. Each view's scroll position is recorded when the view changes
+(`changeView` in `App.tsx`, not from scroll events) and restored on return.
+Android's back gesture (`lib/androidBack.ts`, `@capacitor/app`) closes an open
+dialog with a synthetic Escape (so popovers close first), else goes back in
+history, else exits. Search: a Latin-script query always searches a
+translation, in the UI language (`searchEditionFor` in `data/searchEdition.ts`:
+the reader's edition if it matches, else `id.kemenag-qul` / `en.sahih`); the
+"also search translation" toggle adds the translation to Arabic queries.
 
 **Palettes** (`theme/palettes.ts`) are accent-only (lapis, plum, ink, each with a
 night variant); `resolvePalette(key, dark)` fills the fixed revelation colours
@@ -281,31 +281,62 @@ dialogs mount on first opening and stay mounted). Recharts lands in a shared
 chunk loaded with the dashboard or Structure; html2canvas stays a dynamic
 import in `lib/export.ts`. Keep heavy imports out of `App.tsx` and the shell.
 
-**Home** (`views/HomeView.tsx`, view id `home`, where the app opens). Two
-cards (continue reading; today's time against the goal and the streak), then
-one index at a time behind a segmented control (`qv.home.tab`): surahs as
-two-line rows in an auto-fill grid with a name/number filter
-(`qv.home.query`), the 30 juz, or Activity. **Activity**
-(`components/home/ActivityPanel.tsx`): today, current and longest streak, total
-time, and bars per week (Sunday first), month, year or all time
-(`qv.activity.period`), with earlier periods one step away and a daily goal
-(`qv.reading.goal`, minutes; a day counts for the streak once it meets it).
-The maths is `data/readingLog.ts` (pure, tested); `lib/readingStore.ts` keeps
-the log (`qv.reading.log`, seconds per local day) outside React and
-`useReadingTimer(reading)` in `App` adds to it every 10 s while the reader is
-open and either touched within the last two minutes or reciting.
+**Home** (`views/HomeView.tsx`, view id `home`, where the app opens). "Last
+read" (below), a today/streak line that opens Activity, then the index
+(`components/home/QuranIndex.tsx`, the old Map index): surahs, juz or manzils
+(`qv.browse.kind`), a surah filter (`qv.browse.query`), and sort / Makki-Madani
+/ list-or-cards behind one "Sort and filter" button (`qv.browse.sort|type|layout`).
+Surah rows (`SurahRow.tsx`): number, name in the accent colour, meaning, a
+place icon (`PlaceIcon`: Kaaba = Makki, dome = Madani), and the calligraphic
+name drawn by the "Surah Names" ligature font from the three-digit number
+(`font-surah`, `src/assets/fonts/sura_names.woff2`, from quran.com's frontend).
 
-**Views.** `App.tsx` switches Home / Dashboard / Peta (view id `browse`) / Structure.
-Peta (`views/BrowseView.tsx`) is the Peta Mushaf (`components/peta/`) above an
-index of surahs, juz and manzils as a dense sortable list (`SurahList`,
-`DivisionList`; header clicks set the same `qv.browse.sort`) or cards
-(`qv.browse.layout`); the timeline sort always uses cards; juz/manzil stats come
-from `divisionCards()` in `data/sections.ts`, and `components/cards/SurahCard`
-is shared with the Opening-categories drill-down. State is mirrored
-to the URL hash via `parseHash`/`serializeHash`. Clicking most chart elements
-calls `onOpen`/`onSelectSurah`, opening the reader (scopes: surah, manzil,
-juz, hizb, rub', ruku', page). Theme (palette, dark mode, custom primary) is
-global via `theme/ThemeContext.tsx`.
+**Last read** (`lib/lastRead.ts`, pure, tested; `qv.lastRead.list`). One entry
+per stretch of reading: the reader reports the ayah at the top of the screen
+once it has stayed 3 s (or the ayah being recited) through `onRead`;
+`recordRead` moves the newest entry while the ayah is in the same surah within
+`STRETCH_REACH` (40) ayahs, else starts a new entry, and keeps one entry per
+surah (max 10). Home shows the newest `qv.lastRead.count` (1/3/5/10, default 5,
+set in Settings). The old `qv.lastRead` target seeds the list once.
+
+**Activity** (`views/ActivityView.tsx`, view id `activity`, `qv.activity.tab`):
+Statistics (`components/home/ActivityPanel.tsx`: today, current and longest
+streak, total time, bars per week, month, year or all time
+(`qv.activity.period`), daily goal `qv.reading.goal`; maths in
+`data/readingLog.ts`, store in `lib/readingStore.ts`, `useReadingTimer(reading)`
+in `App`) and Bookmarks (`components/marks/MarksPanel.tsx`).
+
+**Pins and collections** (`lib/marks.ts`, pure, tested; `qv.marks`, owned by
+`App`). A pin has a name, a colour and at most one ayah, and moves when set on
+another ayah; a collection has a name, a colour and any number of ayahs with
+notes. Colours come from `MARK_COLORS`. First run makes one pin and one
+collection named in the UI language and takes over the old `qv.bookmarks`. In
+the reader each ayah has a pin button and a bookmark button that open
+`components/marks/MarkSheet.tsx`.
+
+**Settings** (`views/SettingsView.tsx`, view id `settings`): language, theme,
+interface scale, accent, Qur'an font and size, last-read count, audio storage
+(Android app only, `components/settings/AudioStorageSettings.tsx`), chart
+settings, theme sharing, keyboard shortcuts, About, Welcome.
+
+**Themes** (`theme/tokens.ts` `THEMES`, `ThemeContext`). Six named themes on a
+light or dark base: light, cream, sepia, dark, warm-dark, black, plus "system"
+(light or dark by device). `index.css` has `:root`, `.dark` and one
+`[data-theme="…"]` block per extra theme (`tokens.test.ts` checks all); the
+`dark` class stays on dark-based themes so `dark:` utilities and night tajweed
+colours apply. `tokens(dark)` returns the active theme's set (`setActiveTheme`)
+for canvas and SVG code. `theme.dark` is the base; `theme.theme` the choice.
+Tajweed colours must keep 4.5:1 on light/dark and 3:1 (large text) on the
+others (`tajweed.test.ts`). The lapis accent is each theme's own
+`illumination` token.
+
+**Views.** `App.tsx` switches Home / Dashboard / Structure / Activity /
+Settings. The dashboard (`views/DashboardPage.tsx`, `qv.dashboard.tab`) is
+Charts (`DashboardView`) or Map (the Peta Mushaf, `components/peta/`); an old
+`#browse` link opens the Map tab. State is mirrored to the URL hash via
+`parseHash`/`serializeHash`. Clicking most chart elements calls
+`onOpen`/`onSelectSurah`, opening the reader (scopes: surah, manzil, juz, hizb,
+rub', ruku', page).
 
 **Reader** (`components/reader/`). A page, not a modal: when the hash has a
 reader target, `App` renders `ReaderView` in the content column and keeps the
@@ -313,18 +344,24 @@ current view mounted but `hidden` (its state survives; its window scroll is
 saved on open and restored on close). Opening pushes a history entry, moving
 inside the reader (`replaceState`) does not, and closing steps back when the
 reader was opened in this session — so Android back leaves the reader in one
-step. Parts: `ReaderToolbar` (back, title, search/about/context/bookmarks/
-settings; scope select + prev/jump/next; layout switch), `VerseRow` (one ayah:
-revelation-coloured reference that opens the context, play, bookmark, context,
-and a "more" menu with copy text/link, quran.com, note), `MushafPage`
+step. Parts: `ReaderToolbar` (one row: back, the title as a button that opens
+`GoToSheet`, search, one icon that flips ayahs / mushaf pages, the player's
+show/hide, settings), `GoToSheet` (surah, ayah and page columns kept in step,
+"read by" scope, About this surah, Go), `VerseRow` (one ayah: its number alone
+as the marker that opens the context, play, pin, bookmark, context, and a
+"more" menu with copy text/link, quran.com), `MushafPage`
 (the scope grouped by mushaf page, continuous text, juz/hizb head margin),
 `VerseContextPanel` ("Konteks ayat": Tafsir · Kata per kata · Asbab · Ayat
 mirip · Akar & topik; each tab lazy-loads its file; per-ayah reverse indexes in
 `data/ayahContext.ts`), `Recitation` (`MiniPlayer` docked at the bottom,
 `RecitationControls` in a sheet), `AyahText` (Arabic with red-ink ۞/۩ and the
 U+06DD ayah-end medallion), `readerShared` (prefs hook, scope helpers). Layouts
-(`qv.reader.mode`): ayah by ayah, mushaf pages, compare translations (the old
-Compare view; editions in `qv.compare.editions`). The reader measures its own
+(`qv.reader.mode`): ayah by ayah or mushaf pages (Compare was removed). Only an
+ayah someone chose is highlighted (`highlightId`: a link's anchor or a tapped
+ayah), never the first ayah on opening. Section themes load in the UI language
+(`themes.json` / `themes-id.json`; Indonesian from the checked-in
+`scripts/data/themes_id.json`, keyed `surah:from-to`, which the ETL requires
+to cover every section). The reader measures its own
 width (`clientWidth`, so zoom-safe): below 560px the tools go icon-only, from
 960px the context panel docks beside the text (`qv.reader.context`), otherwise
 it opens in a `Sheet` (bottom on phones, right edge on wider layouts). Root and
@@ -412,6 +449,14 @@ cancel); the options sheet shows what is on the device, "download all" and
 "delete" (with a confirm). This is the app's only network use, and only on
 the learner's tap.
 
+Settings → Audio storage chooses where audio lives: the two app-private
+volumes below, or any folder (`chooseAudioFolder`: the system folder picker,
+its tree URI turned into a path by the plugin; needs "All files access",
+`MANAGE_EXTERNAL_STORAGE`, granted on a system screen via `requestFolderAccess`).
+A chosen folder is a volume with `custom: true` whose reciter folders sit
+directly inside it; its path persists in `qv.audio.location`. Moving never
+deletes anything but the emptied reciter folders.
+
 The volume is internal storage (`getFilesDir()`, the old `Directory.Data`) or
 the app's folder on an SD card, listed by the in-app `AudioStorage` plugin
 (`android/app/src/main/java/io/github/ikkops/quranviz/AudioStoragePlugin.java`,
@@ -449,7 +494,8 @@ by CI (no Android SDK on the dev machine), so check the PR's `apk` job.
   second and must not re-render the reader); ayah lengths are
   `estimateAyahSeconds` (set bytes ÷ bitrate, shared by letters) until the
   file has loaded, then the real duration; releasing the thumb calls
-  `rec.seek(id, offset)` via `locateInRange`.
+  `rec.seek(id, offset)` via `locateInRange`; while paused, seeking moves the
+  position and stays paused.
   `RecitationControls`
   in the options sheet starts with Play (start the range now, close) and
   Cancel (put range, options and reciter back as they were when it opened;
@@ -549,8 +595,9 @@ content (translations, topic names, root glosses, CSV headers) is not translated
 ## Keyboard shortcuts and loading
 
 App-level shortcuts live in `lib/shortcuts.ts` (`shortcutFor` is pure and
-tested; `SHORTCUTS` feeds the `?` help sheet): Ctrl/Cmd+K or `/` search, `H` home, `1`–`3`
-views (closing the reader), `B` bookmarks, `?` help. They are ignored while typing or while a window
+tested; `SHORTCUTS` feeds the `?` help sheet): Ctrl/Cmd+K or `/` search, `H` home, `1`–`4`
+dashboard, structure, activity, settings (closing the reader), `B` bookmarks
+(Activity), `?` settings (where the list is shown). They are ignored while typing or while a window
 is open (except Ctrl/Cmd+K). The reader keeps its own ←/→ (not while a sheet is open).
 
 `useLazyJson` returns `retry()`; show it on load errors (`LoadState` in
