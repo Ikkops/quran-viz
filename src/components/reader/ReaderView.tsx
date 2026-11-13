@@ -38,9 +38,29 @@ import { EditionSelect } from "../panels/EditionSelect";
 import { BookmarkList } from "../panels/BookmarkList";
 import { setBookmarkNote, toggleBookmark, type Bookmark } from "../../lib/bookmarks";
 import { useI18n } from "../../i18n/I18nContext";
-import { RECITERS, type LoopRange } from "../../data/recitation";
+import {
+  RECITERS,
+  estimateAudioBytes,
+  formatBytes,
+  type LoopRange,
+  type ReciterId,
+} from "../../data/recitation";
 import { useReciters, useRecitation } from "../../data/useRecitation";
-import { MiniPlayer, RecitationControls } from "./Recitation";
+import {
+  cancelDownloads,
+  deleteReciterAudio,
+  downloadSurahs,
+  isNativeApp,
+  nativeAudioBase,
+  useAudioDownloads,
+  type SurahJob,
+} from "../../data/audioStore";
+import {
+  MiniPlayer,
+  RecitationControls,
+  type AudioDownloadPrompt,
+  type AudioStorage,
+} from "./Recitation";
 import { QuranStrip } from "../peta/QuranStrip";
 import { ReaderToolbar } from "./ReaderToolbar";
 import { VerseRow, type RowContext, type RowTranslation } from "./VerseRow";
@@ -221,14 +241,110 @@ export function ReaderView({
   const reciters = useReciters(RECITERS);
   // The stored choice, or the first reciter present locally.
   const reciter = reciters?.find((r) => r.id === p.reciterPref) ?? reciters?.[0] ?? null;
+  // ── Android app: recitation lives in device storage, downloaded per surah ──
+  const native = isNativeApp();
+  const [deviceBase, setDeviceBase] = useState<string | null>(null);
+  useEffect(() => {
+    if (native) void nativeAudioBase().then(setDeviceBase, () => undefined);
+  }, [native]);
+  const downloads = useAudioDownloads(RECITERS);
+  const reciterId = (reciter?.id ?? p.reciterPref) as ReciterId;
+  const onDevice = downloads.downloaded[reciterId];
+  const available = useCallback(
+    (id: number) => !native || !!onDevice?.[verses[id - 1]?.s ?? 0],
+    [native, onDevice, verses],
+  );
+  const totalWords = useMemo(() => surahs.reduce((n, x) => n + x.wordCount, 0), [surahs]);
+  const jobOf = useCallback(
+    (n: number): SurahJob | null => {
+      const x = surahMap.get(n);
+      return x
+        ? { surah: n, ayahCount: x.ayahCount, hasBismillah: !!x.hasBismillah }
+        : null;
+    },
+    [surahMap],
+  );
+  /** "Al-Baqara" for one surah, "3 surahs" for more. */
+  const surahsLabel = useCallback(
+    (ns: number[]) =>
+      ns.length === 1
+        ? (surahMap.get(ns[0])?.nameEn ?? String(ns[0]))
+        : t.reader.audio.nSurahs(ns.length),
+    [surahMap, t],
+  );
+
   const rec = useRecitation({
-    reciter: reciter?.id ?? p.reciterPref,
+    reciter: reciterId,
     enabled: p.showAudio,
     verses,
     range,
     options: p.audioOpts,
     needsBasmalah,
+    base: native ? deviceBase : undefined,
+    available: native ? available : undefined,
   });
+
+  let downloadPrompt: AudioDownloadPrompt | null = null;
+  let storage: AudioStorage | null = null;
+  if (native && onDevice) {
+    // The surah playback stopped at, else the ones this view shows.
+    const missingSurah = rec.missing !== null ? verses[rec.missing - 1]?.s : undefined;
+    const want = (missingSurah ? [missingSurah] : scopeSurahs).filter(
+      (n) => !onDevice[n],
+    );
+    const words = want.reduce((n, x) => n + (surahMap.get(x)?.wordCount ?? 0), 0);
+    const act = downloads.active;
+    const jobsFor = (ns: number[]) => ns.flatMap((n) => jobOf(n) ?? []);
+    downloadPrompt = {
+      needed:
+        want.length > 0
+          ? {
+              what: surahsLabel(want),
+              size: formatBytes(estimateAudioBytes(reciterId, words, totalWords)),
+            }
+          : null,
+      active: act
+        ? {
+            what: surahsLabel([act.surah]),
+            done: act.done,
+            total: act.total,
+            waiting: downloads.queue.length,
+          }
+        : null,
+      error: downloads.error,
+      onStart: () => downloadSurahs(reciterId, jobsFor(want)),
+      onCancel: cancelDownloads,
+    };
+    const have = Object.keys(onDevice).map(Number);
+    const bytes = Object.values(onDevice).reduce((n, b) => n + b, 0);
+    storage = {
+      surahs: have.length,
+      size: formatBytes(bytes),
+      allSize: formatBytes(
+        estimateAudioBytes(
+          reciterId,
+          surahs.filter((x) => !onDevice[x.id]).reduce((n, x) => n + x.wordCount, 0),
+          totalWords,
+        ),
+      ),
+      busy: !!act,
+      onDownloadAll: () =>
+        downloadSurahs(
+          reciterId,
+          jobsFor(surahs.map((x) => x.id).filter((n) => !onDevice[n])),
+        ),
+      onDeleteAll: () => {
+        if (
+          window.confirm(
+            t.reader.audio.deleteConfirm(reciter?.name ?? "", formatBytes(bytes)),
+          )
+        ) {
+          rec.stop();
+          void deleteReciterAudio(reciterId);
+        }
+      },
+    };
+  }
   const audioOn = !!reciter && p.showAudio;
   // A new scope resets an edited range, unless something is playing from it.
   const hasCursor = rec.cursor !== null;
@@ -953,6 +1069,7 @@ export function ReaderView({
           reciterName={reciter?.name ?? ""}
           options={p.audioOpts}
           onOpenOptions={() => setPlayerSheet(true)}
+          download={downloadPrompt}
         />
       )}
 
@@ -988,6 +1105,7 @@ export function ReaderView({
           onResetRange={() => setLoopRange(null)}
           options={p.audioOpts}
           onOptions={p.setAudioOpts}
+          storage={storage}
         />
       </Sheet>
     </section>

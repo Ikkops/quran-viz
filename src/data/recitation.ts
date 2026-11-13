@@ -41,6 +41,39 @@ export interface RecitationOptions extends LoopOptions {
 export const RECITERS = ["shuraym", "yasser"] as const;
 export type ReciterId = (typeof RECITERS)[number];
 
+export interface ReciterInfo {
+  name: string;
+  nameAr: string;
+  /** Folder of per-ayah MP3s on everyayah.com (ends in "/"). */
+  source: string;
+  bitrate: number;
+  origin: string;
+  /** Size of the whole set, for download estimates. */
+  bytes: number;
+}
+
+/** What the app knows about each reciter without an index.json: the Android
+ *  app downloads from `source` itself. MIRRORS `RECITERS` in
+ *  scripts/fetch_audio.py; `bytes` is from the complete local sets. */
+export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
+  shuraym: {
+    name: "Sa'ud ash-Shuraym",
+    nameAr: "سعود الشريم",
+    source: "https://everyayah.com/data/Saood_ash-Shuraym_64kbps/",
+    bitrate: 64,
+    origin: "HidayahOnline.org",
+    bytes: 529_942_267,
+  },
+  yasser: {
+    name: "Yasser ad-Dosari",
+    nameAr: "ياسر الدوسري",
+    source: "https://everyayah.com/data/Yasser_Ad-Dussary_128kbps/",
+    bitrate: 128,
+    origin: "QuranicAudio.com",
+    bytes: 1_495_802_496,
+  },
+};
+
 export const REPEAT_CHOICES = [1, 2, 3, 5, 7, 10, 0] as const;
 export const GAP_CHOICES = [0, 0.5, 1, 2, 3] as const;
 export const RATE_CHOICES = [0.75, 0.9, 1, 1.1, 1.25, 1.5] as const;
@@ -120,16 +153,57 @@ export function setRangeEnd(range: LoopRange, end: "from" | "to", id: number): L
 
 const pad3 = (n: number) => String(n).padStart(3, "0");
 
-/** URL of one ayah's audio file (SSSAAA.mp3, as written by fetch_audio.py). */
-export function ayahAudioUrl(reciter: string, surah: number, ayah: number): string {
-  return `${BASE}audio/${reciter}/${pad3(surah)}${pad3(ayah)}.mp3`;
+/** SSSAAA.mp3, the per-ayah file name used by everyayah.com and fetch_audio.py. */
+export function audioFileName(surah: number, ayah: number): string {
+  return `${pad3(surah)}${pad3(ayah)}.mp3`;
+}
+
+/** Where the dev server serves `audio/` (the Android app passes its own). */
+export const WEB_AUDIO_BASE = `${BASE}audio/`;
+
+/** URL of one ayah's audio file under `base` (a folder URL ending in "/"). */
+export function ayahAudioUrl(
+  reciter: string,
+  surah: number,
+  ayah: number,
+  base: string = WEB_AUDIO_BASE,
+): string {
+  return `${base}${reciter}/${audioFileName(surah, ayah)}`;
 }
 
 /** 1:1 is the basmalah; it is played before ayah 1 of the other surahs. */
-export function basmalahAudioUrl(reciter: string): string {
-  return ayahAudioUrl(reciter, 1, 1);
+export function basmalahAudioUrl(reciter: string, base?: string): string {
+  return ayahAudioUrl(reciter, 1, 1, base);
 }
 
 export function audioIndexUrl(reciter: string): string {
-  return `${BASE}audio/${reciter}/index.json`;
+  return `${WEB_AUDIO_BASE}${reciter}/index.json`;
+}
+
+/** The files one surah needs: its ayahs, plus 001001.mp3 when the basmalah is
+ *  recited before its first ayah. */
+export function surahAudioFiles(
+  surah: number,
+  ayahCount: number,
+  hasBismillah: boolean,
+): string[] {
+  const files = Array.from({ length: ayahCount }, (_, i) => audioFileName(surah, i + 1));
+  if (hasBismillah && surah !== 1) files.unshift(audioFileName(1, 1));
+  return files;
+}
+
+/** Estimated download size of some surahs: the whole set's size, shared out by
+ *  word count (recitation length follows the text closely enough). */
+export function estimateAudioBytes(
+  reciter: ReciterId,
+  words: number,
+  totalWords: number,
+): number {
+  return totalWords > 0 ? (RECITER_INFO[reciter].bytes * words) / totalWords : 0;
+}
+
+/** "25 MB" / "1.5 GB", rounded for a label. */
+export function formatBytes(bytes: number): string {
+  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
+  return `${Math.max(1, Math.round(bytes / 1e6))} MB`;
 }

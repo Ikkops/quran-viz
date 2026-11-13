@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Verse } from "../types/quran";
+import { isNativeApp } from "./audioStore";
 import {
+  RECITER_INFO,
+  WEB_AUDIO_BASE,
   advance,
   audioIndexUrl,
   ayahAudioUrl,
@@ -9,6 +12,7 @@ import {
   type Cursor,
   type LoopRange,
   type RecitationOptions,
+  type ReciterId,
 } from "./recitation";
 
 export type { RecitationOptions };
@@ -44,12 +48,30 @@ function loadIndex(reciter: string): Promise<ReciterIndex | null> {
   return p;
 }
 
+/** In the Android app every known reciter is offered: its audio is
+ *  downloaded per surah into device storage (data/audioStore.ts). */
+function nativeIndex(id: string): ReciterIndex | null {
+  const info = RECITER_INFO[id as ReciterId];
+  return info
+    ? { id, ...info, recorded: null, files: 6236, total: 6236, complete: true }
+    : null;
+}
+
 /** Indexes of the reciters whose audio is present locally, in `ids` order;
- *  null while checking. Empty on Android or a static host. */
+ *  null while checking. Empty on a static host; every reciter in the app. */
 export function useReciters(ids: readonly string[]): ReciterIndex[] | null {
   const [list, setList] = useState<ReciterIndex[] | null>(null);
   const key = ids.join(",");
   useEffect(() => {
+    if (isNativeApp()) {
+      setList(
+        key.split(",").flatMap((id) => {
+          const ix = nativeIndex(id);
+          return ix ? [ix] : [];
+        }),
+      );
+      return;
+    }
     let alive = true;
     Promise.all(key.split(",").map(loadIndex)).then(
       (all) => alive && setList(all.filter((ix): ix is ReciterIndex => !!ix)),
@@ -65,6 +87,8 @@ export interface Recitation {
   cursor: Cursor | null;
   playing: boolean;
   error: string | null;
+  /** The ayah playback stopped at because its surah isn't downloaded (app). */
+  missing: number | null;
   play: (id: number) => void;
   toggle: () => void;
   stop: () => void;
@@ -81,6 +105,8 @@ export function useRecitation({
   range,
   options,
   needsBasmalah,
+  base = WEB_AUDIO_BASE,
+  available,
 }: {
   reciter: string;
   /** False stops playback (player hidden). */
@@ -89,27 +115,33 @@ export function useRecitation({
   range: LoopRange;
   options: RecitationOptions;
   needsBasmalah: (id: number) => boolean;
+  /** Folder URL the reciter folders live under; null while it is resolved. */
+  base?: string | null;
+  /** False for an ayah whose audio isn't on the device (Android app). */
+  available?: (id: number) => boolean;
 }): Recitation {
   const [cursor, setCursor] = useState<Cursor | null>(null);
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [missing, setMissing] = useState<number | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const warmRef = useRef<HTMLAudioElement | null>(null);
   const gapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cursorRef = useRef<Cursor | null>(null);
-  const live = useRef({ range, options, needsBasmalah, verses });
+  const live = useRef({ range, options, needsBasmalah, verses, available });
   useLayoutEffect(() => {
-    live.current = { range, options, needsBasmalah, verses };
+    live.current = { range, options, needsBasmalah, verses, available };
   });
 
   const srcOf = useCallback(
     (c: Cursor): string | null => {
-      if (c.basmalah) return basmalahAudioUrl(reciter);
+      if (base === null) return null;
+      if (c.basmalah) return basmalahAudioUrl(reciter, base);
       const v = live.current.verses[c.id - 1];
-      return v ? ayahAudioUrl(reciter, v.s, v.a) : null;
+      return v ? ayahAudioUrl(reciter, v.s, v.a, base) : null;
     },
-    [reciter],
+    [reciter, base],
   );
 
   const clearGap = () => {
@@ -125,10 +157,19 @@ export function useRecitation({
   const start = useCallback(
     (c: Cursor) => {
       const audio = audioRef.current ?? (audioRef.current = new Audio());
+      if (live.current.available && !live.current.available(c.id)) {
+        clearGap();
+        audio.pause();
+        setPlaying(false);
+        setAt(null);
+        setMissing(c.id);
+        return;
+      }
       const src = srcOf(c);
       if (!src) return;
       clearGap();
       setError(null);
+      setMissing(null);
       setAt(c);
       // Re-assigning the same src would not restart a repeat, so rewind instead.
       if (audio.src === new URL(src, location.href).href) audio.currentTime = 0;
@@ -266,5 +307,5 @@ export function useRecitation({
     if (cur && playing) start(cur);
   }, [reciter, playing, start]);
 
-  return { cursor, playing, error, play, toggle, stop, step };
+  return { cursor, playing, error, missing, play, toggle, stop, step };
 }

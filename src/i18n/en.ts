@@ -762,6 +762,27 @@ export const en = {
       pass: (a: string, r: string) => `ayah ${a} · range ${r}`,
       idle: "Not playing",
       failed: (f: string) => `Couldn't play ${f}`,
+      download: "Download",
+      notDownloaded: "Recitation isn't on this device yet",
+      notOnDevice: (ref: string) => `${ref} isn't downloaded yet`,
+      downloadSize: (what: string, size: string) => `${what} · about ${size}`,
+      downloading: (what: string, done: number, total: number) =>
+        `Downloading ${what} · ${done}/${total}`,
+      downloadProgress: "Download progress",
+      waiting: (n: number) => `${n} more ${n === 1 ? "surah" : "surahs"} waiting`,
+      cancelDownload: "Cancel download",
+      downloadFailed: (f: string) =>
+        `Download stopped at ${f}. Check the connection and try again.`,
+      nSurahs: (n: number) => `${n} surahs`,
+      storageTitle: "Audio on this device",
+      onDevice: (n: number, size: string) =>
+        n === 0 ? "Nothing downloaded yet." : `${n} of 114 surahs · ${size}`,
+      downloadAll: (size: string) => `Download all (about ${size})`,
+      deleteAll: "Delete downloaded audio",
+      deleteConfirm: (name: string, size: string) =>
+        `Delete ${name}'s downloaded audio (${size})? You can download it again later.`,
+      sourceNote:
+        "Audio is downloaded from everyayah.com once, then plays without a connection.",
     },
   },
 

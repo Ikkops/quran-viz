@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  RECITER_INFO,
   advance,
+  audioFileName,
   ayahAudioUrl,
+  estimateAudioBytes,
+  formatBytes,
+  surahAudioFiles,
   cursorAt,
   setRangeEnd,
   shiftRange,
@@ -102,6 +107,39 @@ describe("range edits", () => {
 
 it("ayahAudioUrl pads surah and ayah", () => {
   expect(ayahAudioUrl("shuraym", 2, 7)).toMatch(/audio\/shuraym\/002007\.mp3$/);
+});
+
+it("ayahAudioUrl uses the device folder when given one", () => {
+  expect(
+    ayahAudioUrl("yasser", 114, 6, "https://localhost/_capacitor_file_/d/audio/"),
+  ).toBe("https://localhost/_capacitor_file_/d/audio/yasser/114006.mp3");
+});
+
+describe("surahAudioFiles", () => {
+  it("lists every ayah, with the basmalah first when it is recited", () => {
+    expect(surahAudioFiles(112, 4, true)).toEqual([
+      "001001.mp3",
+      "112001.mp3",
+      "112002.mp3",
+      "112003.mp3",
+      "112004.mp3",
+    ]);
+  });
+  it("adds no basmalah to At-Tawbah or to Al-Fatihah (its first ayah is it)", () => {
+    expect(surahAudioFiles(9, 2, false)).toEqual(["009001.mp3", "009002.mp3"]);
+    expect(surahAudioFiles(1, 7, true)).toHaveLength(7);
+    expect(surahAudioFiles(1, 7, true)[0]).toBe(audioFileName(1, 1));
+  });
+});
+
+it("estimates a download by word share and formats it", () => {
+  expect(estimateAudioBytes("shuraym", 41004, 82008)).toBeCloseTo(
+    RECITER_INFO.shuraym.bytes / 2,
+  );
+  expect(estimateAudioBytes("shuraym", 10, 0)).toBe(0);
+  expect(formatBytes(25_400_000)).toBe("25 MB");
+  expect(formatBytes(120_000)).toBe("1 MB");
+  expect(formatBytes(1_495_802_496)).toBe("1.5 GB");
 });
 
 it("sanitizeRecitationOptions drops values that are no longer choices", async () => {
