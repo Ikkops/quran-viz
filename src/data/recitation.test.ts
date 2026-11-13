@@ -145,7 +145,46 @@ it("estimates a download by word share and formats it", () => {
 it("sanitizeRecitationOptions drops values that are no longer choices", async () => {
   const { sanitizeRecitationOptions } = await import("./recitation");
   expect(
-    sanitizeRecitationOptions({ ayahRepeat: 3, rangeRepeat: 4, gap: 1, rate: 9 }),
+    sanitizeRecitationOptions({ ayahRepeat: 3, rangeRepeat: 7, gap: 1, rate: 9 }),
   ).toEqual({ ayahRepeat: 3, rangeRepeat: 1, gap: 1, rate: 1 });
   expect(sanitizeRecitationOptions("x")).toBeUndefined();
+});
+
+describe("repeat button", () => {
+  it("cycles none, 1×, 2×, 3×, 5×, 11×, ∞ and back", async () => {
+    const { nextRepeat, repeatBadge } = await import("./recitation");
+    const seen: string[] = [];
+    let plays = 1;
+    for (let i = 0; i < 8; i++) {
+      seen.push(repeatBadge(plays));
+      plays = nextRepeat(plays);
+    }
+    expect(seen).toEqual(["", "1×", "2×", "3×", "5×", "11×", "∞", ""]);
+  });
+  it("starts over from a value that is no longer a choice", async () => {
+    const { nextRepeat } = await import("./recitation");
+    expect(nextRepeat(7)).toBe(1);
+  });
+});
+
+describe("seek bar maths", () => {
+  it("formats playing time", async () => {
+    const { formatClock } = await import("./recitation");
+    expect(formatClock(0)).toBe("0:00");
+    expect(formatClock(65.4)).toBe("1:05");
+    expect(formatClock(3727)).toBe("1:02:07");
+  });
+  it("finds the ayah and offset for a time in the range", async () => {
+    const { locateInRange } = await import("./recitation");
+    expect(locateInRange([10, 20, 5], 100, 0)).toEqual({ id: 100, offset: 0 });
+    expect(locateInRange([10, 20, 5], 100, 12)).toEqual({ id: 101, offset: 2 });
+    // Past the end: the last ayah, just before it finishes.
+    expect(locateInRange([10, 20, 5], 100, 99)).toEqual({ id: 102, offset: 4.75 });
+  });
+  it("estimates an ayah's length from the set's size, bitrate and letter share", async () => {
+    const { estimateAyahSeconds } = await import("./recitation");
+    const total = (RECITER_INFO.shuraym.bytes * 8) / 64_000;
+    expect(estimateAyahSeconds("shuraym", 50, 100)).toBeCloseTo(total / 2);
+    expect(estimateAyahSeconds("nobody", 50, 100)).toBe(0);
+  });
 });

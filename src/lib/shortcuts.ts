@@ -9,7 +9,7 @@ export type ShortcutAction =
 
 export const SHORTCUTS: { keys: string; does: string }[] = [
   { keys: "Ctrl K  or  /", does: "Search the Qur'an (Arabic, 2:255, or translation)" },
-  { keys: "1 · 2 · 3", does: "Dashboard · Map · Structure" },
+  { keys: "H · 1 · 2 · 3", does: "Home · Dashboard · Map · Structure" },
   { keys: "B", does: "Bookmarks" },
   { keys: "?", does: "This list" },
   { keys: "← / →", does: "Reader: previous / next surah, juz, page…" },
@@ -19,6 +19,8 @@ export const SHORTCUTS: { keys: string; does: string }[] = [
 ];
 
 const VIEW_KEYS: Record<string, View> = {
+  h: "home",
+  H: "home",
   "1": "dashboard",
   "2": "browse",
   "3": "structure",

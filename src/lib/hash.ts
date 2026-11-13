@@ -6,8 +6,9 @@ import {
 } from "../components/charts/common";
 
 /** Top-level views. ("compare" became a reader layout; old links open the dashboard.) */
-export type View = "dashboard" | "browse" | "structure";
-export const VIEWS: readonly View[] = ["dashboard", "browse", "structure"];
+/** "home" is where the app opens: continue reading, the surah index, activity. */
+export type View = "home" | "dashboard" | "browse" | "structure";
+export const VIEWS: readonly View[] = ["home", "dashboard", "browse", "structure"];
 const MAX_AYAH = 6236;
 
 export interface HashState {
@@ -27,7 +28,7 @@ export function parseHash(hash: string): HashState {
   const [viewPart, query = ""] = head.split("?");
   const view = (VIEWS as readonly string[]).includes(viewPart)
     ? (viewPart as View)
-    : "dashboard";
+    : "home";
   const params = Object.fromEntries(new URLSearchParams(query));
   const readerPart = rest.join("/r/");
   if (!readerPart) return { view, params, reader: null };

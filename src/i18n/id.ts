@@ -205,6 +205,7 @@ export const id: Messages = {
     search: "Cari di Al-Qur'an",
     mainView: "Tampilan utama",
     views: {
+      home: "Beranda",
       dashboard: "Dasbor",
       browse: "Peta",
       structure: "Struktur",
@@ -221,7 +222,7 @@ export const id: Messages = {
 
   shortcuts: [
     "Cari di Al-Qur'an (Arab, 2:255, atau terjemahan)",
-    "Dasbor · Peta · Struktur",
+    "Beranda · Dasbor · Peta · Struktur",
     "Penanda",
     "Daftar ini",
     "Pembaca: surah, juz, halaman… sebelum / berikutnya",
@@ -229,6 +230,45 @@ export const id: Messages = {
     "Pencarian: buka hasil pertama atau rujukan yang diketik",
     "Tutup jendela yang terbuka",
   ],
+
+  home: {
+    sections: "Bagian beranda",
+    tabs: { surah: "Surah", juz: "Juz", activity: "Aktivitas" },
+    filter: "Cari surah menurut nama atau nomor",
+    noSurah: "Tidak ada surah yang cocok.",
+    searchInstead: "Cari di seluruh Al-Qur'an",
+    ayahs: (n) => `${n} ayat`,
+    startAt: (name) => `Dari ${name}`,
+    todayLine: (time, goal) => `Hari ini: ${time} dari ${goal} mnt`,
+    streakLine: (n) => `Beruntun: ${n} hari`,
+  },
+
+  activity: {
+    title: "Aktivitas membaca",
+    today: "Hari ini",
+    ofGoal: (goal) => `target ${goal} mnt`,
+    streak: "Beruntun saat ini",
+    streakNote: (goal) => `hari dengan ${goal} mnt atau lebih`,
+    longest: "Beruntun terpanjang",
+    total: "Total waktu",
+    days: (n) => `${n} hari`,
+    daysRead: (n) => `${n} hari membaca`,
+    duration: (seconds) => {
+      const m = seconds <= 0 ? 0 : Math.max(1, Math.round(seconds / 60));
+      if (m < 60) return `${m} mnt`;
+      return m % 60 === 0 ? `${m / 60} jam` : `${Math.floor(m / 60)} jam ${m % 60} mnt`;
+    },
+    minutes: (n) => `${n} mnt sehari`,
+    period: "Periode",
+    periods: { week: "Pekan", month: "Bulan", year: "Tahun", all: "Sepanjang waktu" },
+    earlier: "Sebelumnya",
+    later: "Berikutnya",
+    summary: (time, read, of, avg) =>
+      `Total ${time} · membaca ${read} dari ${of} hari · ${avg} per hari membaca`,
+    empty: "Belum ada. Waktu dihitung selama pembaca terbuka dan dipakai.",
+    goal: "Target harian",
+    how: "Waktu dihitung selama pembaca terbuka dan Anda membaca atau mendengarkan. Data hanya tersimpan di perangkat ini.",
+  },
 
   ui: {
     resize: "Ubah lebar (seret; klik ganda untuk mengembalikan)",
@@ -838,8 +878,17 @@ export const id: Messages = {
       rangeRepeat: "Ulang range",
       gap: "Jarak",
       rate: "Kecepatan",
-      times: (n) => (n === 0 ? "∞" : `${n}×`),
+      times: (n) => (n === 0 ? "∞" : n === 1 ? "tidak" : `${n - 1}×`),
       seconds: (s) => `${s} dtk`,
+      restart: "Ulangi ayat ini dari awal",
+      repeatButton: (v) => `Ulangi tiap ayat: ${v}`,
+      seek: "Posisi dalam rentang",
+      seekText: (at, total) => `${at} dari ${total}`,
+      endEstimate: "Panjang rentang. Perkiraan sampai tiap ayat pernah diputar.",
+      pickEnd: (end) => `${end}: pilih surah dan ayat`,
+      playNow: "Putar",
+      cancel: "Batal",
+      cancelHint: "Tutup dan kembalikan opsi seperti semula",
       basmalah: "Basmalah",
       pass: (a, r) => `ayat ${a} · range ${r}`,
       idle: "Tidak diputar",

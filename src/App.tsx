@@ -29,6 +29,9 @@ const DashboardView = lazy(() =>
 const StructureView = lazy(() =>
   import("./views/StructureView").then((m) => ({ default: m.StructureView })),
 );
+const HomeView = lazy(() =>
+  import("./views/HomeView").then((m) => ({ default: m.HomeView })),
+);
 const BrowseView = lazy(() =>
   import("./views/BrowseView").then((m) => ({ default: m.BrowseView })),
 );
@@ -64,6 +67,7 @@ import {
 import { useI18n } from "./i18n/I18nContext";
 import { searchEditionFor } from "./data/searchEdition";
 import { installBackButton } from "./lib/androidBack";
+import { useReadingTimer } from "./lib/readingStore";
 
 /** Current hash, parsed. Dashboard params are kept when the reader opens or
  *  closes so a shared link reopens the same chart. */
@@ -264,6 +268,8 @@ export default function App() {
     else if (choice === "map") setView("browse");
   };
   const reading = !!(data && reader);
+  // Reading time (Home → Activity) counts while the reader is open.
+  useReadingTimer(reading);
   // The last-read ayah (its anchor, else the first ayah of its scope) and the
   // bookmarked ayahs, for the Peta Mushaf overlays.
   const lastReadId = useMemo(() => {
@@ -371,6 +377,15 @@ export default function App() {
             </Card>
           )}
           <Suspense fallback={<LoadingSkeleton />}>
+            {data && view === "home" && (
+              <HomeView
+                data={data}
+                lastRead={lastRead}
+                lastReadId={lastReadId}
+                onOpen={navigateReader}
+                onSearch={() => openSearch()}
+              />
+            )}
             {data && view === "dashboard" && (
               <DashboardView
                 key={dashKey}

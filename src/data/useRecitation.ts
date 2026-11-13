@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Verse } from "../types/quran";
 import { isNativeApp } from "./audioStore";
+import { bindMediaControls, clearNowPlaying, showNowPlaying } from "./mediaControls";
+import { setListening } from "../lib/readingStore";
 import {
   RECITER_INFO,
   WEB_AUDIO_BASE,
@@ -83,6 +85,25 @@ export function useReciters(ids: readonly string[]): ReciterIndex[] | null {
   return list;
 }
 
+/** Where the audio element is, for the seek bar. It changes several times a
+ *  second, so it is read through `subscribe` instead of React state (the
+ *  reader would otherwise re-render on every tick). */
+export interface PlayClock {
+  subscribe: (fn: () => void) => () => void;
+  get: () => ClockTime;
+}
+export interface ClockTime {
+  /** The ayah loaded in the player, or null. */
+  id: number | null;
+  /** Seconds into the ayah (0 while its basmalah plays). */
+  t: number;
+  /** Bumped whenever an ayah's real length becomes known. */
+  rev: number;
+}
+
+// Real lengths of the files played so far, `${reciter}/${ayah id}` → seconds.
+const learned = new Map<string, number>();
+
 export interface Recitation {
   cursor: Cursor | null;
   playing: boolean;
@@ -93,6 +114,13 @@ export interface Recitation {
   toggle: () => void;
   stop: () => void;
   step: (delta: 1 | -1) => void;
+  /** Play the current ayah again from its beginning. */
+  restart: () => void;
+  /** Play ayah `id` from `offset` seconds in. */
+  seek: (id: number, offset: number) => void;
+  clock: PlayClock;
+  /** Length of an ayah in seconds: measured once played, else estimated. */
+  lengthOf: (id: number) => number;
 }
 
 /** Per-ayah playback through one <audio> element, looping over `range`.
@@ -107,6 +135,8 @@ export function useRecitation({
   needsBasmalah,
   base = WEB_AUDIO_BASE,
   available,
+  estimate,
+  describe,
 }: {
   reciter: string;
   /** False stops playback (player hidden). */
@@ -119,6 +149,10 @@ export function useRecitation({
   base?: string | null;
   /** False for an ayah whose audio isn't on the device (Android app). */
   available?: (id: number) => boolean;
+  /** Estimated length of an ayah in seconds, until it has been played. */
+  estimate?: (id: number) => number;
+  /** What the system's media controls show for an ayah. */
+  describe?: (id: number) => { title: string; artist: string; album: string };
 }): Recitation {
   const [cursor, setCursor] = useState<Cursor | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -129,10 +163,80 @@ export function useRecitation({
   const warmRef = useRef<HTMLAudioElement | null>(null);
   const gapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cursorRef = useRef<Cursor | null>(null);
-  const live = useRef({ range, options, needsBasmalah, verses, available });
-  useLayoutEffect(() => {
-    live.current = { range, options, needsBasmalah, verses, available };
+  const live = useRef({
+    range,
+    options,
+    needsBasmalah,
+    verses,
+    available,
+    estimate,
+    describe,
+    reciter,
   });
+  useLayoutEffect(() => {
+    live.current = {
+      range,
+      options,
+      needsBasmalah,
+      verses,
+      available,
+      estimate,
+      describe,
+      reciter,
+    };
+  });
+
+  // ── Clock: position inside the current ayah, outside React state ──
+  const clockRef = useRef<ClockTime>({ id: null, t: 0, rev: 0 });
+  const clockSubs = useRef(new Set<() => void>());
+  const tick = useCallback((patch: Partial<ClockTime>) => {
+    clockRef.current = { ...clockRef.current, ...patch };
+    clockSubs.current.forEach((fn) => fn());
+  }, []);
+  const [clock] = useState<PlayClock>(() => ({
+    subscribe: (fn) => {
+      clockSubs.current.add(fn);
+      return () => {
+        clockSubs.current.delete(fn);
+      };
+    },
+    get: () => clockRef.current,
+  }));
+  const lengthOf = useCallback((id: number) => {
+    const { reciter: r, estimate: est } = live.current;
+    return learned.get(`${r}/${id}`) ?? est?.(id) ?? 0;
+  }, []);
+  /** Seconds from the range's start to ayah `id`, and the range's length. */
+  const rangeTimes = useCallback(
+    (id: number) => {
+      const { from, to } = live.current.range;
+      let before = 0;
+      let total = 0;
+      for (let i = from; i <= to; i++) {
+        const len = lengthOf(i);
+        if (i < id) before += len;
+        total += len;
+      }
+      return { before, total };
+    },
+    [lengthOf],
+  );
+  /** Tell the system's media controls what is loaded. */
+  const announce = useCallback(
+    (c: Cursor, isPlaying: boolean, t = 0) => {
+      const d = live.current.describe?.(c.id);
+      if (!d) return;
+      const { before, total } = rangeTimes(c.id);
+      showNowPlaying({
+        ...d,
+        playing: isPlaying,
+        position: before + (c.basmalah ? 0 : t),
+        duration: total,
+        rate: live.current.options.rate,
+      });
+    },
+    [rangeTimes],
+  );
 
   const srcOf = useCallback(
     (c: Cursor): string | null => {
@@ -149,13 +253,20 @@ export function useRecitation({
     gapTimer.current = null;
   };
 
-  const setAt = (c: Cursor | null) => {
-    cursorRef.current = c;
-    setCursor(c);
-  };
+  const setAt = useCallback(
+    (c: Cursor | null) => {
+      cursorRef.current = c;
+      setCursor(c);
+      tick({ id: c ? c.id : null, t: 0 });
+      if (!c) clearNowPlaying();
+    },
+    [tick],
+  );
+  // An offset to jump to once the file's metadata has loaded (seek).
+  const pendingSeek = useRef(0);
 
   const start = useCallback(
-    (c: Cursor) => {
+    (c: Cursor, offset = 0) => {
       const audio = audioRef.current ?? (audioRef.current = new Audio());
       if (live.current.available && !live.current.available(c.id)) {
         clearGap();
@@ -172,8 +283,14 @@ export function useRecitation({
       setMissing(null);
       setAt(c);
       // Re-assigning the same src would not restart a repeat, so rewind instead.
-      if (audio.src === new URL(src, location.href).href) audio.currentTime = 0;
-      else audio.src = src;
+      pendingSeek.current = 0;
+      if (audio.src === new URL(src, location.href).href) audio.currentTime = offset;
+      else {
+        audio.src = src;
+        pendingSeek.current = offset;
+      }
+      if (offset > 0) tick({ t: offset });
+      announce(c, true, offset);
       audio.playbackRate = live.current.options.rate;
       setPlaying(true);
       const p = audio.play();
@@ -193,7 +310,7 @@ export function useRecitation({
         warm.src = nsrc;
       }
     },
-    [srcOf],
+    [srcOf, setAt, tick, announce],
   );
 
   const onEnded = useCallback(() => {
@@ -210,7 +327,7 @@ export function useRecitation({
     const gap = cur.basmalah ? 0 : o.gap;
     if (gap > 0) gapTimer.current = setTimeout(() => start(nxt), gap * 1000);
     else start(nxt);
-  }, [start]);
+  }, [start, setAt]);
 
   // Attach listeners once the element exists; it is created on first play.
   useEffect(() => {
@@ -221,13 +338,41 @@ export function useRecitation({
       setPlaying(false);
       setError(audio.src.split("/").pop() ?? audio.src);
     };
+    const onTime = () => {
+      const cur = cursorRef.current;
+      if (cur && !cur.basmalah) tick({ t: audio.currentTime });
+    };
+    const onMeta = () => {
+      const cur = cursorRef.current;
+      if (pendingSeek.current > 0 && Number.isFinite(audio.duration)) {
+        audio.currentTime = Math.min(pendingSeek.current, audio.duration - 0.25);
+        pendingSeek.current = 0;
+      }
+      if (!cur || cur.basmalah || !Number.isFinite(audio.duration)) return;
+      const key = `${live.current.reciter}/${cur.id}`;
+      if (learned.get(key) === audio.duration) return;
+      learned.set(key, audio.duration);
+      tick({ rev: clockRef.current.rev + 1 });
+      // The range's length is now a little more exact.
+      announce(cur, !audio.paused, audio.currentTime);
+    };
     audio.addEventListener("ended", onEnded);
     audio.addEventListener("error", onError);
+    audio.addEventListener("timeupdate", onTime);
+    audio.addEventListener("loadedmetadata", onMeta);
     return () => {
       audio.removeEventListener("ended", onEnded);
       audio.removeEventListener("error", onError);
+      audio.removeEventListener("timeupdate", onTime);
+      audio.removeEventListener("loadedmetadata", onMeta);
     };
-  }, [playing, onEnded]);
+  }, [playing, onEnded, tick, announce]);
+
+  // Listening counts as reading time (lib/readingStore.ts).
+  useEffect(() => {
+    setListening(playing);
+    return () => setListening(false);
+  }, [playing]);
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.playbackRate = options.rate;
@@ -238,7 +383,7 @@ export function useRecitation({
     audioRef.current?.pause();
     setPlaying(false);
     setAt(null);
-  }, []);
+  }, [setAt]);
 
   // Closing the reader (or turning the player off) silences it.
   useEffect(() => {
@@ -266,6 +411,7 @@ export function useRecitation({
       clearGap();
       audio?.pause();
       setPlaying(false);
+      if (cur) announce(cur, false, audio?.currentTime ?? 0);
       return;
     }
     if (!cur || !audio) {
@@ -285,8 +431,9 @@ export function useRecitation({
       return;
     }
     setPlaying(true);
+    announce(cur, true, audio.currentTime);
     audio.play()?.catch(() => setPlaying(false));
-  }, [playing, play, onEnded, srcOf, start]);
+  }, [playing, play, onEnded, srcOf, start, announce]);
 
   const step = useCallback(
     (delta: 1 | -1) => {
@@ -298,6 +445,51 @@ export function useRecitation({
     [start],
   );
 
+  const restart = useCallback(() => {
+    const cur = cursorRef.current;
+    const audio = audioRef.current;
+    if (!cur || !audio) return;
+    // Playing: start the ayah (not its basmalah) over. Paused: just rewind.
+    if (playing) start({ ...cur, basmalah: false });
+    else if (!cur.basmalah) {
+      audio.currentTime = 0;
+      tick({ t: 0 });
+      announce(cur, false, 0);
+    }
+  }, [playing, start, tick, announce]);
+
+  const seek = useCallback(
+    (id: number, offset: number) => {
+      const cur = cursorRef.current;
+      start(
+        {
+          id,
+          ayahPass: cur && cur.id === id ? cur.ayahPass : 0,
+          rangePass: cur?.rangePass ?? 0,
+          basmalah: false,
+        },
+        offset,
+      );
+    },
+    [start],
+  );
+
+  // The system's media controls (notification, lock screen, headset buttons).
+  const controls = useRef({ toggle, step, stop, playing });
+  useLayoutEffect(() => {
+    controls.current = { toggle, step, stop, playing };
+  });
+  useEffect(() => {
+    if (!enabled) return;
+    return bindMediaControls({
+      play: () => !controls.current.playing && controls.current.toggle(),
+      pause: () => controls.current.playing && controls.current.toggle(),
+      next: () => controls.current.step(1),
+      previous: () => controls.current.step(-1),
+      stop: () => controls.current.stop(),
+    });
+  }, [enabled]);
+
   // Switching reciter mid-play restarts the current ayah in the new voice.
   const shownReciter = useRef(reciter);
   useEffect(() => {
@@ -307,5 +499,18 @@ export function useRecitation({
     if (cur && playing) start(cur);
   }, [reciter, playing, start]);
 
-  return { cursor, playing, error, missing, play, toggle, stop, step };
+  return {
+    cursor,
+    playing,
+    error,
+    missing,
+    play,
+    toggle,
+    stop,
+    step,
+    restart,
+    seek,
+    clock,
+    lengthOf,
+  };
 }

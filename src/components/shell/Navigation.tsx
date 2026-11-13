@@ -3,6 +3,7 @@ import {
   BarChart3,
   BookOpen,
   Bookmark as BookmarkIcon,
+  Home,
   Info,
   Keyboard,
   Layers,
@@ -23,11 +24,12 @@ import { cx } from "../ui";
  */
 
 const VIEW_ICONS: Record<View, ReactNode> = {
+  home: <Home size={18} />,
   dashboard: <BarChart3 size={18} />,
   browse: <MapIcon size={18} />,
   structure: <Layers size={18} />,
 };
-const VIEW_ORDER: View[] = ["dashboard", "browse", "structure"];
+const VIEW_ORDER: View[] = ["home", "dashboard", "browse", "structure"];
 
 export interface NavProps {
   view: View;
@@ -276,7 +278,8 @@ function TabButton({
   );
 }
 
-/** Phone bottom tab bar: Read + the three views. */
+/** Phone bottom tab bar: Home (continue reading, surah index) and the three
+ *  views. While the reader is open, Home is the current tab. */
 export function BottomTabs(p: NavProps) {
   const { t } = useI18n();
   return (
@@ -284,21 +287,12 @@ export function BottomTabs(p: NavProps) {
       aria-label={t.app.nav}
       className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-paper/95 pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] backdrop-blur"
     >
-      {p.ready && (
-        <TabButton
-          icon={<BookOpen size={20} />}
-          label={t.app.read}
-          title={p.resumeTitle}
-          current={p.reading}
-          onClick={p.onRead}
-        />
-      )}
       {VIEW_ORDER.map((v) => (
         <TabButton
           key={v}
           icon={VIEW_ICONS[v]}
           label={t.app.views[v]}
-          current={!p.reading && p.view === v}
+          current={p.reading ? v === "home" : p.view === v}
           onClick={() => p.onView(v)}
         />
       ))}
