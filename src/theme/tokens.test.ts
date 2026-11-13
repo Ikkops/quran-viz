@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { DARK_TOKENS, LIGHT_TOKENS, TOKEN_NAMES, hexToChannels } from "./tokens";
+import { DARK_TOKENS, LIGHT_TOKENS, THEMES, TOKEN_NAMES, hexToChannels } from "./tokens";
 
 const css = readFileSync(resolve(__dirname, "../index.css"), "utf8");
 
@@ -18,6 +18,10 @@ describe("design tokens", () => {
   it.each([
     [":root", LIGHT_TOKENS],
     [".dark", DARK_TOKENS],
+    ['[data-theme="cream"]', THEMES.cream.tokens],
+    ['[data-theme="sepia"]', THEMES.sepia.tokens],
+    ['[data-theme="warm-dark"]', THEMES["warm-dark"].tokens],
+    ['[data-theme="black"]', THEMES.black.tokens],
   ])("index.css %s mirrors tokens.ts", (selector, set) => {
     const vars = cssVars(selector);
     for (const name of TOKEN_NAMES) {

@@ -55,14 +55,6 @@ export interface AudioStorage {
   busy: boolean;
   onDownloadAll: () => void;
   onDeleteAll: () => void;
-  /** Internal storage and any SD card, with free space. */
-  locations: { id: string; label: string; free: string }[];
-  location: string | null;
-  /** The chosen SD card isn't inserted; internal storage is in use. */
-  cardMissing: boolean;
-  moving: { done: number; total: number } | null;
-  moveError: string | null;
-  onLocation: (id: string) => void;
 }
 
 const sel =
@@ -725,36 +717,6 @@ export function RecitationControls({
           <p className="text-sm tabular-nums text-ink-muted">
             {a.onDevice(storage.surahs, storage.size)}
           </p>
-          {storage.locations.length > 1 && (
-            <label className="flex flex-col gap-1 text-sm text-ink-muted">
-              {a.saveOn}
-              <select
-                className={cx(sel, "min-h-10 touch:min-h-11")}
-                value={storage.location ?? ""}
-                disabled={storage.busy}
-                onChange={(e) => storage.onLocation(e.target.value)}
-              >
-                {storage.locations.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {a.locationOption(l.label, l.free)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {storage.cardMissing && <p className="text-sm text-rubric">{a.cardMissing}</p>}
-          {storage.moving && (
-            <p className="text-sm tabular-nums text-ink" aria-live="polite">
-              {a.moving(storage.moving.done, storage.moving.total)}
-            </p>
-          )}
-          {storage.moveError && (
-            <p className="text-sm text-rubric">
-              {storage.moveError === "space"
-                ? a.moveNoSpace
-                : a.moveFailed(storage.moveError)}
-            </p>
-          )}
           <div className="flex flex-wrap gap-2">
             {storage.surahs < 114 && (
               <button

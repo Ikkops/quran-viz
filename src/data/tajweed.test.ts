@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DARK_TOKENS, LIGHT_TOKENS } from "../theme/tokens";
+import { DARK_TOKENS, LIGHT_TOKENS, THEMES } from "../theme/tokens";
 import { RULE_COLORS, parseTajweed, splitTajweedWords, tajweedColor } from "./tajweed";
 
 describe("splitTajweedWords", () => {
@@ -63,6 +63,23 @@ describe("tajweed colours", () => {
       }
     }
   });
+
+  // The warm and black themes reuse the day / night colours. Qur'an text is set
+  // large (1.6rem and up), so WCAG's large-text 3:1 is the floor there.
+  it.each(["cream", "sepia", "warm-dark", "black"] as const)(
+    "every rule reads at 3:1 on the %s surfaces",
+    (name) => {
+      const { dark, tokens: set } = THEMES[name];
+      for (const code of Object.keys(RULE_COLORS)) {
+        const color = tajweedColor(code, dark)!;
+        for (const bg of [set.paper, set.surface, set["surface-sunken"]]) {
+          expect(contrast(color, bg), `${code} ${color} on ${bg}`).toBeGreaterThanOrEqual(
+            3,
+          );
+        }
+      }
+    },
+  );
 
   it("gives each rule its own colour in each theme", () => {
     for (const key of ["color", "dark"] as const) {

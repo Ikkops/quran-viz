@@ -1,4 +1,4 @@
-import { DARK_TOKENS, LIGHT_TOKENS } from "./tokens";
+import { DARK_TOKENS, LIGHT_TOKENS, tokens } from "./tokens";
 
 /**
  * A palette is the accent only (DESIGN.md "Lapis Illumination"). The revelation
@@ -17,7 +17,7 @@ export interface Palette {
 }
 
 const revelation = (dark: boolean): Pick<Palette, "pie" | "hijra"> => {
-  const t = dark ? DARK_TOKENS : LIGHT_TOKENS;
+  const t = tokens(dark);
   return { pie: [t.makki, t.madani], hijra: t.hijra };
 };
 

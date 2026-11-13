@@ -69,13 +69,7 @@ export const en = {
     title: "Qur'an — Data Visualization",
     titleShort: "Qur'an Data",
     nav: "Main navigation",
-    read: "Read",
-    continueReading: "Continue reading",
     startReading: "Start reading",
-    searchShort: "Search…",
-    bookmarksLabel: "Bookmarks",
-    totals: (s: number, a: string, w: string) => `${s} surahs · ${a} ayahs · ${w} words`,
-    aboutCounts: "About these counts",
     countsNote:
       "Word and letter counts are computed from the Uthmani digital text " +
       "(words = whitespace tokens; letters = Arabic letters after stripping " +
@@ -84,20 +78,15 @@ export const en = {
       "which use traditional counting conventions and themselves vary by source. " +
       "Both are shown side by side in Structure → Overview.",
     loadingDataset: "Loading dataset…",
-    resume: "Resume",
-    resumeAt: (scope: string, v: number) => `Resume at ${scope} ${v}`,
-    bookmarks: (n: number) => `Bookmarks (${n})`,
     search: "Search the Qur'an",
-    mainView: "Main view",
     views: {
       home: "Home",
       dashboard: "Dashboard",
-      browse: "Map",
       structure: "Structure",
+      activity: "Activity",
+      settings: "Settings",
     },
-    toggleDark: "Toggle dark mode",
     shortcuts: "Keyboard shortcuts",
-    shortcutsTitle: "Keyboard shortcuts (?)",
     settings: "Settings",
     language: "Language",
     failedData: "The Qur'an data didn't load.",
@@ -107,9 +96,9 @@ export const en = {
 
   shortcuts: [
     "Search the Qur'an (Arabic, 2:255, or translation)",
-    "Dashboard · Map · Structure",
+    "Home · Dashboard · Structure · Activity · Settings",
     "Bookmarks",
-    "This list",
+    "Settings, with this list",
     "Reader: previous / next surah, juz, page…",
     "Dashboard: previous / next visualization (list focused)",
     "Search: open the first result or the typed reference",
@@ -117,10 +106,7 @@ export const en = {
   ],
 
   home: {
-    sections: "Home sections",
-    tabs: { surah: "Surahs", juz: "Juz", activity: "Activity" },
-    filter: "Find a surah by name or number",
-    noSurah: "No surah matches.",
+    lastRead: "Last read",
     searchInstead: "Search the whole Qur'an",
     ayahs: (n: number) => `${n} ayahs`,
     startAt: (name: string) => `From ${name}`,
@@ -129,6 +115,8 @@ export const en = {
   },
 
   activity: {
+    sections: "Activity sections",
+    tabs: { stats: "Statistics", marks: "Bookmarks" },
     title: "Reading activity",
     today: "Today",
     ofGoal: (goal: number) => `goal ${goal} min`,
@@ -161,10 +149,45 @@ export const en = {
   },
 
   settings: {
+    theme: "Theme",
+    themes: {
+      system: "Device",
+      light: "Light",
+      cream: "Cream",
+      sepia: "Sepia",
+      dark: "Dark",
+      "warm-dark": "Warm dark",
+      black: "Black",
+    },
+    reading: "Reading",
+    lastReadCount: "Last read on Home",
+    places: (n: number) => (n === 1 ? "1 place" : `${n} places`),
+    lastReadHelp:
+      "Home lists where your recent reading stopped: one place per stretch of reading, so scrolling on through a surah moves its place along instead of adding more.",
+    audioStorage: "Audio storage",
+    audio: {
+      current: "Recitation audio is kept in",
+      appStorage: "App storage (internal)",
+      sdCard: "App folder on the SD card",
+      free: (size: string) => `${size} free`,
+      choose: "Choose folder…",
+      useVolume: (name: string) => `Use ${name}`,
+      needAccess:
+        "To keep audio in a folder you choose, Android has to allow this app access to all files. Turn it on in the next screen, then come back.",
+      grant: "Allow access…",
+      unsupported: "That folder can't be used. Choose one on the device or the SD card.",
+      unwritable: "The app can't write to that folder. Choose another.",
+      missing:
+        "The chosen folder isn't available (is the card in, and is access still allowed?). Using app storage for now.",
+      moving: (done: number, total: number) => `Moving audio · ${done}/${total} files`,
+      noSpace: "Not enough free space there. Nothing was moved.",
+      moveFailed: (f: string) =>
+        `Moving stopped: ${f}. Files already moved are in the new place; the rest stayed.`,
+      help: "Choosing a place moves the audio already downloaded. The choice stays until you change it here. Audio in a folder you chose is kept when the app is uninstalled.",
+    },
     title: "Settings",
     language: "Language",
     appearance: "Appearance",
-    darkMode: "Dark mode",
     uiScale: (pct: number) => `Interface scale — ${pct}%`,
     palette: "Colour palette",
     quranText: "Qur'an text",
@@ -184,10 +207,37 @@ export const en = {
     welcomeAgain: "Show the welcome screen",
   },
 
-  bookmarks: {
-    title: "Bookmarks",
-    empty: "No bookmarks yet. Use the bookmark icon on any ayah in the reader.",
-    remove: (ref: string) => `Remove bookmark ${ref}`,
+  marks: {
+    defaultPin: "Tilawah",
+    defaultCollection: "Favourites",
+    pins: "Pins",
+    pinsHelp:
+      "A pin marks where a reading stopped. It moves when you set it on another ayah.",
+    collections: "Collections",
+    collectionsHelp:
+      "A collection keeps any number of ayahs, each with a note if you like.",
+    newPin: "New pin",
+    newCollection: "New collection",
+    pinName: "Pin name",
+    collectionName: "Collection name",
+    color: "Colour",
+    save: "Save",
+    edit: (name: string) => `Rename or recolour ${name}`,
+    delete: (name: string) => `Delete ${name}`,
+    deleteConfirm: (name: string) => `Delete "${name}"? This can't be undone.`,
+    notPlaced: "Not placed yet",
+    emptyCollection: "Nothing here yet. Use the bookmark icon on an ayah in the reader.",
+    removeFrom: (ref: string, name: string) => `Remove ${ref} from ${name}`,
+    pinAyah: "Pin this ayah",
+    pinnedAs: (name: string) => `Pinned: ${name}`,
+    saveAyah: "Save to a collection",
+    savedIn: (names: string) => `Saved in ${names}`,
+    pinTitle: (ref: string) => `Pin ${ref}`,
+    saveTitle: (ref: string) => `Save ${ref}`,
+    pinHere: "Choose the pin to put on this ayah.",
+    saveTo: "Choose the collections that hold this ayah.",
+    here: "On this ayah",
+    nowAt: (ref: string) => `Now at ${ref}`,
   },
 
   viz: {
@@ -210,19 +260,6 @@ export const en = {
       pos: "Part of speech",
       "topic-explorer": "Topic explorer",
     },
-    questions: {
-      length: "Which surahs are the longest?",
-      correlation: "Do surahs with more ayahs have more words?",
-      opening: "How do the surahs open?",
-      histogram: "How long is a typical ayah?",
-      boxplots: "How much do ayah lengths vary within a surah?",
-      extremes: "Which ayahs are the longest and the shortest?",
-      cloud: "Which words come up most often?",
-      roots: "Which roots come up most often?",
-      "root-explorer": "Where does a root occur?",
-      pos: "Which parts of speech make up the text?",
-      "topic-explorer": "Where does the Qur'an speak about a topic?",
-    },
     metrics: {
       wordCount: "Words",
       letterCount: "Letters",
@@ -232,6 +269,10 @@ export const en = {
   },
 
   dashboard: {
+    sections: "Dashboard sections",
+    charts: "Charts",
+    map: "Map",
+    changeChart: "Choose a chart",
     scope: (s: number, v: string) => `${s} surahs · ${v} ayahs`,
     posSub: (n: string) =>
       `Whole Qur'an · ${n} morphological segments · Quranic Arabic Corpus`,
@@ -244,8 +285,6 @@ export const en = {
     cloudLang: "Cloud language",
     arabic: "Arabic",
     english: "English",
-    questions: "Questions",
-    changeQuestion: "Change question",
     filters: "Filters",
     removeFilter: (l: string) => `Remove filter: ${l}`,
     surahSpan: (a: number, b: number) => `Surah ${a}–${b}`,
@@ -477,6 +516,7 @@ export const en = {
   } as Record<string, string>,
 
   peta: {
+    bookmarks: "Pins and bookmarks",
     title: "Mushaf map",
     subtitle:
       "All 6,236 ayahs in mushaf order, one row per juz; each ayah is as wide as its text.",
@@ -485,7 +525,6 @@ export const en = {
     marks: "Show",
     sajda: "Sajdah",
     lastRead: "Last read",
-    bookmarks: "Bookmarks",
     highlight: "Highlight",
     none: "Nothing",
     root: "A root",
@@ -510,6 +549,7 @@ export const en = {
   },
 
   browse: {
+    options: "Sort and filter",
     cols: {
       no: "No.",
       surah: "Surah",
@@ -629,12 +669,6 @@ export const en = {
       "Hover an arc to see the pair; click a surah in the band to focus it. Source:",
   },
 
-  compare: {
-    add: "Add",
-    addTranslation: "Add translation",
-    transliteration: "Transliteration",
-  },
-
   search: {
     title: "Search the Qur'an",
     placeholder: "Arabic (any spelling), 2:255, or a translation word…",
@@ -649,6 +683,18 @@ export const en = {
   },
 
   reader: {
+    goTo: "Go to",
+    goToSheet: {
+      surah: "Surah",
+      surahPh: "Name or number",
+      ayah: "Ayah",
+      page: "Page",
+      readBy: "Read by",
+      go: (ref: string) => `Go to ${ref}`,
+    },
+    switchTo: (mode: string) => `Switch to ${mode}`,
+    hidePlayer: "Hide the recitation player",
+    showPlayer: "Show the recitation player",
     stripLabel: "Position in the whole Qur'an (click to jump)",
     searchToggle: "Search in this view",
     back: "Back",
@@ -657,9 +703,7 @@ export const en = {
     modes: {
       ayah: "Ayah by ayah",
       mushaf: "Mushaf pages",
-      compare: "Compare translations",
     },
-    modeShort: { ayah: "Ayahs", mushaf: "Mushaf", compare: "Compare" },
     moreActions: "More actions",
     context: "Ayah context",
     contextFor: (ref: string) => `Context · ${ref}`,
@@ -690,14 +734,10 @@ export const en = {
     readAyah: (ref: string) => `Read ${ref}`,
     page: (n: number) => `Page ${n}`,
     selectAyah: (ref: string) => `Select ${ref}`,
-    compareEditions: "Translations side by side",
-    removeEdition: (name: string) => `Remove ${name}`,
-    recitationPlayer: "Recitation player",
     aria: "Qur'an reader",
     meta: (meaning: string, place: string, rev: number, v: number, w: string) =>
       `${meaning} · ${place} · revealed #${rev} · ${v} ayahs · ${w} words`,
     nVerses: (n: number) => `${n} ayahs`,
-    bookmarks: "Bookmarks",
     about: "About this surah",
     settings: "Reader settings",
     display: "Display options",
@@ -740,10 +780,7 @@ export const en = {
     sajda: "Sajda",
     copied: (what: "text" | "link") => `Copied ${what}`,
     copyFailed: "Copy failed",
-    removeBookmark: "Remove bookmark",
-    bookmarkVerse: "Bookmark ayah",
     bookmark: "Bookmark",
-    editNote: "Edit bookmark note",
     note: "Note",
     copyText: "Copy ayah text",
     copyTextTitle: "Copy Arabic + translation + reference",
@@ -830,18 +867,6 @@ export const en = {
       deleteAll: "Delete downloaded audio",
       deleteConfirm: (name: string, size: string) =>
         `Delete ${name}'s downloaded audio (${size})? You can download it again later.`,
-      saveOn: "Save audio on",
-      internal: "Internal storage",
-      sdCard: "SD card",
-      locationOption: (label: string, free: string) => `${label} · ${free} free`,
-      moveConfirm: (label: string, size: string) =>
-        `Move the downloaded audio (${size}) to ${label}? Playback and downloads pause until it is done.`,
-      moving: (done: number, total: number) => `Moving audio · ${done}/${total} files`,
-      moveNoSpace: "Not enough free space there. Nothing was moved.",
-      moveFailed: (f: string) =>
-        `Moving stopped at ${f}. The files not yet moved are still in the old place.`,
-      cardMissing:
-        "The SD card isn't inserted. New downloads go to internal storage for now.",
       sourceNote:
         "Audio is downloaded from everyayah.com once, then plays without a connection.",
     },

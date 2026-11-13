@@ -265,8 +265,10 @@ export function useRecitation({
   // An offset to jump to once the file's metadata has loaded (seek).
   const pendingSeek = useRef(0);
 
+  // `paused` puts the player on the ayah at the offset without playing it (the
+  // seek bar moved while paused).
   const start = useCallback(
-    (c: Cursor, offset = 0) => {
+    (c: Cursor, offset = 0, paused = false) => {
       const audio = audioRef.current ?? (audioRef.current = new Audio());
       if (live.current.available && !live.current.available(c.id)) {
         clearGap();
@@ -290,8 +292,13 @@ export function useRecitation({
         pendingSeek.current = offset;
       }
       if (offset > 0) tick({ t: offset });
-      announce(c, true, offset);
+      announce(c, !paused, offset);
       audio.playbackRate = live.current.options.rate;
+      if (paused) {
+        audio.pause();
+        setPlaying(false);
+        return;
+      }
       setPlaying(true);
       const p = audio.play();
       if (p)
@@ -430,6 +437,11 @@ export function useRecitation({
       start(cur);
       return;
     }
+    // A seek made while paused, into a file that has loaded since.
+    if (pendingSeek.current > 0 && Number.isFinite(audio.duration)) {
+      audio.currentTime = Math.min(pendingSeek.current, audio.duration - 0.25);
+      pendingSeek.current = 0;
+    }
     setPlaying(true);
     announce(cur, true, audio.currentTime);
     audio.play()?.catch(() => setPlaying(false));
@@ -469,9 +481,11 @@ export function useRecitation({
           basmalah: false,
         },
         offset,
+        // Paused stays paused: only the position moves.
+        !playing,
       );
     },
-    [start],
+    [start, playing],
   );
 
   // The system's media controls (notification, lock screen, headset buttons).

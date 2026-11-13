@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MARK_COLORS, initialMarks, movePin } from "../../lib/marks";
 import type { EditionsIndex, Surah, Verse } from "../../types/quran";
 import { resolvePalette, type Palette } from "../../theme/palettes";
 
@@ -121,19 +122,34 @@ function renderReader(overrides?: Partial<Parameters<typeof ReaderView>[0]>) {
       onArabicScale={() => {}}
       onNavigate={() => {}}
       onClose={() => {}}
-      bookmarks={[]}
-      onBookmarks={() => {}}
+      marks={initialMarks({ pin: "Tilawah", collection: "Favourites" })}
+      onMarks={() => {}}
       {...overrides}
     />,
   );
 }
 
 describe("ReaderView", () => {
-  it("renders the surah title and verse badges", () => {
+  it("renders the surah title and one row per ayah, none highlighted", () => {
     renderReader();
     expect(screen.getByText(/Al-Fatiha/)).toBeInTheDocument();
-    expect(screen.getByText("1:1")).toBeInTheDocument();
-    expect(screen.getByText("1:2")).toBeInTheDocument();
+    const first = screen.getByRole("article", { name: "1:1" });
+    expect(screen.getByRole("article", { name: "1:2" })).toBeInTheDocument();
+    // The marker is the ayah number alone.
+    expect(
+      within(first).getAllByRole("button", { name: /context/i })[0],
+    ).toHaveTextContent(/^1$/);
+    expect(first.className).not.toMatch(/bg-surface-sunken/);
+  });
+
+  it("highlights the ayah a link names", () => {
+    renderReader({ target: { scope: "surah", value: 1, anchor: 2 } });
+    expect(screen.getByRole("article", { name: "1:2" }).className).toMatch(
+      /bg-surface-sunken/,
+    );
+    expect(screen.getByRole("article", { name: "1:1" }).className).not.toMatch(
+      /bg-surface-sunken/,
+    );
   });
 
   it("renders the Arabic text of each verse", () => {
@@ -148,8 +164,8 @@ describe("ReaderView", () => {
     const input = screen.getByPlaceholderText(/Search/i);
     await user.type(input, "الحمد");
     // 1:2 contains "ٱلْحَمْدُ" which normalizes to "الحمد"
-    expect(screen.getByText("1:2")).toBeInTheDocument();
-    expect(screen.queryByText("1:1")).not.toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "1:2" })).toBeInTheDocument();
+    expect(screen.queryByRole("article", { name: "1:1" })).not.toBeInTheDocument();
   });
 
   it("shows the empty state when no verses match", async () => {
@@ -160,45 +176,33 @@ describe("ReaderView", () => {
     expect(screen.getByText(/No ayahs match/i)).toBeInTheDocument();
   });
 
-  it("calls onNavigate with the next surah on Next", async () => {
+  it("continues to the next surah from the end of the text", async () => {
     const user = userEvent.setup();
     const onNavigate = vi.fn();
     renderReader({ onNavigate });
-    await user.click(screen.getByRole("button", { name: /Next Surah/i }));
+    await user.click(screen.getByRole("button", { name: /Continue to Surah 2/i }));
     expect(onNavigate).toHaveBeenCalledWith({ scope: "surah", value: 2 });
   });
 
-  it("jumps to a typed scope value on Enter", async () => {
+  it("goes to a chosen ayah from the title's sheet", async () => {
     const user = userEvent.setup();
     const onNavigate = vi.fn();
     renderReader({ onNavigate });
-    const jump = screen.getByRole("textbox", { name: /Jump to Surah/i });
-    await user.clear(jump);
-    await user.type(jump, "18{Enter}");
-    expect(onNavigate).toHaveBeenCalledWith({ scope: "surah", value: 18 });
+    await user.click(screen.getByRole("button", { name: /Al-Fatiha/ }));
+    const sheet = screen.getByRole("dialog", { name: "Go to" });
+    const ayahs = within(sheet).getByRole("listbox", { name: "Ayah" });
+    await user.click(within(ayahs).getByRole("option", { name: "2" }));
+    await user.click(within(sheet).getByRole("button", { name: "Go to Al-Fatiha 1:2" }));
+    expect(onNavigate).toHaveBeenCalledWith({ scope: "surah", value: 1, anchor: 2 });
   });
 
-  it("clamps an out-of-range jump to the scope maximum", async () => {
+  it("switches between ayahs and mushaf pages with one button", async () => {
     const user = userEvent.setup();
-    const onNavigate = vi.fn();
-    renderReader({ onNavigate });
-    const jump = screen.getByRole("textbox", { name: /Jump to Surah/i });
-    await user.clear(jump);
-    await user.type(jump, "999{Enter}");
-    expect(onNavigate).toHaveBeenCalledWith({ scope: "surah", value: 114 });
-  });
-
-  it("ignores a non-numeric jump and reverts the field", async () => {
-    const user = userEvent.setup();
-    const onNavigate = vi.fn();
-    renderReader({ onNavigate });
-    const jump = screen.getByRole<HTMLInputElement>("textbox", {
-      name: /Jump to Surah/i,
-    });
-    await user.clear(jump);
-    await user.type(jump, "abc{Enter}");
-    expect(onNavigate).not.toHaveBeenCalled();
-    expect(jump.value).toBe("1");
+    renderReader();
+    await user.click(screen.getByRole("button", { name: /Switch to/i }));
+    expect(localStorage.getItem("qv.reader.mode")).toBe('"mushaf"');
+    await user.click(screen.getByRole("button", { name: /Switch to/i }));
+    expect(localStorage.getItem("qv.reader.mode")).toBe('"ayah"');
   });
 
   it("remembers display options and the intro language across reopen", async () => {
@@ -206,6 +210,7 @@ describe("ReaderView", () => {
     const first = renderReader();
     await user.click(screen.getByRole("button", { name: /Reader settings/i }));
     await user.click(screen.getByRole("switch", { name: /Transliteration/i }));
+    await user.click(screen.getByRole("button", { name: /Al-Fatiha/ }));
     await user.click(screen.getByRole("button", { name: /About this surah/i }));
     await user.click(screen.getByRole("button", { name: "Indonesia" }));
     first.unmount();
@@ -215,6 +220,7 @@ describe("ReaderView", () => {
     const translit = screen.getByRole("switch", { name: /Transliteration/i });
     expect(translit).toHaveAttribute("aria-checked", "true");
     expect(localStorage.getItem("qv.reader.infoLang")).toBe('"id"');
+    await user.click(screen.getByRole("button", { name: /Al-Fatiha/ }));
     await user.click(screen.getByRole("button", { name: /About this surah/i }));
     expect(screen.getByRole("button", { name: "Indonesia" })).toHaveAttribute(
       "aria-pressed",
@@ -222,17 +228,39 @@ describe("ReaderView", () => {
     );
   });
 
-  it("bookmarks a verse through onBookmarks and shows bookmarked state", async () => {
-    const onBookmarks = vi.fn();
-    const { unmount } = renderReader({ onBookmarks });
-    await userEvent.click(screen.getAllByRole("button", { name: "Bookmark ayah" })[0]);
-    expect(onBookmarks).toHaveBeenCalledWith([
-      expect.objectContaining({ id: 1, note: "" }),
-    ]);
+  it("pins an ayah and files it in a collection through onMarks", async () => {
+    const user = userEvent.setup();
+    const onMarks = vi.fn();
+    const start = initialMarks({ pin: "Tilawah", collection: "Favourites" });
+    const { unmount } = renderReader({ onMarks, marks: start });
+    await user.click(screen.getAllByRole("button", { name: "Pin this ayah" })[1]);
+    await user.click(
+      within(screen.getByRole("dialog", { name: /Pin Al-Fatiha 1:2/ })).getByRole(
+        "button",
+        { name: /Tilawah/ },
+      ),
+    );
+    expect(onMarks.mock.calls[0][0].pins[0]).toMatchObject({ ayah: 2 });
     unmount();
-    renderReader({ bookmarks: [{ id: 1, note: "opening", at: 1 }] });
-    expect(screen.getByRole("button", { name: "Remove bookmark" })).toBeInTheDocument();
-    expect(screen.getByText("Note: opening")).toBeInTheDocument();
+
+    onMarks.mockClear();
+    renderReader({ onMarks, marks: movePin(start, "p1", 2) });
+    expect(screen.getByRole("button", { name: "Pinned: Tilawah" })).toBeInTheDocument();
+    await user.click(screen.getAllByRole("button", { name: "Save to a collection" })[0]);
+    const sheet = screen.getByRole("dialog", { name: /Save Al-Fatiha 1:1/ });
+    await user.click(within(sheet).getByRole("checkbox", { name: /Favourites/ }));
+    expect(onMarks.mock.calls[0][0].collections[0].items[0]).toMatchObject({ id: 1 });
+    // A new collection takes the ayah with it.
+    await user.click(within(sheet).getByRole("button", { name: "New collection" }));
+    await user.type(
+      within(sheet).getByRole("textbox", { name: "Collection name" }),
+      "Doa",
+    );
+    await user.click(within(sheet).getByRole("button", { name: "Save" }));
+    const last = onMarks.mock.calls[onMarks.mock.calls.length - 1][0];
+    const made = last.collections[last.collections.length - 1];
+    expect(made).toMatchObject({ name: "Doa", items: [{ id: 1 }] });
+    expect(MARK_COLORS).toContain(made.color);
   });
 
   it("copies Arabic + reference and reports success or failure honestly", async () => {

@@ -79,38 +79,3 @@ export function useTranslation(identifier: string | null): State {
 
   return state;
 }
-
-/** Loads several editions at once; returns a map of identifier -> data. */
-export function useTranslations(identifiers: string[]): {
-  map: Map<string, TranslationData>;
-  loading: boolean;
-} {
-  const key = identifiers.join(",");
-  const [map, setMap] = useState<Map<string, TranslationData>>(new Map());
-  const [loading, setLoading] = useState(identifiers.length > 0);
-
-  useEffect(() => {
-    let alive = true;
-    if (identifiers.length === 0) {
-      setMap(new Map());
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    Promise.all(
-      identifiers.map((id) => loadTranslation(id).then((d) => [id, d] as const)),
-    )
-      .then((entries) => {
-        if (!alive) return;
-        setMap(new Map(entries));
-        setLoading(false);
-      })
-      .catch(() => alive && setLoading(false));
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [key]);
-
-  return { map, loading };
-}

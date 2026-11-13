@@ -12,15 +12,23 @@ import { useQuranData } from "./data/useQuranData";
 import { persisted, readPersisted, usePersistentState } from "./lib/usePersistentState";
 import { useTheme } from "./theme/ThemeContext";
 import type { ColorMode, ReaderTarget } from "./components/charts/common";
-import { Card, Modal, ModalHeader, Skeleton } from "./components/ui";
-import { BookmarkList } from "./components/panels/BookmarkList";
-import { surahMapOf } from "./data/selectors";
+import { Card, Skeleton } from "./components/ui";
+import { BOOKMARKS_KEY } from "./lib/bookmarks";
 import {
-  BOOKMARKS_KEY,
-  sanitizeBookmarks,
-  toggleBookmark,
-  type Bookmark,
-} from "./lib/bookmarks";
+  MARKS_KEY,
+  initialMarks,
+  markedAyahs,
+  sanitizeMarks,
+  type Marks,
+} from "./lib/marks";
+import {
+  DEFAULT_LAST_READ_COUNT,
+  LAST_READ_COUNTS,
+  LAST_READ_KEY,
+  recordRead,
+  sanitizeLastRead,
+  type ReadStretch,
+} from "./lib/lastRead";
 // Views, the reader and the dialogs load on first use (Recharts and the
 // reader's parts stay out of the first download).
 const DashboardView = lazy(() =>
@@ -32,21 +40,24 @@ const StructureView = lazy(() =>
 const HomeView = lazy(() =>
   import("./views/HomeView").then((m) => ({ default: m.HomeView })),
 );
-const BrowseView = lazy(() =>
-  import("./views/BrowseView").then((m) => ({ default: m.BrowseView })),
+const ActivityView = lazy(() =>
+  import("./views/ActivityView").then((m) => ({ default: m.ActivityView })),
 );
+const SettingsView = lazy(() =>
+  import("./views/SettingsView").then((m) => ({ default: m.SettingsView })),
+);
+import { DashboardPage, DASHBOARD_TAB_KEY } from "./views/DashboardPage";
+/** The Activity page's tab (views/ActivityView.tsx, kept out of this chunk). */
+const ACTIVITY_TAB_KEY = "qv.activity.tab";
 const ReaderView = lazy(() =>
   import("./components/reader/ReaderView").then((m) => ({ default: m.ReaderView })),
 );
 import type { ExploreTarget } from "./components/reader/VerseContextPanel";
-import type { ChartSettings } from "./components/panels/SettingsModal";
+import type { ChartSettings } from "./views/SettingsView";
 const GlobalSearchModal = lazy(() =>
   import("./components/panels/GlobalSearchModal").then((m) => ({
     default: m.GlobalSearchModal,
   })),
-);
-const SettingsModal = lazy(() =>
-  import("./components/panels/SettingsModal").then((m) => ({ default: m.SettingsModal })),
 );
 const AboutModal = lazy(() =>
   import("./components/panels/AboutModal").then((m) => ({ default: m.AboutModal })),
@@ -56,14 +67,9 @@ const Welcome = lazy(() =>
 );
 import type { WelcomeChoice } from "./components/panels/Welcome";
 import { parseHash, serializeHash, type View } from "./lib/hash";
-import { SHORTCUTS, shortcutFor } from "./lib/shortcuts";
+import { shortcutFor } from "./lib/shortcuts";
 import { effectiveUiScale, isWideLayout, useViewportWidth } from "./lib/uiScale";
-import {
-  BottomTabs,
-  NavRail,
-  TopBar,
-  type NavProps,
-} from "./components/shell/Navigation";
+import { BottomTabs, TopBar, type NavProps } from "./components/shell/Navigation";
 import { useI18n } from "./i18n/I18nContext";
 import { searchEditionFor } from "./data/searchEdition";
 import { installBackButton } from "./lib/androidBack";
@@ -74,11 +80,24 @@ import { useReadingTimer } from "./lib/readingStore";
 const readHash = () =>
   parseHash(typeof window !== "undefined" ? window.location.hash : "");
 
+/** Set a persisted tab before the view that owns it mounts. */
+const presetTab = (key: string, value: string) => {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* ignore */
+  }
+};
+
 export default function App() {
   const { data, loading, error } = useQuranData();
   const theme = useTheme();
-  const { t, n, lang } = useI18n();
+  const { t, lang } = useI18n();
   const initial = readHash();
+  // An old `#browse` (Map) link opens the dashboard on its Map tab.
+  useState(() => {
+    if (initial.params.tab === "map") presetTab(DASHBOARD_TAB_KEY, "map");
+  });
   const [view, setViewState] = useState<View>(initial.view);
   const [reader, setReader] = useState<ReaderTarget | null>(initial.reader);
   // Each view remembers its scroll position: switching tabs and coming back
@@ -147,7 +166,6 @@ export default function App() {
       window.history.replaceState(null, "", `#${serializeHash(view, null, params)}`);
       return;
     }
-    setLastRead(t);
     const hash = serializeHash(view, t, params);
     if (readerRef.current) window.history.replaceState(null, "", `#${hash}`);
     else {
@@ -164,6 +182,7 @@ export default function App() {
         ? { v: "root-explorer", root: x.key }
         : { v: "topic-explorer", topic: x.key };
     openedHere.current = false;
+    presetTab(DASHBOARD_TAB_KEY, "charts");
     window.location.hash = serializeHash("dashboard", null, params);
     changeView("dashboard");
     showReader(null);
@@ -182,12 +201,9 @@ export default function App() {
     data && !data.editions.editions.some((e) => e.identifier === storedEdition)
       ? data.editions.default
       : storedEdition;
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   // Mounted from their first opening on (lazy chunks; state kept after closing).
-  const [settingsUsed, setSettingsUsed] = useState(false);
   const [searchUsed, setSearchUsed] = useState(false);
-  if (settingsOpen && !settingsUsed) setSettingsUsed(true);
   const [aboutOpen, setAboutOpen] = useState(false);
   const [aboutUsed, setAboutUsed] = useState(false);
   if (aboutOpen && !aboutUsed) setAboutUsed(true);
@@ -196,6 +212,7 @@ export default function App() {
   const [welcomed, setWelcomed] = usePersistentState(
     "qv.welcome",
     readPersisted<unknown>("qv.lastRead", null) !== null ||
+      readPersisted<unknown>(LAST_READ_KEY, null) !== null ||
       readPersisted<unknown>("qv.settings", null) !== null,
     persisted.bool,
   );
@@ -215,19 +232,22 @@ export default function App() {
     extremesCount: 5,
     uiScale: 1.5,
   });
-  const [bookmarks, setBookmarks] = usePersistentState<Bookmark[]>(
-    BOOKMARKS_KEY,
-    [],
-    sanitizeBookmarks,
+  // Pins and collections. A first run names the defaults in the interface
+  // language and takes over the old flat bookmarks.
+  const [marks, setMarks] = usePersistentState<Marks>(
+    MARKS_KEY,
+    initialMarks(
+      { pin: t.marks.defaultPin, collection: t.marks.defaultCollection },
+      readPersisted<unknown>(BOOKMARKS_KEY, null),
+    ),
+    sanitizeMarks,
   );
   // Interface scale, capped on narrow screens (lib/uiScale.ts).
   const viewportWidth = useViewportWidth();
   const zoom = effectiveUiScale(settings.uiScale, viewportWidth);
   const wide = isWideLayout(viewportWidth, zoom);
-  const [bookmarksOpen, setBookmarksOpen] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
   // App-wide keyboard shortcuts (see lib/shortcuts.ts).
-  const modalOpen = searchOpen || settingsOpen || bookmarksOpen || helpOpen;
+  const modalOpen = searchOpen;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement as HTMLElement | null;
@@ -243,8 +263,7 @@ export default function App() {
       if (action.kind === "search") {
         setSearchSeed((cur) => ({ q: "", n: cur.n + 1 }));
         setSearchOpen(true);
-      } else if (action.kind === "bookmarks") setBookmarksOpen(true);
-      else if (action.kind === "help") setHelpOpen(true);
+      } else if (action.kind === "bookmarks") openMarks();
       else setView(action.view);
     };
     window.addEventListener("keydown", onKey);
@@ -252,29 +271,31 @@ export default function App() {
     // setView only touches refs and state setters, so a stale copy is safe.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modalOpen, data]);
-  const surahMap = useMemo(() => (data ? surahMapOf(data.surahs) : new Map()), [data]);
-  // Last-read position for the "Resume" button.
-  const [lastRead, setLastRead] = usePersistentState<ReaderTarget | null>(
-    "qv.lastRead",
-    null,
+  // Where recent reading stopped (lib/lastRead.ts): the reader reports the
+  // ayah on screen; Home lists the newest few.
+  const [lastReads, setLastReads] = usePersistentState<ReadStretch[]>(
+    LAST_READ_KEY,
+    [],
+    sanitizeLastRead,
   );
-
-  const openRead = () => navigateReader(lastRead ?? { scope: "surah", value: 1 });
-  const showWelcome = !!data && ((!welcomed && !deepLinked && !reader) || welcomeAgain);
-  const finishWelcome = (choice: WelcomeChoice) => {
-    setWelcomed(true);
-    setWelcomeAgain(false);
-    if (choice === "read") openRead();
-    else if (choice === "map") setView("browse");
+  const [lastReadCount, setLastReadCount] = usePersistentState<number>(
+    "qv.lastRead.count",
+    DEFAULT_LAST_READ_COUNT,
+    (raw) =>
+      (LAST_READ_COUNTS as readonly unknown[]).includes(raw)
+        ? (raw as number)
+        : undefined,
+  );
+  const noteRead = (id: number) => {
+    const v = data?.verses[id - 1];
+    if (v) setLastReads((list) => recordRead(list, id, v.s, Date.now()));
   };
-  const reading = !!(data && reader);
-  // Reading time (Home → Activity) counts while the reader is open.
-  useReadingTimer(reading);
-  // The last-read ayah (its anchor, else the first ayah of its scope) and the
-  // bookmarked ayahs, for the Peta Mushaf overlays.
-  const lastReadId = useMemo(() => {
-    if (!data || !lastRead) return undefined;
-    if (lastRead.anchor) return lastRead.anchor;
+  // The position from before the list existed starts it off.
+  const [oldLastRead] = useState(() =>
+    readPersisted<ReaderTarget | null>("qv.lastRead", null),
+  );
+  useEffect(() => {
+    if (!data || lastReads.length || !oldLastRead) return;
     const key = {
       surah: "s",
       manzil: "manzil",
@@ -284,40 +305,53 @@ export default function App() {
       ruku: "ruku",
       page: "page",
     } as const;
-    return data.verses.find((v) => v[key[lastRead.scope]] === lastRead.value)?.id;
-  }, [data, lastRead]);
-  const bookmarkIds = useMemo(() => bookmarks.map((b) => b.id), [bookmarks]);
+    const id =
+      oldLastRead.anchor ??
+      data.verses.find((v) => v[key[oldLastRead.scope]] === oldLastRead.value)?.id;
+    if (id) noteRead(id);
+    // Once, when the data arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+  const openMarks = () => {
+    presetTab(ACTIVITY_TAB_KEY, "marks");
+    setActivityKey((k) => k + 1);
+    setView("activity");
+  };
+  const [activityKey, setActivityKey] = useState(0);
+
+  const openRead = () => {
+    const top = lastReads[0];
+    navigateReader(
+      top
+        ? { scope: "surah", value: top.s, anchor: top.id }
+        : { scope: "surah", value: 1 },
+    );
+  };
+  const showWelcome = !!data && ((!welcomed && !deepLinked && !reader) || welcomeAgain);
+  const finishWelcome = (choice: WelcomeChoice) => {
+    setWelcomed(true);
+    setWelcomeAgain(false);
+    if (choice === "read") openRead();
+    else if (choice === "map") {
+      presetTab(DASHBOARD_TAB_KEY, "map");
+      setView("dashboard");
+    }
+  };
+  const reading = !!(data && reader);
+  // Reading time (Home → Activity) counts while the reader is open.
+  useReadingTimer(reading);
+  const marked = useMemo(() => markedAyahs(marks), [marks]);
   const navProps: NavProps = {
     view,
     reading,
     onView: setView,
-    onRead: openRead,
-    canResume: !!lastRead,
-    resumeTitle: lastRead
-      ? t.app.resumeAt(t.scope[lastRead.scope], lastRead.value)
-      : undefined,
     onSearch: () => openSearch(),
-    onBookmarks: () => setBookmarksOpen(true),
-    bookmarkCount: bookmarks.length,
-    onShortcuts: () => setHelpOpen(true),
-    onSettings: () => setSettingsOpen(true),
-    onAbout: () => setAboutOpen(true),
-    totals: data
-      ? t.app.totals(
-          data.meta.totals.surahs,
-          n(data.meta.totals.ayahs),
-          n(data.meta.totals.words),
-        )
-      : null,
-    countsNote: t.app.countsNote,
     ready: !!data,
   };
 
   return (
     <div
-      className={`min-h-[calc(100*var(--zvh))] bg-paper pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] font-ui text-ink${
-        wide ? " grid grid-cols-[13.5rem_minmax(0,1fr)]" : ""
-      }`}
+      className="min-h-[calc(100*var(--zvh))] bg-paper pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] font-ui text-ink"
       // `--zvh` is 1vh corrected for this zoom: use `calc(N*var(--zvh))` instead of
       // `Nvh` anywhere below, since CSS zoom multiplies `vh` lengths.
       style={
@@ -327,9 +361,8 @@ export default function App() {
         } as CSSProperties
       }
     >
-      {wide && <NavRail {...navProps} />}
       <div className="min-w-0">
-        {!wide && !reading && <TopBar {...navProps} />}
+        {!reading && <TopBar {...navProps} />}
         {data && reader && (
           <Suspense fallback={<ReaderSkeleton />}>
             <ReaderView
@@ -345,8 +378,9 @@ export default function App() {
               onArabicScale={theme.setArabicScale}
               onNavigate={navigateReader}
               onClose={() => navigateReader(null)}
-              bookmarks={bookmarks}
-              onBookmarks={setBookmarks}
+              marks={marks}
+              onMarks={setMarks}
+              onRead={noteRead}
               onExplore={explore}
               phone={!wide}
               dark={theme.dark}
@@ -355,9 +389,7 @@ export default function App() {
         )}
         <main
           hidden={reading}
-          className={`mx-auto max-w-7xl px-4 pt-5 ${
-            wide ? "pb-8" : "pb-[calc(5rem+env(safe-area-inset-bottom))]"
-          }`}
+          className="mx-auto max-w-7xl px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-5"
         >
           {loading && <LoadingSkeleton />}
           {error && (
@@ -380,105 +412,60 @@ export default function App() {
             {data && view === "home" && (
               <HomeView
                 data={data}
-                lastRead={lastRead}
-                lastReadId={lastReadId}
+                lastReads={lastReads.slice(0, lastReadCount)}
                 onOpen={navigateReader}
                 onSearch={() => openSearch()}
+                onActivity={() => setView("activity")}
               />
             )}
             {data && view === "dashboard" && (
-              <DashboardView
-                key={dashKey}
+              <DashboardPage
                 data={data}
-                settings={settings}
-                colorMode={colorMode}
-                onColorMode={setColorMode}
+                lastRead={lastReads[0]?.id}
+                marked={marked}
                 onOpen={navigateReader}
-                onSearch={openSearch}
-              />
-            )}
-            {data && view === "browse" && (
-              <BrowseView
-                data={data}
-                onOpen={navigateReader}
-                lastRead={lastReadId}
-                bookmarks={bookmarkIds}
                 onExplore={explore}
+                charts={
+                  <DashboardView
+                    key={dashKey}
+                    data={data}
+                    settings={settings}
+                    colorMode={colorMode}
+                    onColorMode={setColorMode}
+                    onOpen={navigateReader}
+                    onSearch={openSearch}
+                  />
+                }
               />
             )}
             {data && view === "structure" && (
               <StructureView data={data} onOpen={navigateReader} />
             )}
+            {data && view === "activity" && (
+              <ActivityView
+                key={activityKey}
+                data={data}
+                marks={marks}
+                onMarks={setMarks}
+                onOpen={navigateReader}
+              />
+            )}
+            {view === "settings" && (
+              <SettingsView
+                settings={settings}
+                onSettings={setSettings}
+                lastReadCount={lastReadCount}
+                onLastReadCount={setLastReadCount}
+                onAbout={() => setAboutOpen(true)}
+                onWelcome={() => setWelcomeAgain(true)}
+              />
+            )}
           </Suspense>
         </main>
       </div>
-      {!wide && <BottomTabs {...navProps} />}
-
-      {data && (
-        <Modal
-          open={bookmarksOpen}
-          onClose={() => setBookmarksOpen(false)}
-          className="max-w-lg"
-          ariaLabel={t.bookmarks.title}
-        >
-          <ModalHeader
-            title={t.app.bookmarks(bookmarks.length)}
-            onClose={() => setBookmarksOpen(false)}
-          />
-          <div className="max-h-[calc(60*var(--zvh))] overflow-y-auto px-4 py-2">
-            <BookmarkList
-              bookmarks={bookmarks}
-              verses={data.verses}
-              surahMap={surahMap}
-              onOpen={(t) => {
-                setBookmarksOpen(false);
-                navigateReader(t);
-              }}
-              onRemove={(id) => setBookmarks((b) => toggleBookmark(b, id))}
-            />
-          </div>
-        </Modal>
-      )}
-
-      <Modal
-        open={helpOpen}
-        onClose={() => setHelpOpen(false)}
-        className="max-w-md"
-        ariaLabel={t.app.shortcuts}
-      >
-        <ModalHeader title={t.app.shortcuts} onClose={() => setHelpOpen(false)} />
-        <table className="m-4 w-[calc(100%-2rem)] text-sm">
-          <tbody>
-            {SHORTCUTS.map((sc, i) => (
-              <tr
-                key={sc.keys}
-                className="border-b border-surface-sunken last:border-0 dark:border-line/60"
-              >
-                <td className="whitespace-nowrap py-1.5 pr-4 font-mono text-xs text-ink-muted">
-                  {sc.keys}
-                </td>
-                <td className="py-1.5 text-ink">{t.shortcuts[i] ?? sc.does}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Modal>
+      {!reading && <BottomTabs {...navProps} />}
 
       <Suspense fallback={null}>
-        {settingsUsed && (
-          <SettingsModal
-            open={settingsOpen}
-            onClose={() => setSettingsOpen(false)}
-            settings={settings}
-            onSettings={setSettings}
-            onAbout={() => setAboutOpen(true)}
-            onWelcome={() => {
-              setSettingsOpen(false);
-              setWelcomeAgain(true);
-            }}
-          />
-        )}
-
         {data && showWelcome && (
           <Welcome
             open

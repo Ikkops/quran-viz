@@ -30,7 +30,7 @@ export function QuestionList({
   return (
     <div
       role="listbox"
-      aria-label={t.dashboard.questions}
+      aria-label={t.dashboard.charts}
       onKeyDown={onKey}
       className="space-y-3"
     >
@@ -70,7 +70,7 @@ export function QuestionList({
                       active ? "text-illumination" : "text-ink-subtle",
                     )}
                   />
-                  {t.viz.questions[d.value]}
+                  {t.viz.labels[d.value]}
                 </button>
               );
             })}

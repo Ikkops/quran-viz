@@ -184,13 +184,7 @@ export const id: Messages = {
     title: "Al-Qur'an — Visualisasi Data",
     titleShort: "Data Al-Qur'an",
     nav: "Navigasi utama",
-    read: "Baca",
-    continueReading: "Lanjutkan membaca",
     startReading: "Mulai membaca",
-    searchShort: "Cari…",
-    bookmarksLabel: "Penanda",
-    totals: (s, a, w) => `${s} surah · ${a} ayat · ${w} kata`,
-    aboutCounts: "Tentang hitungan ini",
     countsNote:
       "Jumlah kata dan huruf dihitung dari teks digital Utsmani " +
       "(kata = token yang dipisah spasi; huruf = huruf Arab setelah harakat dibuang), " +
@@ -199,20 +193,15 @@ export const id: Messages = {
       "tradisional dan juga berbeda-beda menurut sumbernya. Keduanya ditampilkan " +
       "berdampingan di Struktur → Ringkasan.",
     loadingDataset: "Memuat data…",
-    resume: "Lanjutkan",
-    resumeAt: (scope, v) => `Lanjutkan di ${scope} ${v}`,
-    bookmarks: (n) => `Penanda (${n})`,
     search: "Cari di Al-Qur'an",
-    mainView: "Tampilan utama",
     views: {
       home: "Beranda",
       dashboard: "Dasbor",
-      browse: "Peta",
       structure: "Struktur",
+      activity: "Aktivitas",
+      settings: "Pengaturan",
     },
-    toggleDark: "Mode gelap",
     shortcuts: "Pintasan papan ketik",
-    shortcutsTitle: "Pintasan papan ketik (?)",
     settings: "Pengaturan",
     language: "Bahasa",
     failedData: "Data Al-Qur'an gagal dimuat.",
@@ -222,9 +211,9 @@ export const id: Messages = {
 
   shortcuts: [
     "Cari di Al-Qur'an (Arab, 2:255, atau terjemahan)",
-    "Beranda · Dasbor · Peta · Struktur",
+    "Beranda · Dasbor · Struktur · Aktivitas · Pengaturan",
     "Penanda",
-    "Daftar ini",
+    "Pengaturan, dengan daftar ini",
     "Pembaca: surah, juz, halaman… sebelum / berikutnya",
     "Dasbor: visualisasi sebelum / berikutnya (saat daftar aktif)",
     "Pencarian: buka hasil pertama atau rujukan yang diketik",
@@ -232,10 +221,7 @@ export const id: Messages = {
   ],
 
   home: {
-    sections: "Bagian beranda",
-    tabs: { surah: "Surah", juz: "Juz", activity: "Aktivitas" },
-    filter: "Cari surah menurut nama atau nomor",
-    noSurah: "Tidak ada surah yang cocok.",
+    lastRead: "Terakhir dibaca",
     searchInstead: "Cari di seluruh Al-Qur'an",
     ayahs: (n) => `${n} ayat`,
     startAt: (name) => `Dari ${name}`,
@@ -244,6 +230,8 @@ export const id: Messages = {
   },
 
   activity: {
+    sections: "Bagian aktivitas",
+    tabs: { stats: "Statistik", marks: "Penanda" },
     title: "Aktivitas membaca",
     today: "Hari ini",
     ofGoal: (goal) => `target ${goal} mnt`,
@@ -276,10 +264,46 @@ export const id: Messages = {
   },
 
   settings: {
+    theme: "Tema",
+    themes: {
+      system: "Perangkat",
+      light: "Terang",
+      cream: "Krem",
+      sepia: "Sepia",
+      dark: "Gelap",
+      "warm-dark": "Gelap hangat",
+      black: "Hitam",
+    },
+    reading: "Membaca",
+    lastReadCount: "Terakhir dibaca di Beranda",
+    places: (n) => `${n} tempat`,
+    lastReadHelp:
+      "Beranda menampilkan tempat bacaan terakhir berhenti: satu tempat untuk tiap rentang bacaan, jadi menggulir terus dalam satu surah hanya memindahkan tempatnya, tidak menambah yang baru.",
+    audioStorage: "Penyimpanan audio",
+    audio: {
+      current: "Audio murattal disimpan di",
+      appStorage: "Penyimpanan aplikasi (internal)",
+      sdCard: "Folder aplikasi di kartu SD",
+      free: (size) => `${size} kosong`,
+      choose: "Pilih folder…",
+      useVolume: (name) => `Pakai ${name}`,
+      needAccess:
+        "Agar audio bisa disimpan di folder pilihan Anda, Android harus mengizinkan aplikasi ini mengakses semua file. Aktifkan di layar berikutnya, lalu kembali ke sini.",
+      grant: "Izinkan akses…",
+      unsupported:
+        "Folder itu tidak bisa dipakai. Pilih folder di perangkat atau kartu SD.",
+      unwritable: "Aplikasi tidak bisa menulis ke folder itu. Pilih folder lain.",
+      missing:
+        "Folder pilihan tidak tersedia (apakah kartu terpasang dan akses masih diizinkan?). Untuk sementara memakai penyimpanan aplikasi.",
+      moving: (done, total) => `Memindahkan audio · ${done}/${total} berkas`,
+      noSpace: "Ruang kosong di sana tidak cukup. Tidak ada yang dipindahkan.",
+      moveFailed: (f) =>
+        `Pemindahan berhenti: ${f}. Berkas yang sudah pindah ada di tempat baru; sisanya tetap.`,
+      help: "Memilih tempat akan memindahkan audio yang sudah diunduh. Pilihan ini berlaku sampai Anda mengubahnya di sini. Audio di folder pilihan Anda tetap ada saat aplikasi dihapus.",
+    },
     title: "Pengaturan",
     language: "Bahasa",
     appearance: "Tampilan",
-    darkMode: "Mode gelap",
     uiScale: (pct) => `Skala antarmuka — ${pct}%`,
     palette: "Palet warna",
     quranText: "Teks Al-Qur'an",
@@ -299,10 +323,37 @@ export const id: Messages = {
     welcomeAgain: "Tampilkan layar sambutan",
   },
 
-  bookmarks: {
-    title: "Penanda",
-    empty: "Belum ada penanda. Pakai ikon penanda di ayat mana pun dalam pembaca.",
-    remove: (ref) => `Hapus penanda ${ref}`,
+  marks: {
+    defaultPin: "Tilawah",
+    defaultCollection: "Favorit",
+    pins: "Pin",
+    pinsHelp:
+      "Pin menandai tempat bacaan berhenti. Pin berpindah saat dipasang di ayat lain.",
+    collections: "Koleksi",
+    collectionsHelp:
+      "Koleksi menyimpan ayat sebanyak apa pun, masing-masing bisa diberi catatan.",
+    newPin: "Pin baru",
+    newCollection: "Koleksi baru",
+    pinName: "Nama pin",
+    collectionName: "Nama koleksi",
+    color: "Warna",
+    save: "Simpan",
+    edit: (name) => `Ubah nama atau warna ${name}`,
+    delete: (name) => `Hapus ${name}`,
+    deleteConfirm: (name) => `Hapus "${name}"? Ini tidak bisa dibatalkan.`,
+    notPlaced: "Belum dipasang",
+    emptyCollection: "Belum ada isi. Pakai ikon penanda pada ayat di pembaca.",
+    removeFrom: (ref, name) => `Hapus ${ref} dari ${name}`,
+    pinAyah: "Pasang pin di ayat ini",
+    pinnedAs: (name) => `Dipin: ${name}`,
+    saveAyah: "Simpan ke koleksi",
+    savedIn: (names) => `Tersimpan di ${names}`,
+    pinTitle: (ref) => `Pin ${ref}`,
+    saveTitle: (ref) => `Simpan ${ref}`,
+    pinHere: "Pilih pin yang dipasang di ayat ini.",
+    saveTo: "Pilih koleksi yang menyimpan ayat ini.",
+    here: "Di ayat ini",
+    nowAt: (ref) => `Sekarang di ${ref}`,
   },
 
   viz: {
@@ -325,19 +376,6 @@ export const id: Messages = {
       pos: "Jenis kata",
       "topic-explorer": "Penjelajah topik",
     },
-    questions: {
-      length: "Surah mana yang terpanjang?",
-      correlation: "Apakah surah yang ayatnya lebih banyak juga lebih banyak katanya?",
-      opening: "Dengan apa surah-surah dibuka?",
-      histogram: "Berapa panjang ayat pada umumnya?",
-      boxplots: "Seberapa beragam panjang ayat dalam satu surah?",
-      extremes: "Ayat mana yang terpanjang dan terpendek?",
-      cloud: "Kata apa yang paling sering muncul?",
-      roots: "Akar kata apa yang paling sering muncul?",
-      "root-explorer": "Di mana sebuah akar kata muncul?",
-      pos: "Jenis kata apa yang menyusun teksnya?",
-      "topic-explorer": "Di mana Al-Qur'an membicarakan suatu topik?",
-    },
     metrics: {
       wordCount: "Kata",
       letterCount: "Huruf",
@@ -347,6 +385,10 @@ export const id: Messages = {
   },
 
   dashboard: {
+    sections: "Bagian dasbor",
+    charts: "Grafik",
+    map: "Peta",
+    changeChart: "Pilih grafik",
     scope: (s, v) => `${s} surah · ${v} ayat`,
     posSub: (n) => `Seluruh Al-Qur'an · ${n} segmen morfologis · Quranic Arabic Corpus`,
     loadingCorpus: "Memuat Quranic Arabic Corpus…",
@@ -358,8 +400,6 @@ export const id: Messages = {
     cloudLang: "Bahasa awan kata",
     arabic: "Arab",
     english: "Inggris",
-    questions: "Pertanyaan",
-    changeQuestion: "Ganti pertanyaan",
     filters: "Filter",
     removeFilter: (l) => `Hapus filter: ${l}`,
     surahSpan: (a, b) => `Surah ${a}–${b}`,
@@ -567,6 +607,7 @@ export const id: Messages = {
   },
 
   peta: {
+    bookmarks: "Pin dan penanda",
     title: "Peta Mushaf",
     subtitle:
       "Seluruh 6.236 ayat dalam urutan mushaf, satu baris per juz; lebar tiap ayat sesuai panjang teksnya.",
@@ -575,7 +616,6 @@ export const id: Messages = {
     marks: "Tampilkan",
     sajda: "Sajdah",
     lastRead: "Terakhir dibaca",
-    bookmarks: "Penanda",
     highlight: "Sorot",
     none: "Tidak ada",
     root: "Akar kata",
@@ -600,6 +640,7 @@ export const id: Messages = {
   },
 
   browse: {
+    options: "Urutkan dan saring",
     cols: {
       no: "No.",
       surah: "Surah",
@@ -719,12 +760,6 @@ export const id: Messages = {
       "Arahkan kursor ke busur untuk melihat pasangannya; klik surah di pita untuk memfokuskannya. Sumber:",
   },
 
-  compare: {
-    add: "Tambah",
-    addTranslation: "Tambah terjemahan",
-    transliteration: "Transliterasi",
-  },
-
   search: {
     title: "Cari di Al-Qur'an",
     placeholder: "Arab (ejaan apa pun), 2:255, atau kata dalam terjemahan…",
@@ -739,6 +774,18 @@ export const id: Messages = {
   },
 
   reader: {
+    goTo: "Pergi ke",
+    goToSheet: {
+      surah: "Surah",
+      surahPh: "Nama atau nomor",
+      ayah: "Ayat",
+      page: "Halaman",
+      readBy: "Baca per",
+      go: (ref) => `Ke ${ref}`,
+    },
+    switchTo: (mode) => `Ganti ke ${mode}`,
+    hidePlayer: "Sembunyikan pemutar murattal",
+    showPlayer: "Tampilkan pemutar murattal",
     stripLabel: "Posisi dalam seluruh Al-Qur'an (klik untuk melompat)",
     searchToggle: "Cari di tampilan ini",
     back: "Kembali",
@@ -747,9 +794,7 @@ export const id: Messages = {
     modes: {
       ayah: "Per ayat",
       mushaf: "Halaman mushaf",
-      compare: "Bandingkan terjemahan",
     },
-    modeShort: { ayah: "Ayat", mushaf: "Mushaf", compare: "Banding" },
     moreActions: "Aksi lainnya",
     context: "Konteks ayat",
     contextFor: (ref) => `Konteks · ${ref}`,
@@ -779,14 +824,10 @@ export const id: Messages = {
     readAyah: (ref) => `Baca ${ref}`,
     page: (n) => `Halaman ${n}`,
     selectAyah: (ref) => `Pilih ${ref}`,
-    compareEditions: "Terjemahan berdampingan",
-    removeEdition: (name) => `Hapus ${name}`,
-    recitationPlayer: "Pemutar murattal",
     aria: "Pembaca Al-Qur'an",
     meta: (meaning, place, rev, v, w) =>
       `${meaning} · ${place} · turun ke-${rev} · ${v} ayat · ${w} kata`,
     nVerses: (n) => `${n} ayat`,
-    bookmarks: "Penanda",
     about: "Tentang surah ini",
     settings: "Pengaturan pembaca",
     display: "Opsi tampilan",
@@ -829,10 +870,7 @@ export const id: Messages = {
     sajda: "Sajdah",
     copied: (what) => (what === "link" ? "Tautan disalin" : "Teks disalin"),
     copyFailed: "Gagal menyalin",
-    removeBookmark: "Hapus penanda",
-    bookmarkVerse: "Tandai ayat",
     bookmark: "Tandai",
-    editNote: "Ubah catatan penanda",
     note: "Catatan",
     copyText: "Salin teks ayat",
     copyTextTitle: "Salin teks Arab + terjemahan + rujukan",
@@ -910,18 +948,6 @@ export const id: Messages = {
       deleteAll: "Hapus audio yang diunduh",
       deleteConfirm: (name, size) =>
         `Hapus audio ${name} yang sudah diunduh (${size})? Anda bisa mengunduhnya lagi nanti.`,
-      saveOn: "Simpan audio di",
-      internal: "Penyimpanan internal",
-      sdCard: "Kartu SD",
-      locationOption: (label, free) => `${label} · ${free} kosong`,
-      moveConfirm: (label, size) =>
-        `Pindahkan audio yang sudah diunduh (${size}) ke ${label}? Pemutaran dan unduhan berhenti sampai selesai.`,
-      moving: (done, total) => `Memindahkan audio · ${done}/${total} berkas`,
-      moveNoSpace: "Ruang kosong di sana tidak cukup. Tidak ada yang dipindahkan.",
-      moveFailed: (f) =>
-        `Pemindahan berhenti di ${f}. Berkas yang belum dipindahkan masih di tempat lama.`,
-      cardMissing:
-        "Kartu SD tidak terpasang. Unduhan baru disimpan di penyimpanan internal untuk sementara.",
       sourceNote:
         "Audio diunduh sekali dari everyayah.com, lalu bisa diputar tanpa koneksi.",
     },

@@ -4,14 +4,16 @@ import type { View } from "./hash";
 export type ShortcutAction =
   | { kind: "search" }
   | { kind: "bookmarks" }
-  | { kind: "help" }
   | { kind: "view"; view: View };
 
 export const SHORTCUTS: { keys: string; does: string }[] = [
   { keys: "Ctrl K  or  /", does: "Search the Qur'an (Arabic, 2:255, or translation)" },
-  { keys: "H · 1 · 2 · 3", does: "Home · Dashboard · Map · Structure" },
+  {
+    keys: "H · 1 · 2 · 3 · 4",
+    does: "Home · Dashboard · Structure · Activity · Settings",
+  },
   { keys: "B", does: "Bookmarks" },
-  { keys: "?", does: "This list" },
+  { keys: "?", does: "Settings, with this list" },
   { keys: "← / →", does: "Reader: previous / next surah, juz, page…" },
   { keys: "↑ / ↓", does: "Dashboard: previous / next visualization (list focused)" },
   { keys: "Enter", does: "Search: open the first result or the typed reference" },
@@ -22,8 +24,9 @@ const VIEW_KEYS: Record<string, View> = {
   h: "home",
   H: "home",
   "1": "dashboard",
-  "2": "browse",
-  "3": "structure",
+  "2": "structure",
+  "3": "activity",
+  "4": "settings",
 };
 
 /** Map a keydown to an app shortcut. `typing` = focus is in a text field;
@@ -36,7 +39,7 @@ export function shortcutFor(
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") return { kind: "search" };
   if (typing || modalOpen || e.ctrlKey || e.metaKey || e.altKey) return null;
   if (e.key === "/") return { kind: "search" };
-  if (e.key === "?") return { kind: "help" };
+  if (e.key === "?") return { kind: "view", view: "settings" };
   if (e.key === "b" || e.key === "B") return { kind: "bookmarks" };
   if (e.key in VIEW_KEYS) return { kind: "view", view: VIEW_KEYS[e.key] };
   return null;

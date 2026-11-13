@@ -1,28 +1,18 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import {
   ArrowLeft,
   BookOpenText,
-  Bookmark as BookmarkIcon,
-  ChevronLeft,
-  ChevronRight,
-  Columns2,
-  Info,
-  PanelRight,
+  ChevronDown,
   Rows3,
   Search,
   Settings,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
-import { READER_SCOPES, type ReaderScope } from "../charts/common";
 import { useI18n } from "../../i18n/I18nContext";
 import { cx, QuietIconButton } from "../ui";
 import { useDismiss } from "../../lib/useDismiss";
 import type { ReaderMode } from "./readerShared";
-
-const MODE_ICONS: Record<ReaderMode, ReactNode> = {
-  ayah: <Rows3 size={16} aria-hidden />,
-  mushaf: <BookOpenText size={16} aria-hidden />,
-  compare: <Columns2 size={16} aria-hidden />,
-};
 
 /** An icon button with a floating panel under it; outside click or Escape closes. */
 function Popover({
@@ -67,33 +57,22 @@ function Popover({
 }
 
 /**
- * The reader's head: back, title, and the page tools (search, bookmarks, about,
- * context panel, settings); under it one compact line for where you are (scope,
- * previous / jump / next) and how it is laid out.
+ * The reader's head, one row: back, the title (a button that opens "Go to"),
+ * search, the layout switch (ayahs or mushaf pages), the player's show/hide
+ * and settings.
  */
 export function ReaderToolbar({
   title,
   subtitle,
   onBack,
-  scope,
-  value,
-  max,
-  onScope,
-  onGo,
+  onGoTo,
   mode,
   onMode,
-  narrow,
   searchOpen,
   onSearchOpen,
   query,
   onQuery,
-  infoAvailable,
-  showInfo,
-  onInfo,
-  contextToggle,
-  bookmarksOpen,
-  onBookmarksOpen,
-  bookmarks,
+  player,
   settingsOpen,
   onSettingsOpen,
   settings,
@@ -101,97 +80,54 @@ export function ReaderToolbar({
   title: ReactNode;
   subtitle: ReactNode;
   onBack: () => void;
-  scope: ReaderScope;
-  value: number;
-  max: number;
-  onScope: (s: ReaderScope) => void;
-  onGo: (value: number) => void;
+  /** Open the "Go to" sheet (surah, ayah, page). */
+  onGoTo: () => void;
   mode: ReaderMode;
   onMode: (m: ReaderMode) => void;
-  /** Phone-width reader: 44px pager, and the layout switch moves into settings. */
-  narrow: boolean;
   searchOpen: boolean;
   onSearchOpen: (open: boolean) => void;
   query: string;
   onQuery: (q: string) => void;
-  infoAvailable: boolean;
-  showInfo: boolean;
-  onInfo: () => void;
-  /** Shown when the context panel is docked: its on/off state. */
-  contextToggle: null | { on: boolean; toggle: () => void };
-  bookmarksOpen: boolean;
-  onBookmarksOpen: (open: boolean) => void;
-  bookmarks: ReactNode;
+  /** The recitation player's show/hide, when there is audio to play. */
+  player: null | { on: boolean; toggle: () => void };
   settingsOpen: boolean;
   onSettingsOpen: (open: boolean) => void;
   settings: ReactNode;
 }) {
   const { t } = useI18n();
-  const scopeName = t.scope[scope];
-  const [jump, setJump] = useState(String(value));
-  // Keep the jump field showing the current value when it isn't being edited.
-  useEffect(() => setJump(String(value)), [value]);
-  const commitJump = () => {
-    const n = parseInt(jump, 10);
-    if (!Number.isFinite(n)) {
-      setJump(String(value));
-      return;
-    }
-    const clamped = Math.min(max, Math.max(1, n));
-    setJump(String(clamped));
-    if (clamped !== value) onGo(clamped);
-  };
   const searchRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
-
-  // The layout switch: beside the pager on wide readers; on a phone it moves
-  // into the settings sheet (with its labels) so the head stays one short row.
-  const modeSwitch = (
-    <div
-      role="group"
-      aria-label={t.reader.modeLabel}
-      className={cx(
-        "rounded-lg border border-line bg-surface-sunken p-0.5 dark:bg-paper",
-        narrow ? "flex" : "ml-auto inline-flex dark:bg-surface",
-      )}
-    >
-      {(["ayah", "mushaf", "compare"] as const).map((m) => (
-        <button
-          key={m}
-          type="button"
-          onClick={() => onMode(m)}
-          aria-pressed={mode === m}
-          aria-label={t.reader.modes[m]}
-          title={t.reader.modes[m]}
-          className={cx(
-            "inline-flex items-center justify-center gap-1.5 rounded-md text-sm font-medium transition-colors",
-            narrow ? "h-11 flex-1 px-2" : "h-8 px-2.5",
-            mode === m
-              ? "bg-surface text-ink shadow-sm dark:bg-line"
-              : "text-ink-muted hover:text-ink",
-          )}
-        >
-          {MODE_ICONS[m]}
-          {t.reader.modeShort[m]}
-        </button>
-      ))}
-    </div>
-  );
+  const other: ReaderMode = mode === "ayah" ? "mushaf" : "ayah";
 
   return (
     <header className="shrink-0 border-b border-line bg-paper">
-      <div className="flex items-center gap-1 px-2 pt-1.5">
+      <div className="flex items-center gap-0.5 px-2 py-1">
         <QuietIconButton label={t.reader.close} onClick={onBack}>
           <ArrowLeft size={19} />
         </QuietIconButton>
-        <div className="min-w-0 flex-1 px-1">
-          <h1 className="truncate text-lg font-semibold leading-tight text-ink">
-            {title}
-          </h1>
-          {subtitle && <p className="truncate text-sm text-ink-subtle">{subtitle}</p>}
-        </div>
+        <h1 className="min-w-0 flex-1">
+          <button
+            type="button"
+            onClick={onGoTo}
+            aria-haspopup="dialog"
+            title={t.reader.goTo}
+            className="flex min-h-11 max-w-full items-center gap-1.5 rounded-lg px-2 text-left hover:bg-surface-sunken"
+          >
+            <span className="min-w-0">
+              <span className="block truncate text-lg font-semibold leading-tight text-ink">
+                {title}
+              </span>
+              {subtitle && (
+                <span className="block truncate text-xs font-normal text-ink-subtle">
+                  {subtitle}
+                </span>
+              )}
+            </span>
+            <ChevronDown size={17} aria-hidden className="shrink-0 text-ink-subtle" />
+          </button>
+        </h1>
         <QuietIconButton
           label={t.reader.searchToggle}
           pressed={searchOpen}
@@ -203,28 +139,21 @@ export function ReaderToolbar({
         >
           <Search size={18} />
         </QuietIconButton>
-        {infoAvailable && (
-          <QuietIconButton label={t.reader.about} pressed={showInfo} onClick={onInfo}>
-            <Info size={18} />
-          </QuietIconButton>
-        )}
-        {contextToggle && (
-          <QuietIconButton
-            label={t.reader.contextPanel}
-            pressed={contextToggle.on}
-            onClick={contextToggle.toggle}
-          >
-            <PanelRight size={18} />
-          </QuietIconButton>
-        )}
-        <Popover
-          label={t.reader.bookmarks}
-          icon={<BookmarkIcon size={18} />}
-          open={bookmarksOpen}
-          onOpen={onBookmarksOpen}
+        {/* Shows the layout it switches to. */}
+        <QuietIconButton
+          label={t.reader.switchTo(t.reader.modes[other])}
+          onClick={() => onMode(other)}
         >
-          {bookmarks}
-        </Popover>
+          {other === "mushaf" ? <BookOpenText size={18} /> : <Rows3 size={18} />}
+        </QuietIconButton>
+        {player && (
+          <QuietIconButton
+            label={player.on ? t.reader.hidePlayer : t.reader.showPlayer}
+            onClick={player.toggle}
+          >
+            {player.on ? <Volume2 size={18} /> : <VolumeX size={18} />}
+          </QuietIconButton>
+        )}
         <Popover
           label={t.reader.settings}
           icon={<Settings size={18} />}
@@ -232,80 +161,8 @@ export function ReaderToolbar({
           onOpen={onSettingsOpen}
           width="w-72"
         >
-          {narrow && (
-            <div className="mb-3 flex flex-col gap-1.5">
-              <span className="text-xs font-medium text-ink-muted">
-                {t.reader.modeLabel}
-              </span>
-              {modeSwitch}
-            </div>
-          )}
           {settings}
         </Popover>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 pb-2 pt-1">
-        <div className="flex items-center gap-1">
-          <select
-            value={scope}
-            onChange={(e) => onScope(e.target.value as ReaderScope)}
-            aria-label={t.reader.scopeLabel}
-            disabled={mode === "mushaf" && scope === "page"}
-            className={cx(
-              "rounded-lg border border-line bg-surface px-2 text-sm text-ink",
-              narrow ? "h-11" : "h-9",
-            )}
-          >
-            {READER_SCOPES.map((s) => (
-              <option key={s} value={s}>
-                {t.scope[s]}
-              </option>
-            ))}
-          </select>
-          <QuietIconButton
-            label={t.reader.prev(scopeName)}
-            onClick={() => onGo(value - 1)}
-            disabled={value <= 1}
-            className={narrow ? "h-11 w-11" : "h-9 w-9"}
-          >
-            <ChevronLeft size={18} />
-          </QuietIconButton>
-          <span className="flex items-center gap-1 text-sm tabular-nums text-ink-subtle">
-            <input
-              value={jump}
-              onChange={(e) => setJump(e.target.value)}
-              onFocus={(e) => e.target.select()}
-              onBlur={commitJump}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  commitJump();
-                  (e.target as HTMLInputElement).blur();
-                } else if (e.key === "Escape") {
-                  setJump(String(value));
-                  (e.target as HTMLInputElement).blur();
-                }
-              }}
-              inputMode="numeric"
-              aria-label={t.reader.jump(scopeName)}
-              className={cx(
-                "w-12 rounded-lg border border-line bg-surface text-center text-sm tabular-nums text-ink",
-                narrow ? "h-11" : "h-9",
-              )}
-            />
-            <span aria-hidden>/ {max}</span>
-          </span>
-          <QuietIconButton
-            label={t.reader.next(scopeName)}
-            onClick={() => onGo(value + 1)}
-            disabled={value >= max}
-            className={narrow ? "h-11 w-11" : "h-9 w-9"}
-          >
-            <ChevronRight size={18} />
-          </QuietIconButton>
-        </div>
-
-        {!narrow && modeSwitch}
       </div>
 
       {searchOpen && mode !== "mushaf" && (

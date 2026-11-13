@@ -1,7 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 import type { Verse } from "../../types/quran";
 import { parseTajweed, tajweedColor, type TajweedSegment } from "../../data/tajweed";
-import { useTheme } from "../../theme/ThemeContext";
+import { useArabicFont, useTheme } from "../../theme/ThemeContext";
 import { ayahEndMark } from "../../data/ayahContext";
 
 /** Rub' al-hizb (۞) and sajdah (۩) signs in the mushaf's red ink (DESIGN.md
@@ -41,10 +41,14 @@ export function TajweedSegs({ segs }: { segs: TajweedSegment[] }) {
 /** The ayah-end medallion with the ayah number, kept on the line of the last
  *  word (a no-break space before it). */
 export function AyahEnd({ n }: { n: number }) {
+  const arabicFont = useArabicFont();
+  // The KFGQPC face draws the digits themselves as the medallion with its
+  // number; U+06DD before them would add a second, empty one.
+  const mark = arabicFont === "KFGQPC Hafs" ? ayahEndMark(n).slice(1) : ayahEndMark(n);
   return (
     <span className="whitespace-nowrap text-ink-muted">
       {" "}
-      {ayahEndMark(n)}
+      {mark}
     </span>
   );
 }

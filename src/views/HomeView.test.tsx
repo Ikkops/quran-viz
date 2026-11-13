@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { QuranData, Surah, Verse } from "../types/quran";
 import { dayKey } from "../data/readingLog";
 import { READING_LOG_KEY, resetReadingStore } from "../lib/readingStore";
+import { ThemeProvider } from "../theme/ThemeContext";
 import { HomeView } from "./HomeView";
 
 const surah = (number: number, nameEn: string, nameAr: string, ayahCount: number) =>
@@ -15,6 +16,8 @@ const surah = (number: number, nameEn: string, nameAr: string, ayahCount: number
     meaning: "",
     type: number === 2 ? "Medinan" : "Meccan",
     ayahCount,
+    wordCount: ayahCount * 10,
+    revelationOrder: number,
   }) as Surah;
 const data = {
   surahs: [
@@ -27,18 +30,22 @@ const data = {
     { id: 2, s: 2, a: 142, juz: 2 },
     { id: 3, s: 112, a: 1, juz: 30 },
   ] as Verse[],
-} as QuranData;
+  meta: { juzs: [] },
+} as unknown as QuranData;
 
 function home(over: Partial<Parameters<typeof HomeView>[0]> = {}) {
   const onOpen = vi.fn();
   render(
-    <HomeView
-      data={data}
-      lastRead={null}
-      onOpen={onOpen}
-      onSearch={() => {}}
-      {...over}
-    />,
+    <ThemeProvider>
+      <HomeView
+        data={data}
+        lastReads={[]}
+        onOpen={onOpen}
+        onSearch={() => {}}
+        onActivity={() => {}}
+        {...over}
+      />
+    </ThemeProvider>,
   );
   return onOpen;
 }
@@ -51,10 +58,10 @@ beforeEach(() => {
 describe("HomeView", () => {
   it("lists the surahs and opens one", async () => {
     const onOpen = home();
-    const list = screen.getByRole("region", { name: "Surahs" });
-    expect(within(list).getAllByRole("button")).toHaveLength(3);
-    // The Arabic name drops its leading "سورة".
-    expect(within(list).getByText("البقرة")).toBeInTheDocument();
+    const list = screen.getByRole("region", { name: "Index" });
+    // The calligraphic name is drawn from the number; the Arabic name is read out.
+    expect(within(list).getByText("سورة البقرة")).toBeInTheDocument();
+    expect(within(list).getByRole("img", { name: "Medinan" })).toBeInTheDocument();
     await userEvent.click(within(list).getByRole("button", { name: /Al-Baqara/ }));
     expect(onOpen).toHaveBeenCalledWith({ scope: "surah", value: 2 });
   });
@@ -63,21 +70,30 @@ describe("HomeView", () => {
     home();
     const filter = screen.getByRole("searchbox");
     await userEvent.type(filter, "albaq");
-    const list = screen.getByRole("region", { name: "Surahs" });
-    expect(within(list).getAllByRole("button")).toHaveLength(1);
+    const list = screen.getByRole("region", { name: "Index" });
+    expect(within(list).getByRole("button", { name: /Al-Baqara/ })).toBeInTheDocument();
+    expect(within(list).queryByRole("button", { name: /Al-Faatiha/ })).toBeNull();
     await userEvent.clear(filter);
-    await userEvent.type(filter, "11");
-    expect(within(list).getByRole("button", { name: /Al-Ikhlaas/ })).toBeInTheDocument();
-    expect(within(list).getAllByRole("button")).toHaveLength(1);
+    await userEvent.type(filter, "112");
+    expect(screen.getByRole("button", { name: /Al-Ikhlaas/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Al-Baqara/ })).toBeNull();
   });
 
-  it("continues from the last-read ayah", async () => {
-    const lastRead = { scope: "surah", value: 2, anchor: 2 } as const;
-    const onOpen = home({ lastRead, lastReadId: 2 });
-    const go = screen.getByRole("button", { name: /Continue reading/ });
-    expect(go).toHaveTextContent("Al-Baqara 2:142");
-    await userEvent.click(go);
-    expect(onOpen).toHaveBeenCalledWith(lastRead);
+  it("lists where reading last stopped and opens that ayah", async () => {
+    const onOpen = home({
+      lastReads: [
+        { id: 2, s: 2, at: Date.now() },
+        { id: 3, s: 112, at: Date.now() - 3 * 86_400_000 },
+      ],
+    });
+    const last = screen.getByRole("region", { name: "Last read" });
+    const entries = within(last).getAllByRole("button");
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toHaveTextContent("Al-Baqara 2:142");
+    expect(entries[0]).toHaveTextContent("today");
+    expect(entries[1]).toHaveTextContent("3 days ago");
+    await userEvent.click(entries[0]);
+    expect(onOpen).toHaveBeenCalledWith({ scope: "surah", value: 2, anchor: 2 });
   });
 
   it("starts at Al-Fatihah for a new learner", async () => {
@@ -86,14 +102,7 @@ describe("HomeView", () => {
     expect(onOpen).toHaveBeenCalledWith({ scope: "surah", value: 1 });
   });
 
-  it("opens a juz from the juz index", async () => {
-    const onOpen = home();
-    await userEvent.click(screen.getByRole("button", { name: "Juz" }));
-    await userEvent.click(screen.getByRole("button", { name: /Juz 2/ }));
-    expect(onOpen).toHaveBeenCalledWith({ scope: "juz", value: 2 });
-  });
-
-  it("shows today's reading and the streak, and the activity page behind it", async () => {
+  it("shows today's reading and the streak, and opens Activity", async () => {
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(today.getDate() - 1);
@@ -101,17 +110,11 @@ describe("HomeView", () => {
       READING_LOG_KEY,
       JSON.stringify({ [dayKey(today)]: 6 * 60, [dayKey(yesterday)]: 12 * 60 }),
     );
-    home();
+    const onActivity = vi.fn();
+    home({ onActivity });
     const card = screen.getByRole("button", { name: /Today: 6 min of 5 min/ });
     expect(card).toHaveTextContent("Streak: 2 days");
     await userEvent.click(card);
-    const page = screen.getByRole("region", { name: "Reading activity" });
-    expect(within(page).getByText("18 min")).toBeInTheDocument(); // total
-    expect(within(page).getByRole("button", { name: "Week" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
-    await userEvent.click(within(page).getByRole("button", { name: "Year" }));
-    expect(within(page).getByText(String(today.getFullYear()))).toBeInTheDocument();
+    expect(onActivity).toHaveBeenCalled();
   });
 });
