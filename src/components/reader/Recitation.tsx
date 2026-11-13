@@ -50,6 +50,14 @@ export interface AudioStorage {
   busy: boolean;
   onDownloadAll: () => void;
   onDeleteAll: () => void;
+  /** Internal storage and any SD card, with free space. */
+  locations: { id: string; label: string; free: string }[];
+  location: string | null;
+  /** The chosen SD card isn't inserted; internal storage is in use. */
+  cardMissing: boolean;
+  moving: { done: number; total: number } | null;
+  moveError: string | null;
+  onLocation: (id: string) => void;
 }
 
 const sel =
@@ -284,28 +292,16 @@ export function MiniPlayer({
       </div>
     );
   }
+  // Three columns: what is playing, the transport centred under the reader,
+  // and the options button. The side columns share the leftover width equally
+  // so the play button sits in the middle of the bar.
   return (
     <div
       role="region"
       aria-label={a.bar}
-      className="flex shrink-0 items-center gap-1 border-t border-line bg-surface px-2 py-1.5"
+      className="grid shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-t border-line bg-surface px-2 py-1.5"
     >
-      <QuietIconButton label={a.prevAyah} onClick={() => rec.step(-1)}>
-        <SkipBack size={18} />
-      </QuietIconButton>
-      <button
-        type="button"
-        onClick={rec.toggle}
-        aria-label={rec.playing ? a.pause : a.play}
-        title={rec.playing ? a.pause : a.play}
-        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-illumination text-white dark:text-paper"
-      >
-        {rec.playing ? <Pause size={19} /> : <Play size={19} className="ml-0.5" />}
-      </button>
-      <QuietIconButton label={a.nextAyah} onClick={() => rec.step(1)}>
-        <SkipForward size={18} />
-      </QuietIconButton>
-      <div className="ml-1 min-w-0 flex-1 leading-tight" aria-live="polite">
+      <div className="min-w-0 pl-1 leading-tight" aria-live="polite">
         {rec.error ? (
           <p className="truncate text-sm text-rubric">{a.failed(rec.error)}</p>
         ) : cur ? (
@@ -313,14 +309,13 @@ export function MiniPlayer({
             <p className="truncate text-sm font-semibold tabular-nums text-ink">
               {cur.basmalah ? `${a.basmalah} · ` : ""}
               {refOf(verses, cur.id)}
-              <span className="ml-1.5 font-normal text-ink-subtle">
-                {a.pass(
-                  passCount(cur.ayahPass, options.ayahRepeat),
-                  passCount(cur.rangePass, options.rangeRepeat),
-                )}
-              </span>
             </p>
-            <p className="truncate text-xs text-ink-subtle">{reciterName}</p>
+            <p className="truncate text-xs tabular-nums text-ink-subtle">
+              {a.pass(
+                passCount(cur.ayahPass, options.ayahRepeat),
+                passCount(cur.rangePass, options.rangeRepeat),
+              )}
+            </p>
           </>
         ) : (
           <>
@@ -329,9 +324,28 @@ export function MiniPlayer({
           </>
         )}
       </div>
-      <QuietIconButton label={a.options} onClick={onOpenOptions}>
-        <ChevronUp size={19} />
-      </QuietIconButton>
+      <div className="flex items-center gap-1">
+        <QuietIconButton label={a.prevAyah} onClick={() => rec.step(-1)}>
+          <SkipBack size={18} />
+        </QuietIconButton>
+        <button
+          type="button"
+          onClick={rec.toggle}
+          aria-label={rec.playing ? a.pause : a.play}
+          title={rec.playing ? a.pause : a.play}
+          className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-illumination text-white dark:text-paper"
+        >
+          {rec.playing ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
+        </button>
+        <QuietIconButton label={a.nextAyah} onClick={() => rec.step(1)}>
+          <SkipForward size={18} />
+        </QuietIconButton>
+      </div>
+      <div className="flex justify-end">
+        <QuietIconButton label={a.options} onClick={onOpenOptions}>
+          <ChevronUp size={19} />
+        </QuietIconButton>
+      </div>
     </div>
   );
 }
@@ -473,6 +487,36 @@ export function RecitationControls({
           <p className="text-sm tabular-nums text-ink-muted">
             {a.onDevice(storage.surahs, storage.size)}
           </p>
+          {storage.locations.length > 1 && (
+            <label className="flex flex-col gap-1 text-sm text-ink-muted">
+              {a.saveOn}
+              <select
+                className={cx(sel, "min-h-10 touch:min-h-11")}
+                value={storage.location ?? ""}
+                disabled={storage.busy}
+                onChange={(e) => storage.onLocation(e.target.value)}
+              >
+                {storage.locations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {a.locationOption(l.label, l.free)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {storage.cardMissing && <p className="text-sm text-rubric">{a.cardMissing}</p>}
+          {storage.moving && (
+            <p className="text-sm tabular-nums text-ink" aria-live="polite">
+              {a.moving(storage.moving.done, storage.moving.total)}
+            </p>
+          )}
+          {storage.moveError && (
+            <p className="text-sm text-rubric">
+              {storage.moveError === "space"
+                ? a.moveNoSpace
+                : a.moveFailed(storage.moveError)}
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             {storage.surahs < 114 && (
               <button

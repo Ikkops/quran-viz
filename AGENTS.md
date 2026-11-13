@@ -379,7 +379,7 @@ preview` (with Range support). On a static host the index fetch fails,
 `useReciters` lists every reciter in `RECITER_INFO` (`data/recitation.ts`,
 which MIRRORS `RECITERS` in the script: name, source folder, bitrate, total
 bytes). The learner downloads a surah at a time from everyayah.com into
-`Directory.Data/audio/<reciter>/SSSAAA.mp3` with `@capacitor/file-transfer`
+`<volume>/audio/<reciter>/SSSAAA.mp3` with `@capacitor/file-transfer`
 (4 in parallel, each to `.part` then renamed; files under 2 KB count as
 failed). `surahs.json` in each reciter folder maps surah → bytes and is
 written only when the whole surah is in place. One app-wide queue
@@ -391,6 +391,21 @@ becomes the download offer (what, estimated size by word share, progress,
 cancel); the options sheet shows what is on the device, "download all" and
 "delete" (with a confirm). This is the app's only network use, and only on
 the learner's tap.
+
+The volume is internal storage (`getFilesDir()`, the old `Directory.Data`) or
+the app's folder on an SD card, listed by the in-app `AudioStorage` plugin
+(`android/app/src/main/java/io/github/ikkops/quranviz/AudioStoragePlugin.java`,
+registered in `MainActivity`). Both are app-private: no storage permission,
+deleted on uninstall. The choice persists as `qv.audio.location`; all paths
+are absolute `file://` URIs (Filesystem and FileTransfer take them without a
+`directory`). Changing it moves the downloaded files (copy, then delete, file
+by file; refused if the target lacks space). A chosen card that isn't
+inserted falls back to internal storage with a note in the sheet.
+
+**Fullscreen.** `MainActivity` hides the status bar, navigation bar and the
+Galaxy taskbar (`WindowInsetsControllerCompat`, transient bars on swipe) on
+resume and whenever the window regains focus. The Java there is only compiled
+by CI (no Android SDK on the dev machine), so check the PR's `apk` job.
 
 - `data/recitation.ts` is the pure loop logic (unit-tested): `advance(cursor,
   range, opts, needsBasmalah)` returns the next file or null. Ranges are global

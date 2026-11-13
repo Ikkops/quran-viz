@@ -861,6 +861,18 @@ export const id: Messages = {
       deleteAll: "Hapus audio yang diunduh",
       deleteConfirm: (name, size) =>
         `Hapus audio ${name} yang sudah diunduh (${size})? Anda bisa mengunduhnya lagi nanti.`,
+      saveOn: "Simpan audio di",
+      internal: "Penyimpanan internal",
+      sdCard: "Kartu SD",
+      locationOption: (label, free) => `${label} · ${free} kosong`,
+      moveConfirm: (label, size) =>
+        `Pindahkan audio yang sudah diunduh (${size}) ke ${label}? Pemutaran dan unduhan berhenti sampai selesai.`,
+      moving: (done, total) => `Memindahkan audio · ${done}/${total} berkas`,
+      moveNoSpace: "Ruang kosong di sana tidak cukup. Tidak ada yang dipindahkan.",
+      moveFailed: (f) =>
+        `Pemindahan berhenti di ${f}. Berkas yang belum dipindahkan masih di tempat lama.`,
+      cardMissing:
+        "Kartu SD tidak terpasang. Unduhan baru disimpan di penyimpanan internal untuk sementara.",
       sourceNote:
         "Audio diunduh sekali dari everyayah.com, lalu bisa diputar tanpa koneksi.",
     },

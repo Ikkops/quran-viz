@@ -51,7 +51,7 @@ import {
   deleteReciterAudio,
   downloadSurahs,
   isNativeApp,
-  nativeAudioBase,
+  moveAudioTo,
   useAudioDownloads,
   type SurahJob,
 } from "../../data/audioStore";
@@ -243,10 +243,6 @@ export function ReaderView({
   const reciter = reciters?.find((r) => r.id === p.reciterPref) ?? reciters?.[0] ?? null;
   // ── Android app: recitation lives in device storage, downloaded per surah ──
   const native = isNativeApp();
-  const [deviceBase, setDeviceBase] = useState<string | null>(null);
-  useEffect(() => {
-    if (native) void nativeAudioBase().then(setDeviceBase, () => undefined);
-  }, [native]);
   const downloads = useAudioDownloads(RECITERS);
   const reciterId = (reciter?.id ?? p.reciterPref) as ReciterId;
   const onDevice = downloads.downloaded[reciterId];
@@ -280,7 +276,7 @@ export function ReaderView({
     range,
     options: p.audioOpts,
     needsBasmalah,
-    base: native ? deviceBase : undefined,
+    base: native ? downloads.base : undefined,
     available: native ? available : undefined,
   });
 
@@ -327,7 +323,27 @@ export function ReaderView({
           totalWords,
         ),
       ),
-      busy: !!act,
+      busy: !!act || !!downloads.moving,
+      locations: downloads.volumes.map((v) => ({
+        id: v.id,
+        label: v.removable ? t.reader.audio.sdCard : t.reader.audio.internal,
+        free: formatBytes(v.free),
+      })),
+      location: downloads.location?.id ?? null,
+      cardMissing: downloads.cardMissing,
+      moving: downloads.moving,
+      moveError: downloads.moveError,
+      onLocation: (id: string) => {
+        const to = downloads.volumes.find((v) => v.id === id);
+        const label = to?.removable ? t.reader.audio.sdCard : t.reader.audio.internal;
+        if (
+          bytes === 0 ||
+          window.confirm(t.reader.audio.moveConfirm(label, formatBytes(bytes)))
+        ) {
+          rec.stop();
+          void moveAudioTo(id);
+        }
+      },
       onDownloadAll: () =>
         downloadSurahs(
           reciterId,

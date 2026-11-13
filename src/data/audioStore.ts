@@ -2,19 +2,25 @@
 //
 // The browser build plays the files fetch_audio.py put in `audio/`; the APK
 // ships without them. Instead the learner downloads a surah at a time from
-// everyayah.com into the app's own storage (Directory.Data/audio/<reciter>/
-// SSSAAA.mp3, the same layout), and playback is offline from then on. Each
+// everyayah.com into the app's own storage (`<volume>/audio/<reciter>/
+// SSSAAA.mp3`, the same layout), and playback is offline from then on. Each
 // reciter folder keeps `surahs.json`: surah number → bytes on disk, written
 // only once every file of that surah is in place.
 //
-// One queue for the whole app: the reader and its player sheet read the same
+// The volume is the app's internal storage or its folder on an SD card, as
+// listed by the in-app AudioStorage plugin (android/…/AudioStoragePlugin.java);
+// the choice persists as `qv.audio.location`. Paths are absolute file:// URIs,
+// which the Filesystem and FileTransfer plugins accept without a `directory`.
+//
+// One store for the whole app: the reader and its player sheet read the same
 // state through useAudioDownloads().
 
 import { useEffect, useSyncExternalStore } from "react";
-import { Capacitor } from "@capacitor/core";
-import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+import { Encoding, Filesystem } from "@capacitor/filesystem";
 import { FileTransfer } from "@capacitor/file-transfer";
 import {
+  RECITERS,
   RECITER_INFO,
   audioFileName,
   surahAudioFiles,
@@ -24,7 +30,23 @@ import {
 /** Running inside the Android app (audio comes from device storage). */
 export const isNativeApp = (): boolean => Capacitor.isNativePlatform();
 
-const DIR = Directory.Data;
+/** A place the app may keep audio. */
+export interface AudioVolume {
+  /** "internal", or the SD card folder's path. */
+  id: string;
+  /** file:// URI of the app's folder on that volume. */
+  uri: string;
+  removable: boolean;
+  free: number;
+  total: number;
+}
+
+interface AudioStoragePlugin {
+  volumes(): Promise<{ volumes: AudioVolume[] }>;
+}
+const AudioStorage = registerPlugin<AudioStoragePlugin>("AudioStorage");
+
+const LOCATION_KEY = "qv.audio.location";
 /** Smaller than any real ayah file; anything below it is a failed download. */
 const MIN_BYTES = 2048;
 const PARALLEL = 4;
@@ -43,9 +65,31 @@ export interface AudioDownloads {
   active: { reciter: ReciterId; surah: number; done: number; total: number } | null;
   /** The file a download stopped at, until the next download starts. */
   error: string | null;
+  /** Where audio can go (internal first), and where it goes now. */
+  volumes: AudioVolume[];
+  location: AudioVolume | null;
+  /** The chosen SD card isn't there, so internal storage is in use. */
+  cardMissing: boolean;
+  /** URL the WebView plays device files from: `<…>/audio/`. */
+  base: string | null;
+  /** Moving downloaded files to another volume. */
+  moving: { done: number; total: number } | null;
+  /** Why the last move failed ("space", or a file name). */
+  moveError: string | null;
 }
 
-let state: AudioDownloads = { downloaded: {}, queue: [], active: null, error: null };
+let state: AudioDownloads = {
+  downloaded: {},
+  queue: [],
+  active: null,
+  error: null,
+  volumes: [],
+  location: null,
+  cardMissing: false,
+  base: null,
+  moving: null,
+  moveError: null,
+};
 const listeners = new Set<() => void>();
 function update(patch: Partial<AudioDownloads>) {
   state = { ...state, ...patch };
@@ -58,24 +102,94 @@ function subscribe(l: () => void) {
   };
 }
 
-const folder = (reciter: string) => `audio/${reciter}`;
-const manifestPath = (reciter: string) => `${folder(reciter)}/surahs.json`;
+function readLocation(): string | null {
+  try {
+    return localStorage.getItem(LOCATION_KEY);
+  } catch {
+    return null;
+  }
+}
+function writeLocation(id: string) {
+  try {
+    localStorage.setItem(LOCATION_KEY, id);
+  } catch {
+    // Private mode or storage off: the choice lasts this session only.
+  }
+}
+
+const audioDir = (v: AudioVolume) => `${v.uri.replace(/\/$/, "")}/audio`;
+const folderIn = (v: AudioVolume, reciter: string) => `${audioDir(v)}/${reciter}`;
+function folder(reciter: string): string {
+  if (!state.location) throw new Error("storage");
+  return folderIn(state.location, reciter);
+}
+
+/** Point the store at a volume: new base URL, manifests read afresh. */
+function selectVolume(v: AudioVolume, cardMissing = false) {
+  loading.clear();
+  update({
+    location: v,
+    cardMissing,
+    downloaded: {},
+    base: `${Capacitor.convertFileSrc(audioDir(v))}/`,
+  });
+}
+
+let ready: Promise<void> | null = null;
+/** List the volumes and settle on the stored one (internal if it's gone). */
+function init(): Promise<void> {
+  ready ??= AudioStorage.volumes()
+    .then(({ volumes }) => {
+      const internal = volumes.find((v) => v.id === "internal") ?? volumes[0];
+      const want = readLocation();
+      const chosen = volumes.find((v) => v.id === want);
+      update({ volumes });
+      if (internal)
+        selectVolume(chosen ?? internal, !!want && want !== "internal" && !chosen);
+    })
+    .catch(() => {
+      // An APK without the plugin: nothing to offer.
+      update({ volumes: [] });
+    });
+  return ready;
+}
+
+/** Ask Android again (a card inserted or removed while the app runs). */
+export async function refreshVolumes(): Promise<void> {
+  try {
+    const { volumes } = await AudioStorage.volumes();
+    const now = volumes.find((v) => v.id === state.location?.id);
+    update({
+      volumes,
+      // Free space changes as files are written; keep the figures current.
+      location: now ?? state.location,
+    });
+    const want = readLocation();
+    const card = volumes.find((v) => v.id === want);
+    if (state.cardMissing && card) selectVolume(card);
+  } catch {
+    // Keep what we had.
+  }
+}
 
 const loading = new Map<string, Promise<Record<number, number>>>();
-function loadManifest(reciter: string): Promise<Record<number, number>> {
+async function loadManifest(reciter: string): Promise<Record<number, number>> {
+  await init();
   const have = state.downloaded[reciter];
-  if (have) return Promise.resolve(have);
+  if (have) return have;
   let p = loading.get(reciter);
   if (!p) {
+    const at = state.location;
     p = Filesystem.readFile({
-      path: manifestPath(reciter),
-      directory: DIR,
+      path: `${folder(reciter)}/surahs.json`,
       encoding: Encoding.UTF8,
     })
       .then((f) => JSON.parse(String(f.data)) as Record<number, number>)
       .catch(() => ({}))
       .then((m) => {
-        update({ downloaded: { ...state.downloaded, [reciter]: m } });
+        // Ignore a read that finished after the volume changed.
+        if (state.location === at)
+          update({ downloaded: { ...state.downloaded, [reciter]: m } });
         loading.delete(reciter);
         return m;
       });
@@ -86,8 +200,7 @@ function loadManifest(reciter: string): Promise<Record<number, number>> {
 
 async function saveManifest(reciter: string, m: Record<number, number>) {
   await Filesystem.writeFile({
-    path: manifestPath(reciter),
-    directory: DIR,
+    path: `${folder(reciter)}/surahs.json`,
     data: JSON.stringify(m),
     encoding: Encoding.UTF8,
     recursive: true,
@@ -95,18 +208,9 @@ async function saveManifest(reciter: string, m: Record<number, number>) {
   update({ downloaded: { ...state.downloaded, [reciter]: m } });
 }
 
-let base: Promise<string> | null = null;
-/** The URL the WebView can play device files from: `<…>/audio/`. */
-export function nativeAudioBase(): Promise<string> {
-  base ??= Filesystem.getUri({ directory: DIR, path: "audio" }).then(
-    ({ uri }) => `${Capacitor.convertFileSrc(uri).replace(/\/$/, "")}/`,
-  );
-  return base;
-}
-
 async function sizeOf(path: string): Promise<number> {
   try {
-    return (await Filesystem.stat({ path, directory: DIR })).size;
+    return (await Filesystem.stat({ path })).size;
   } catch {
     return 0;
   }
@@ -119,19 +223,17 @@ async function fetchFile(reciter: ReciterId, name: string): Promise<number> {
   const have = await sizeOf(path);
   if (have >= MIN_BYTES) return have;
   const part = `${path}.part`;
-  const { uri } = await Filesystem.getUri({ path: part, directory: DIR });
   await FileTransfer.downloadFile({
     url: RECITER_INFO[reciter].source + name,
-    path: uri,
+    path: part,
     connectTimeout: 15_000,
     readTimeout: 30_000,
   });
   const got = await sizeOf(part);
   if (got < MIN_BYTES) throw new Error(name);
   // A short leftover would block the rename.
-  if (have > 0)
-    await Filesystem.deleteFile({ path, directory: DIR }).catch(() => undefined);
-  await Filesystem.rename({ from: part, to: path, directory: DIR, toDirectory: DIR });
+  if (have > 0) await Filesystem.deleteFile({ path }).catch(() => undefined);
+  await Filesystem.rename({ from: part, to: path });
   return got;
 }
 
@@ -142,7 +244,7 @@ async function run() {
   if (running) return;
   running = true;
   try {
-    while (state.queue.length > 0) {
+    while (state.queue.length > 0 && !state.moving) {
       const [{ reciter, job }, ...rest] = state.queue;
       const files = surahAudioFiles(job.surah, job.ayahCount, job.hasBismillah);
       update({
@@ -151,11 +253,9 @@ async function run() {
         active: { reciter, surah: job.surah, done: 0, total: files.length },
       });
       stopRequested = false;
-      await Filesystem.mkdir({
-        path: folder(reciter),
-        directory: DIR,
-        recursive: true,
-      }).catch(() => undefined);
+      await Filesystem.mkdir({ path: folder(reciter), recursive: true }).catch(
+        () => undefined,
+      );
       const todo = [...files];
       let bytes = 0;
       let done = 0;
@@ -183,11 +283,13 @@ async function run() {
   } finally {
     running = false;
     update({ active: null });
+    void refreshVolumes();
   }
 }
 
 /** Queue surahs for download (ones already on the device or queued are skipped). */
 export function downloadSurahs(reciter: ReciterId, jobs: SurahJob[]): void {
+  if (state.moving) return;
   void loadManifest(reciter).then((have) => {
     const waiting = (s: number) =>
       (state.active?.reciter === reciter && state.active.surah === s) ||
@@ -208,21 +310,98 @@ export function cancelDownloads(): void {
 /** Delete every downloaded file of a reciter. */
 export async function deleteReciterAudio(reciter: ReciterId): Promise<void> {
   if (state.active?.reciter === reciter) cancelDownloads();
-  await Filesystem.rmdir({
-    path: folder(reciter),
-    directory: DIR,
-    recursive: true,
-  }).catch(() => undefined);
+  await Filesystem.rmdir({ path: folder(reciter), recursive: true }).catch(
+    () => undefined,
+  );
   update({ downloaded: { ...state.downloaded, [reciter]: {} } });
+  void refreshVolumes();
+}
+
+/** Files under `dir` (name and size); none when it doesn't exist. */
+async function listFiles(dir: string): Promise<{ name: string; size: number }[]> {
+  try {
+    const { files } = await Filesystem.readdir({ path: dir });
+    return files
+      .filter((f) => f.type === "file")
+      .map((f) => ({ name: f.name, size: f.size }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Keep audio on another volume from now on, moving what is already
+ * downloaded (copy, then delete the original, file by file). Downloads stop
+ * first. If the target is short of space nothing is moved.
+ */
+export async function moveAudioTo(id: string): Promise<void> {
+  await init();
+  const from = state.location;
+  const to = state.volumes.find((v) => v.id === id);
+  if (!to || !from || to.id === from.id || state.moving) return;
+  cancelDownloads();
+  // Wait for the files in flight to land.
+  while (running) await new Promise((r) => setTimeout(r, 200));
+
+  // From a card that has gone missing there is nothing to copy: just switch.
+  const plan: { reciter: string; files: { name: string; size: number }[] }[] = [];
+  if (!state.cardMissing)
+    for (const r of RECITERS) {
+      const files = await listFiles(folderIn(from, r));
+      if (files.length) plan.push({ reciter: r, files });
+    }
+  const total = plan.reduce((n, p) => n + p.files.length, 0);
+  const bytes = plan.reduce((n, p) => n + p.files.reduce((m, f) => m + f.size, 0), 0);
+  if (bytes > to.free) {
+    update({ moveError: "space" });
+    return;
+  }
+  update({ moving: { done: 0, total }, moveError: null });
+  let done = 0;
+  try {
+    for (const { reciter, files } of plan) {
+      const src = folderIn(from, reciter);
+      const dst = folderIn(to, reciter);
+      await Filesystem.mkdir({ path: dst, recursive: true }).catch(() => undefined);
+      for (const f of files) {
+        // Unfinished downloads aren't worth carrying over.
+        if (f.name.endsWith(".part")) {
+          await Filesystem.deleteFile({ path: `${src}/${f.name}` }).catch(
+            () => undefined,
+          );
+        } else {
+          await Filesystem.copy({ from: `${src}/${f.name}`, to: `${dst}/${f.name}` });
+          await Filesystem.deleteFile({ path: `${src}/${f.name}` });
+        }
+        done += 1;
+        update({ moving: { done, total } });
+      }
+    }
+    if (!state.cardMissing)
+      await Filesystem.rmdir({ path: audioDir(from), recursive: true }).catch(
+        () => undefined,
+      );
+  } catch (e) {
+    // Files copied so far stay at the target; the rest stay where they were.
+    // Point at the target anyway only if everything got there.
+    update({ moving: null, moveError: e instanceof Error ? e.message : String(e) });
+    void refreshVolumes();
+    return;
+  }
+  writeLocation(to.id);
+  selectVolume(to);
+  update({ moving: null });
+  void refreshVolumes();
 }
 
 /** The shared download state; loads the given reciters' manifests (Android only). */
 export function useAudioDownloads(reciters: readonly string[]): AudioDownloads {
   const s = useSyncExternalStore(subscribe, () => state);
   const key = reciters.join(",");
+  const at = s.location?.id;
   useEffect(() => {
     if (!isNativeApp()) return;
     for (const r of key.split(",")) void loadManifest(r);
-  }, [key]);
+  }, [key, at]);
   return s;
 }

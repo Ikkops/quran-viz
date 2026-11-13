@@ -781,6 +781,18 @@ export const en = {
       deleteAll: "Delete downloaded audio",
       deleteConfirm: (name: string, size: string) =>
         `Delete ${name}'s downloaded audio (${size})? You can download it again later.`,
+      saveOn: "Save audio on",
+      internal: "Internal storage",
+      sdCard: "SD card",
+      locationOption: (label: string, free: string) => `${label} · ${free} free`,
+      moveConfirm: (label: string, size: string) =>
+        `Move the downloaded audio (${size}) to ${label}? Playback and downloads pause until it is done.`,
+      moving: (done: number, total: number) => `Moving audio · ${done}/${total} files`,
+      moveNoSpace: "Not enough free space there. Nothing was moved.",
+      moveFailed: (f: string) =>
+        `Moving stopped at ${f}. The files not yet moved are still in the old place.`,
+      cardMissing:
+        "The SD card isn't inserted. New downloads go to internal storage for now.",
       sourceNote:
         "Audio is downloaded from everyayah.com once, then plays without a connection.",
     },
