@@ -359,7 +359,7 @@ one-row version under the reader's head: scope at full strength and
 underlined, the top visible ayah marked, click to jump. The old Structure →
 Pages grid (`MushafPageMap`) is gone.
 
-## Recitation audio (local only)
+## Recitation audio (local files; downloaded per surah in the app)
 
 `scripts/fetch_audio.py --reciter <id>` downloads per-ayah MP3s from
 everyayah.com into `audio/<id>/SSSAAA.mp3` plus `index.json` (name, bitrate,
@@ -372,8 +372,25 @@ It resumes, validates the MP3 header, rewrites the index every 250 files, and
 it to `RECITERS` in both the script and `data/recitation.ts`. `audio/` is
 gitignored and is **never** copied into `dist/`: the `localAudio` plugin in
 `vite.config.ts` serves it at `audio/` only from `npm run dev` and `npm run
-preview` (with Range support). On Android or any static host the index fetch
-fails, `useRecitation` reports `index: false`, and the reader shows no audio UI.
+preview` (with Range support). On a static host the index fetch fails,
+`useReciters` returns no reciters, and the reader shows no audio UI.
+
+**Android app** (`data/audioStore.ts`, `isNativeApp()`): the APK ships no audio.
+`useReciters` lists every reciter in `RECITER_INFO` (`data/recitation.ts`,
+which MIRRORS `RECITERS` in the script: name, source folder, bitrate, total
+bytes). The learner downloads a surah at a time from everyayah.com into
+`Directory.Data/audio/<reciter>/SSSAAA.mp3` with `@capacitor/file-transfer`
+(4 in parallel, each to `.part` then renamed; files under 2 KB count as
+failed). `surahs.json` in each reciter folder maps surah → bytes and is
+written only when the whole surah is in place. One app-wide queue
+(`downloadSurahs`, `cancelDownloads`, `deleteReciterAudio`,
+`useAudioDownloads`). `useRecitation` takes `base` (the device folder through
+`Capacitor.convertFileSrc`) and `available(id)`; an ayah whose surah isn't
+downloaded stops playback and sets `rec.missing`. The `MiniPlayer` then
+becomes the download offer (what, estimated size by word share, progress,
+cancel); the options sheet shows what is on the device, "download all" and
+"delete" (with a confirm). This is the app's only network use, and only on
+the learner's tap.
 
 - `data/recitation.ts` is the pure loop logic (unit-tested): `advance(cursor,
   range, opts, needsBasmalah)` returns the next file or null. Ranges are global

@@ -2,6 +2,9 @@ import { useMemo } from "react";
 import {
   ChevronUp,
   Crosshair,
+  Download,
+  Trash2,
+  X,
   Minus,
   Pause,
   Play,
@@ -26,6 +29,28 @@ import type {
 } from "../../data/useRecitation";
 import { useI18n } from "../../i18n/I18nContext";
 import { cx, QuietIconButton } from "../ui";
+
+/** The Android app's per-surah audio download, as the player shows it. */
+export interface AudioDownloadPrompt {
+  /** What would be downloaded for this view ("Al-Baqara", "3 surahs"), or
+   *  null when it is all on the device. */
+  needed: { what: string; size: string } | null;
+  /** The download in progress. */
+  active: { what: string; done: number; total: number; waiting: number } | null;
+  error: string | null;
+  onStart: () => void;
+  onCancel: () => void;
+}
+
+/** Audio on the device for the chosen reciter (Android app). */
+export interface AudioStorage {
+  surahs: number;
+  size: string;
+  allSize: string;
+  busy: boolean;
+  onDownloadAll: () => void;
+  onDeleteAll: () => void;
+}
 
 const sel =
   "min-w-0 rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-ink";
@@ -159,16 +184,106 @@ export function MiniPlayer({
   reciterName,
   options,
   onOpenOptions,
+  download,
 }: {
   rec: Recitation;
   verses: Verse[];
   reciterName: string;
   options: RecitationOptions;
   onOpenOptions: () => void;
+  /** Android app: offer or show the download of this view's audio. */
+  download?: AudioDownloadPrompt | null;
 }) {
   const { t } = useI18n();
   const a = t.reader.audio;
   const cur = rec.cursor;
+  // Nothing to play here yet: the bar becomes the download offer.
+  const offer =
+    download &&
+    !rec.playing &&
+    (download.active || download.needed || rec.missing !== null);
+  if (download && offer) {
+    const missingRef = rec.missing !== null ? refOf(verses, rec.missing) : null;
+    return (
+      <div
+        role="region"
+        aria-label={a.bar}
+        className="flex shrink-0 items-center gap-2 border-t border-line bg-surface px-3 py-1.5"
+      >
+        {download.active ? (
+          <>
+            <div className="min-w-0 flex-1 leading-tight" aria-live="polite">
+              <p className="truncate text-sm font-semibold tabular-nums text-ink">
+                {a.downloading(
+                  download.active.what,
+                  download.active.done,
+                  download.active.total,
+                )}
+              </p>
+              <div
+                className="mt-1 h-1 overflow-hidden rounded-sm bg-surface-sunken"
+                role="progressbar"
+                aria-label={a.downloadProgress}
+                aria-valuemin={0}
+                aria-valuemax={download.active.total}
+                aria-valuenow={download.active.done}
+              >
+                <div
+                  className="h-full bg-illumination transition-[width] motion-reduce:transition-none"
+                  style={{
+                    width: `${(100 * download.active.done) / Math.max(1, download.active.total)}%`,
+                  }}
+                />
+              </div>
+              <p className="mt-0.5 truncate text-xs text-ink-subtle">
+                {download.active.waiting > 0
+                  ? a.waiting(download.active.waiting)
+                  : reciterName}
+              </p>
+            </div>
+            <QuietIconButton label={a.cancelDownload} onClick={download.onCancel}>
+              <X size={18} />
+            </QuietIconButton>
+          </>
+        ) : (
+          <>
+            <div className="min-w-0 flex-1 leading-tight" aria-live="polite">
+              <p
+                className={cx(
+                  "truncate text-sm",
+                  download.error ? "text-rubric" : "font-semibold text-ink",
+                )}
+              >
+                {download.error
+                  ? a.downloadFailed(download.error)
+                  : missingRef
+                    ? a.notOnDevice(missingRef)
+                    : a.notDownloaded}
+              </p>
+              <p className="truncate text-xs text-ink-subtle">
+                {download.needed
+                  ? a.downloadSize(download.needed.what, download.needed.size)
+                  : reciterName}
+              </p>
+            </div>
+            {download.needed && (
+              <button
+                type="button"
+                onClick={download.onStart}
+                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-illumination px-3 text-sm font-semibold text-white touch:min-h-11 dark:text-paper"
+              >
+                <Download size={16} aria-hidden />
+                {a.download}
+              </button>
+            )}
+          </>
+        )}
+        <QuietIconButton label={a.options} onClick={onOpenOptions}>
+          <ChevronUp size={19} />
+        </QuietIconButton>
+      </div>
+    );
+  }
   return (
     <div
       role="region"
@@ -236,6 +351,7 @@ export function RecitationControls({
   onResetRange,
   options,
   onOptions,
+  storage,
 }: {
   rec: Recitation;
   /** Reciters present locally. */
@@ -251,6 +367,8 @@ export function RecitationControls({
   onResetRange: () => void;
   options: RecitationOptions;
   onOptions: (o: RecitationOptions) => void;
+  /** Android app: what is downloaded for this reciter. */
+  storage?: AudioStorage | null;
 }) {
   const { t } = useI18n();
   const a = t.reader.audio;
@@ -348,6 +466,37 @@ export function RecitationControls({
           onChange={(v) => set("rate", v)}
         />
       </div>
+
+      {storage && (
+        <section className="flex flex-col gap-2 border-t border-line pt-4">
+          <h3 className="text-sm font-semibold text-ink">{a.storageTitle}</h3>
+          <p className="text-sm tabular-nums text-ink-muted">
+            {a.onDevice(storage.surahs, storage.size)}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {storage.surahs < 114 && (
+              <button
+                type="button"
+                onClick={storage.onDownloadAll}
+                disabled={storage.busy}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-ink-subtle px-3 text-sm font-medium text-ink hover:bg-surface-sunken disabled:opacity-50 touch:min-h-11"
+              >
+                <Download size={15} aria-hidden /> {a.downloadAll(storage.allSize)}
+              </button>
+            )}
+            {storage.surahs > 0 && (
+              <button
+                type="button"
+                onClick={storage.onDeleteAll}
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-rubric hover:bg-surface-sunken touch:min-h-11"
+              >
+                <Trash2 size={15} aria-hidden /> {a.deleteAll}
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-ink-subtle">{a.sourceNote}</p>
+        </section>
+      )}
     </div>
   );
 }

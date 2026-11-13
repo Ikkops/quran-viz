@@ -844,6 +844,25 @@ export const id: Messages = {
       pass: (a, r) => `ayat ${a} · range ${r}`,
       idle: "Tidak diputar",
       failed: (f) => `Gagal memutar ${f}`,
+      download: "Unduh",
+      notDownloaded: "Murattal belum ada di perangkat ini",
+      notOnDevice: (ref) => `${ref} belum diunduh`,
+      downloadSize: (what, size) => `${what} · sekitar ${size}`,
+      downloading: (what, done, total) => `Mengunduh ${what} · ${done}/${total}`,
+      downloadProgress: "Kemajuan unduhan",
+      waiting: (n) => `${n} surah lagi menunggu`,
+      cancelDownload: "Batalkan unduhan",
+      downloadFailed: (f) => `Unduhan berhenti di ${f}. Periksa koneksi lalu coba lagi.`,
+      nSurahs: (n) => `${n} surah`,
+      storageTitle: "Audio di perangkat ini",
+      onDevice: (n, size) =>
+        n === 0 ? "Belum ada yang diunduh." : `${n} dari 114 surah · ${size}`,
+      downloadAll: (size) => `Unduh semua (sekitar ${size})`,
+      deleteAll: "Hapus audio yang diunduh",
+      deleteConfirm: (name, size) =>
+        `Hapus audio ${name} yang sudah diunduh (${size})? Anda bisa mengunduhnya lagi nanti.`,
+      sourceNote:
+        "Audio diunduh sekali dari everyayah.com, lalu bisa diputar tanpa koneksi.",
     },
   },
 
