@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import {
   ChevronUp,
   Crosshair,
@@ -9,6 +9,7 @@ import {
   Pause,
   Play,
   Plus,
+  Repeat,
   RotateCcw,
   SkipBack,
   SkipForward,
@@ -18,6 +19,10 @@ import {
   GAP_CHOICES,
   RATE_CHOICES,
   REPEAT_CHOICES,
+  formatClock,
+  locateInRange,
+  nextRepeat,
+  repeatBadge,
   setRangeEnd,
   shiftRange,
   type LoopRange,
@@ -50,6 +55,14 @@ export interface AudioStorage {
   busy: boolean;
   onDownloadAll: () => void;
   onDeleteAll: () => void;
+  /** Internal storage and any SD card, with free space. */
+  locations: { id: string; label: string; free: string }[];
+  location: string | null;
+  /** The chosen SD card isn't inserted; internal storage is in use. */
+  cardMissing: boolean;
+  moving: { done: number; total: number } | null;
+  moveError: string | null;
+  onLocation: (id: string) => void;
 }
 
 const sel =
@@ -174,22 +187,161 @@ const refOf = (verses: Verse[], id: number) => {
 const passCount = (done: number, total: number) =>
   total === 0 ? `${done + 1}` : `${Math.min(done + 1, total)}/${total}`;
 
+/** The seek bar: where playback is inside the range, as time. Lengths are
+ *  estimates until an ayah has been played, so the end time firms up as the
+ *  range plays. Dragging (or arrow keys) jumps to that moment's ayah. */
+function SeekBar({
+  rec,
+  range,
+  reciter,
+}: {
+  rec: Recitation;
+  range: LoopRange;
+  /** Estimates differ per reciter. */
+  reciter: string;
+}) {
+  const { t } = useI18n();
+  const a = t.reader.audio;
+  const time = useSyncExternalStore(rec.clock.subscribe, rec.clock.get);
+  const { lengthOf } = rec;
+  const lengths = useMemo(
+    () =>
+      Array.from({ length: range.to - range.from + 1 }, (_, i) =>
+        lengthOf(range.from + i),
+      ),
+    // `time.rev` changes when a real length replaces an estimate.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [range.from, range.to, lengthOf, reciter, time.rev],
+  );
+  const total = useMemo(() => lengths.reduce((n, x) => n + x, 0), [lengths]);
+  let pos = 0;
+  if (time.id !== null && time.id >= range.from) {
+    const idx = Math.min(time.id - range.from, lengths.length);
+    for (let i = 0; i < idx; i++) pos += lengths[i];
+    if (idx < lengths.length) pos += Math.min(time.t, lengths[idx]);
+  }
+  // While dragging, the thumb follows the finger; the jump happens on release.
+  const [drag, setDrag] = useState<number | null>(null);
+  const commit = () => {
+    if (drag === null) return;
+    const { id, offset } = locateInRange(lengths, range.from, drag);
+    setDrag(null);
+    rec.seek(id, offset);
+  };
+  const shown = drag ?? pos;
+  return (
+    <div className="flex min-w-0 flex-1 items-center gap-2">
+      <span className="w-10 shrink-0 text-right text-xs tabular-nums text-ink-muted">
+        {formatClock(shown)}
+      </span>
+      <input
+        type="range"
+        min={0}
+        max={Math.max(1, Math.round(total))}
+        step={1}
+        value={Math.round(shown)}
+        disabled={total <= 0}
+        aria-label={a.seek}
+        aria-valuetext={a.seekText(formatClock(shown), formatClock(total))}
+        onChange={(e) => setDrag(Number(e.target.value))}
+        onPointerUp={commit}
+        onKeyUp={commit}
+        onBlur={commit}
+        className="h-6 min-w-0 flex-1 cursor-pointer accent-illumination touch:h-11"
+      />
+      <span
+        className="w-10 shrink-0 text-xs tabular-nums text-ink-muted"
+        title={a.endEstimate}
+      >
+        {formatClock(total)}
+      </span>
+    </div>
+  );
+}
+
+/** One end of the range in the bar: − ref +. The reference opens the options
+ *  sheet, where the end can be picked by surah and ayah. */
+function RangeStepper({
+  label,
+  text,
+  onShift,
+  onOpen,
+}: {
+  label: string;
+  text: string;
+  onShift: (d: 1 | -1) => void;
+  onOpen: () => void;
+}) {
+  const { t } = useI18n();
+  const a = t.reader.audio;
+  const btn =
+    "inline-flex h-8 w-8 items-center justify-center text-ink-muted hover:bg-surface-sunken hover:text-ink touch:h-11 touch:w-9";
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className="flex shrink-0 items-center overflow-hidden rounded-lg border border-line"
+    >
+      <button
+        type="button"
+        className={btn}
+        onClick={() => onShift(-1)}
+        aria-label={a.earlier(label)}
+        title={a.earlier(label)}
+      >
+        <Minus size={15} aria-hidden />
+      </button>
+      <button
+        type="button"
+        onClick={onOpen}
+        title={a.pickEnd(label)}
+        className="h-8 min-w-[2.75rem] px-0.5 text-center text-xs font-semibold tabular-nums text-ink hover:bg-surface-sunken touch:h-11"
+      >
+        <span className="sr-only">{label} </span>
+        {text}
+      </button>
+      <button
+        type="button"
+        className={btn}
+        onClick={() => onShift(1)}
+        aria-label={a.later(label)}
+        title={a.later(label)}
+      >
+        <Plus size={15} aria-hidden />
+      </button>
+    </div>
+  );
+}
+
 /**
- * The slim player docked under the reader: play / previous / next, what is
- * playing, and a button for the options sheet (DESIGN.md "Float").
+ * The player docked under the reader (DESIGN.md "Float"). The seek bar sits
+ * between the two ends of the range (start on the left, end on the right);
+ * under it, the transport with play in the middle: repeat, restart ayah,
+ * previous, play, next, options. On a phone the range ends drop to a third row.
  */
 export function MiniPlayer({
   rec,
   verses,
+  reciter,
   reciterName,
   options,
+  onOptions,
+  range,
+  onRange,
+  roomy,
   onOpenOptions,
   download,
 }: {
   rec: Recitation;
   verses: Verse[];
+  reciter: string;
   reciterName: string;
   options: RecitationOptions;
+  onOptions: (o: RecitationOptions) => void;
+  range: LoopRange;
+  onRange: (r: LoopRange) => void;
+  /** Wide enough for the range ends beside the seek bar. */
+  roomy: boolean;
   onOpenOptions: () => void;
   /** Android app: offer or show the download of this view's audio. */
   download?: AudioDownloadPrompt | null;
@@ -284,54 +436,128 @@ export function MiniPlayer({
       </div>
     );
   }
+
+  const max = verses.length;
+  const repeat = repeatBadge(options.ayahRepeat);
+  const repeatLabel = a.repeatButton(a.times(options.ayahRepeat));
+  const fromStep = (
+    <RangeStepper
+      label={a.from}
+      text={refOf(verses, range.from)}
+      onShift={(d) => onRange(shiftRange(range, "from", d, max))}
+      onOpen={onOpenOptions}
+    />
+  );
+  const toStep = (
+    <RangeStepper
+      label={a.to}
+      text={refOf(verses, range.to)}
+      onShift={(d) => onRange(shiftRange(range, "to", d, max))}
+      onOpen={onOpenOptions}
+    />
+  );
+  // What is playing, in one line: "50:16 · 2/3" while an ayah repeats.
+  const status = rec.error ? (
+    <span className="text-rubric">{a.failed(rec.error)}</span>
+  ) : cur ? (
+    <span className="font-semibold tabular-nums text-ink">
+      {cur.basmalah ? `${a.basmalah} · ` : ""}
+      {refOf(verses, cur.id)}
+      {options.ayahRepeat !== 1 && (
+        <span className="font-normal text-ink-subtle">
+          {" · "}
+          {passCount(cur.ayahPass, options.ayahRepeat)}
+        </span>
+      )}
+    </span>
+  ) : (
+    <span className="text-ink-subtle">{reciterName}</span>
+  );
+  const seek = <SeekBar rec={rec} range={range} reciter={reciter} />;
   return (
     <div
       role="region"
       aria-label={a.bar}
-      className="flex shrink-0 items-center gap-1 border-t border-line bg-surface px-2 py-1.5"
+      className="flex shrink-0 flex-col gap-0.5 border-t border-line bg-surface px-2 py-1"
     >
-      <QuietIconButton label={a.prevAyah} onClick={() => rec.step(-1)}>
-        <SkipBack size={18} />
-      </QuietIconButton>
-      <button
-        type="button"
-        onClick={rec.toggle}
-        aria-label={rec.playing ? a.pause : a.play}
-        title={rec.playing ? a.pause : a.play}
-        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-illumination text-white dark:text-paper"
-      >
-        {rec.playing ? <Pause size={19} /> : <Play size={19} className="ml-0.5" />}
-      </button>
-      <QuietIconButton label={a.nextAyah} onClick={() => rec.step(1)}>
-        <SkipForward size={18} />
-      </QuietIconButton>
-      <div className="ml-1 min-w-0 flex-1 leading-tight" aria-live="polite">
-        {rec.error ? (
-          <p className="truncate text-sm text-rubric">{a.failed(rec.error)}</p>
-        ) : cur ? (
-          <>
-            <p className="truncate text-sm font-semibold tabular-nums text-ink">
-              {cur.basmalah ? `${a.basmalah} · ` : ""}
-              {refOf(verses, cur.id)}
-              <span className="ml-1.5 font-normal text-ink-subtle">
-                {a.pass(
-                  passCount(cur.ayahPass, options.ayahRepeat),
-                  passCount(cur.rangePass, options.rangeRepeat),
-                )}
-              </span>
-            </p>
-            <p className="truncate text-xs text-ink-subtle">{reciterName}</p>
-          </>
-        ) : (
-          <>
-            <p className="truncate text-sm text-ink-muted">{a.idle}</p>
-            <p className="truncate text-xs text-ink-subtle">{reciterName}</p>
-          </>
-        )}
+      <div className="flex items-center gap-1.5">
+        {roomy && fromStep}
+        {seek}
+        {roomy && toStep}
       </div>
-      <QuietIconButton label={a.options} onClick={onOpenOptions}>
-        <ChevronUp size={19} />
-      </QuietIconButton>
+      {/* The side columns share the leftover width equally, so play sits in
+          the middle of the bar. */}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1">
+        <div className="flex min-w-0 items-center justify-end gap-0.5">
+          {roomy && (
+            <p className="mr-auto min-w-0 truncate pl-1 text-sm" aria-live="polite">
+              {status}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() =>
+              onOptions({ ...options, ayahRepeat: nextRepeat(options.ayahRepeat) })
+            }
+            aria-label={repeatLabel}
+            title={repeatLabel}
+            aria-pressed={options.ayahRepeat !== 1}
+            className={cx(
+              "relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors touch:h-11 touch:w-11",
+              options.ayahRepeat !== 1
+                ? "bg-illumination/15 text-illumination"
+                : "text-ink-muted hover:bg-surface-sunken hover:text-ink",
+            )}
+          >
+            <Repeat size={18} aria-hidden />
+            {repeat && (
+              <span
+                aria-hidden
+                className="absolute bottom-0.5 right-0.5 rounded-sm bg-surface px-0.5 text-[0.625rem] font-bold leading-none tabular-nums"
+              >
+                {repeat}
+              </span>
+            )}
+          </button>
+          <QuietIconButton label={a.restart} onClick={rec.restart} disabled={!cur}>
+            <RotateCcw size={18} />
+          </QuietIconButton>
+          <QuietIconButton label={a.prevAyah} onClick={() => rec.step(-1)}>
+            <SkipBack size={18} />
+          </QuietIconButton>
+        </div>
+        <button
+          type="button"
+          onClick={rec.toggle}
+          aria-label={rec.playing ? a.pause : a.play}
+          title={rec.playing ? a.pause : a.play}
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-illumination text-white dark:text-paper"
+        >
+          {rec.playing ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
+        </button>
+        <div className="flex min-w-0 items-center gap-0.5">
+          <QuietIconButton label={a.nextAyah} onClick={() => rec.step(1)}>
+            <SkipForward size={18} />
+          </QuietIconButton>
+          <QuietIconButton label={a.options} onClick={onOpenOptions}>
+            <ChevronUp size={19} />
+          </QuietIconButton>
+          {roomy && cur && (
+            <p className="ml-auto min-w-0 truncate pr-1 text-xs text-ink-subtle">
+              {reciterName}
+            </p>
+          )}
+        </div>
+      </div>
+      {!roomy && (
+        <div className="flex items-center justify-between gap-2">
+          {fromStep}
+          <p className="min-w-0 truncate text-sm" aria-live="polite">
+            {status}
+          </p>
+          {toStep}
+        </div>
+      )}
     </div>
   );
 }
@@ -352,6 +578,9 @@ export function RecitationControls({
   options,
   onOptions,
   storage,
+  reciterNote,
+  onPlay,
+  onCancel,
 }: {
   rec: Recitation;
   /** Reciters present locally. */
@@ -369,6 +598,12 @@ export function RecitationControls({
   onOptions: (o: RecitationOptions) => void;
   /** Android app: what is downloaded for this reciter. */
   storage?: AudioStorage | null;
+  /** Android app: what is on the device for a reciter ("12 surahs"). */
+  reciterNote?: (id: string) => string | null;
+  /** Start the range from its beginning with these options. */
+  onPlay: () => void;
+  /** Put the options back as they were when the sheet opened. */
+  onCancel: () => void;
 }) {
   const { t } = useI18n();
   const a = t.reader.audio;
@@ -385,6 +620,23 @@ export function RecitationControls({
 
   return (
     <div className="flex flex-col gap-4 p-4">
+      <div className="sticky top-0 z-10 -mx-4 -mt-4 flex gap-2 border-b border-line bg-surface px-4 py-3">
+        <button
+          type="button"
+          onClick={onPlay}
+          className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-illumination px-3 text-sm font-semibold text-white touch:min-h-11 dark:text-paper"
+        >
+          <Play size={16} aria-hidden /> {a.playNow}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          title={a.cancelHint}
+          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-ink-subtle px-4 text-sm font-medium text-ink hover:bg-surface-sunken touch:min-h-11"
+        >
+          {a.cancel}
+        </button>
+      </div>
       <label className="flex flex-col gap-1 text-sm text-ink-muted">
         {a.reciter}
         <select
@@ -394,7 +646,7 @@ export function RecitationControls({
         >
           {reciters.map((r) => (
             <option key={r.id} value={r.id}>
-              {a.reciterOption(r)}
+              {[a.reciterOption(r), reciterNote?.(r.id)].filter(Boolean).join(" · ")}
             </option>
           ))}
         </select>
@@ -473,6 +725,36 @@ export function RecitationControls({
           <p className="text-sm tabular-nums text-ink-muted">
             {a.onDevice(storage.surahs, storage.size)}
           </p>
+          {storage.locations.length > 1 && (
+            <label className="flex flex-col gap-1 text-sm text-ink-muted">
+              {a.saveOn}
+              <select
+                className={cx(sel, "min-h-10 touch:min-h-11")}
+                value={storage.location ?? ""}
+                disabled={storage.busy}
+                onChange={(e) => storage.onLocation(e.target.value)}
+              >
+                {storage.locations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {a.locationOption(l.label, l.free)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {storage.cardMissing && <p className="text-sm text-rubric">{a.cardMissing}</p>}
+          {storage.moving && (
+            <p className="text-sm tabular-nums text-ink" aria-live="polite">
+              {a.moving(storage.moving.done, storage.moving.total)}
+            </p>
+          )}
+          {storage.moveError && (
+            <p className="text-sm text-rubric">
+              {storage.moveError === "space"
+                ? a.moveNoSpace
+                : a.moveFailed(storage.moveError)}
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             {storage.surahs < 114 && (
               <button

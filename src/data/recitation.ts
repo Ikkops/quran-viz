@@ -7,6 +7,7 @@
 // then the new range applies (an ayah left outside it wraps to the new start).
 
 import { BASE } from "./base";
+import { RECITER_INFO, type ReciterId } from "./reciters";
 
 /** Inclusive range of global verse ids, from <= to. */
 export interface LoopRange {
@@ -36,45 +37,28 @@ export interface RecitationOptions extends LoopOptions {
   rate: number;
 }
 
-/** Reciters scripts/fetch_audio.py can download (folder names under
- *  `audio/`); the reader lists the ones present locally. */
-export const RECITERS = ["shuraym", "yasser"] as const;
-export type ReciterId = (typeof RECITERS)[number];
+export {
+  LOCAL_RECITERS,
+  RECITERS,
+  RECITER_INFO,
+  type ReciterId,
+  type ReciterInfo,
+} from "./reciters";
 
-export interface ReciterInfo {
-  name: string;
-  nameAr: string;
-  /** Folder of per-ayah MP3s on everyayah.com (ends in "/"). */
-  source: string;
-  bitrate: number;
-  origin: string;
-  /** Size of the whole set, for download estimates. */
-  bytes: number;
+/** How many times an ayah (or the range) plays: 1 is once, 0 is forever. The
+ *  player words them as repetitions (plays − 1): none, 1×, 2×, 3×, 5×, 11×, ∞. */
+export const REPEAT_CHOICES = [1, 2, 3, 4, 6, 12, 0] as const;
+
+/** The next repeat setting when the repeat button is pressed (wraps to none). */
+export function nextRepeat(plays: number): number {
+  const i = REPEAT_CHOICES.indexOf(plays as (typeof REPEAT_CHOICES)[number]);
+  return REPEAT_CHOICES[(i + 1) % REPEAT_CHOICES.length];
 }
 
-/** What the app knows about each reciter without an index.json: the Android
- *  app downloads from `source` itself. MIRRORS `RECITERS` in
- *  scripts/fetch_audio.py; `bytes` is from the complete local sets. */
-export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
-  shuraym: {
-    name: "Sa'ud ash-Shuraym",
-    nameAr: "سعود الشريم",
-    source: "https://everyayah.com/data/Saood_ash-Shuraym_64kbps/",
-    bitrate: 64,
-    origin: "HidayahOnline.org",
-    bytes: 529_942_267,
-  },
-  yasser: {
-    name: "Yasser ad-Dosari",
-    nameAr: "ياسر الدوسري",
-    source: "https://everyayah.com/data/Yasser_Ad-Dussary_128kbps/",
-    bitrate: 128,
-    origin: "QuranicAudio.com",
-    bytes: 1_495_802_496,
-  },
-};
-
-export const REPEAT_CHOICES = [1, 2, 3, 5, 7, 10, 0] as const;
+/** "" for no repeat, "∞" for forever, else the repetitions ("2×" = 3 plays). */
+export function repeatBadge(plays: number): string {
+  return plays === 0 ? "∞" : plays <= 1 ? "" : `${plays - 1}×`;
+}
 export const GAP_CHOICES = [0, 0.5, 1, 2, 3] as const;
 export const RATE_CHOICES = [0.75, 0.9, 1, 1.1, 1.25, 1.5] as const;
 
@@ -206,4 +190,43 @@ export function estimateAudioBytes(
 export function formatBytes(bytes: number): string {
   if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
   return `${Math.max(1, Math.round(bytes / 1e6))} MB`;
+}
+
+/** Estimated length of one ayah in seconds: the whole set's playing time
+ *  (bytes at a constant bitrate) shared out by letter count. The player
+ *  replaces it with the real length once the file has loaded. */
+export function estimateAyahSeconds(
+  reciter: ReciterId,
+  letters: number,
+  totalLetters: number,
+): number {
+  const info = RECITER_INFO[reciter];
+  if (!info || totalLetters <= 0) return 0;
+  const total = (info.bytes * 8) / (info.bitrate * 1000);
+  return (total * letters) / totalLetters;
+}
+
+/** "1:05" / "1:02:07" for a playing time in seconds. */
+export function formatClock(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, "0");
+  return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+}
+
+/** Where a playing time (seconds from the range's start) falls: the ayah and
+ *  the offset inside it. `lengths[i]` is the length of ayah `from + i`. */
+export function locateInRange(
+  lengths: readonly number[],
+  from: number,
+  at: number,
+): { id: number; offset: number } {
+  let left = Math.max(0, at);
+  for (let i = 0; i < lengths.length; i++) {
+    if (left < lengths[i] || i === lengths.length - 1)
+      return { id: from + i, offset: Math.min(left, Math.max(0, lengths[i] - 0.25)) };
+    left -= lengths[i];
+  }
+  return { id: from, offset: 0 };
 }

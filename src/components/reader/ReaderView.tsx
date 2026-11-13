@@ -39,10 +39,13 @@ import { BookmarkList } from "../panels/BookmarkList";
 import { setBookmarkNote, toggleBookmark, type Bookmark } from "../../lib/bookmarks";
 import { useI18n } from "../../i18n/I18nContext";
 import {
+  LOCAL_RECITERS,
   RECITERS,
   estimateAudioBytes,
+  estimateAyahSeconds,
   formatBytes,
   type LoopRange,
+  type RecitationOptions,
   type ReciterId,
 } from "../../data/recitation";
 import { useReciters, useRecitation } from "../../data/useRecitation";
@@ -51,7 +54,7 @@ import {
   deleteReciterAudio,
   downloadSurahs,
   isNativeApp,
-  nativeAudioBase,
+  moveAudioTo,
   useAudioDownloads,
   type SurahJob,
 } from "../../data/audioStore";
@@ -70,6 +73,8 @@ import { copyToClipboard, groupByPage, scopeField, useReaderPrefs } from "./read
 
 /** Reader width (CSS px, after zoom) below which the tools go icon-only. */
 const NARROW_PX = 560;
+/** Reader width from which the player keeps the range ends beside its seek bar. */
+const PLAYER_ROOMY_PX = 560;
 /** Reader width from which the context panel docks beside the text. */
 const DOCK_PX = 960;
 
@@ -238,15 +243,12 @@ export function ReaderView({
     },
     [verses, surahMap],
   );
-  const reciters = useReciters(RECITERS);
-  // The stored choice, or the first reciter present locally.
-  const reciter = reciters?.find((r) => r.id === p.reciterPref) ?? reciters?.[0] ?? null;
   // ── Android app: recitation lives in device storage, downloaded per surah ──
   const native = isNativeApp();
-  const [deviceBase, setDeviceBase] = useState<string | null>(null);
-  useEffect(() => {
-    if (native) void nativeAudioBase().then(setDeviceBase, () => undefined);
-  }, [native]);
+  // The app offers the whole catalogue; the desktop, the folders under audio/.
+  const reciters = useReciters(native ? RECITERS : LOCAL_RECITERS);
+  // The stored choice, or the first reciter present locally.
+  const reciter = reciters?.find((r) => r.id === p.reciterPref) ?? reciters?.[0] ?? null;
   const downloads = useAudioDownloads(RECITERS);
   const reciterId = (reciter?.id ?? p.reciterPref) as ReciterId;
   const onDevice = downloads.downloaded[reciterId];
@@ -255,6 +257,29 @@ export function ReaderView({
     [native, onDevice, verses],
   );
   const totalWords = useMemo(() => surahs.reduce((n, x) => n + x.wordCount, 0), [surahs]);
+  const totalLetters = useMemo(
+    () => surahs.reduce((n, x) => n + x.letterCount, 0),
+    [surahs],
+  );
+  // Ayah lengths for the seek bar, until the real ones are known.
+  const estimate = useCallback(
+    (id: number) => estimateAyahSeconds(reciterId, verses[id - 1]?.l ?? 0, totalLetters),
+    [reciterId, verses, totalLetters],
+  );
+  const reciterName = reciter?.name ?? "";
+  // What the system's media controls show: "Qaf 50:16" by the reciter.
+  const describe = useCallback(
+    (id: number) => {
+      const v = verses[id - 1];
+      const name = v ? (surahMap.get(v.s)?.nameEn ?? "") : "";
+      return {
+        title: v ? `${name} ${v.s}:${v.a}` : "",
+        artist: reciterName,
+        album: t.app.titleShort,
+      };
+    },
+    [verses, surahMap, reciterName, t],
+  );
   const jobOf = useCallback(
     (n: number): SurahJob | null => {
       const x = surahMap.get(n);
@@ -280,8 +305,10 @@ export function ReaderView({
     range,
     options: p.audioOpts,
     needsBasmalah,
-    base: native ? deviceBase : undefined,
+    base: native ? downloads.base : undefined,
     available: native ? available : undefined,
+    estimate,
+    describe,
   });
 
   let downloadPrompt: AudioDownloadPrompt | null = null;
@@ -327,7 +354,27 @@ export function ReaderView({
           totalWords,
         ),
       ),
-      busy: !!act,
+      busy: !!act || !!downloads.moving,
+      locations: downloads.volumes.map((v) => ({
+        id: v.id,
+        label: v.removable ? t.reader.audio.sdCard : t.reader.audio.internal,
+        free: formatBytes(v.free),
+      })),
+      location: downloads.location?.id ?? null,
+      cardMissing: downloads.cardMissing,
+      moving: downloads.moving,
+      moveError: downloads.moveError,
+      onLocation: (id: string) => {
+        const to = downloads.volumes.find((v) => v.id === id);
+        const label = to?.removable ? t.reader.audio.sdCard : t.reader.audio.internal;
+        if (
+          bytes === 0 ||
+          window.confirm(t.reader.audio.moveConfirm(label, formatBytes(bytes)))
+        ) {
+          rec.stop();
+          void moveAudioTo(id);
+        }
+      },
       onDownloadAll: () =>
         downloadSurahs(
           reciterId,
@@ -346,6 +393,25 @@ export function ReaderView({
     };
   }
   const audioOn = !!reciter && p.showAudio;
+  // The options sheet changes things as you pick them; Cancel puts back what
+  // was set when it opened.
+  const sheetSnapshot = useRef<{
+    loopRange: LoopRange | null;
+    options: RecitationOptions;
+    reciter: string;
+  } | null>(null);
+  const openPlayerSheet = () => {
+    sheetSnapshot.current = {
+      loopRange,
+      options: p.audioOpts,
+      reciter: p.reciterPref,
+    };
+    setPlayerSheet(true);
+  };
+  const reciterNote = (id: string) => {
+    const n = Object.keys(downloads.downloaded[id] ?? {}).length;
+    return n > 0 ? t.reader.audio.nSurahs(n) : null;
+  };
   // A new scope resets an edited range, unless something is playing from it.
   const hasCursor = rec.cursor !== null;
   useEffect(() => {
@@ -1066,9 +1132,14 @@ export function ReaderView({
         <MiniPlayer
           rec={rec}
           verses={verses}
-          reciterName={reciter?.name ?? ""}
+          reciter={reciterId}
+          reciterName={reciterName}
           options={p.audioOpts}
-          onOpenOptions={() => setPlayerSheet(true)}
+          onOptions={p.setAudioOpts}
+          range={range}
+          onRange={setLoopRange}
+          roomy={width >= PLAYER_ROOMY_PX}
+          onOpenOptions={openPlayerSheet}
           download={downloadPrompt}
         />
       )}
@@ -1106,6 +1177,20 @@ export function ReaderView({
           options={p.audioOpts}
           onOptions={p.setAudioOpts}
           storage={storage}
+          reciterNote={native ? reciterNote : undefined}
+          onPlay={() => {
+            setPlayerSheet(false);
+            rec.play(range.from);
+          }}
+          onCancel={() => {
+            const was = sheetSnapshot.current;
+            if (was) {
+              setLoopRange(was.loopRange);
+              p.setAudioOpts(was.options);
+              p.setReciter(was.reciter);
+            }
+            setPlayerSheet(false);
+          }}
         />
       </Sheet>
     </section>

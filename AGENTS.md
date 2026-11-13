@@ -237,12 +237,12 @@ wrapping sidebar (`flex-[1_1_14rem]` / `flex-[999_1_24rem]`), and `isWideLayout`
 new `sm:`/`md:`/`lg:` breakpoints for structure.
 
 **Shell** (`components/shell/Navigation.tsx`). Wide layouts get `NavRail`
-(brand + totals, primary Read button, search, the three views, then bookmarks,
-shortcuts, settings); narrow ones get `TopBar` (search, bookmarks, settings) and
-`BottomTabs` (Read + three views, ≥56px targets). While the reader is open, Read
-is the current destination and the phone `TopBar` is replaced by the reader's
-own head. Read opens the reader at
-`qv.lastRead` or Al-Fatihah. Language and dark mode live only in Settings. Each
+(brand + totals, primary Read button, search, Home and the three views, then
+bookmarks, shortcuts, settings); narrow ones get `TopBar` (search, bookmarks,
+settings) and `BottomTabs` (Home + three views, ≥56px targets). While the
+reader is open, Home is the current tab and the phone `TopBar` is replaced by
+the reader's own head. The rail's Read button and Home's first card open the
+reader at `qv.lastRead` or Al-Fatihah. Language and dark mode live only in Settings. Each
 view's scroll position is recorded when the view changes (`changeView` in
 `App.tsx`, not from scroll events) and restored on return. Android's back
 gesture (`lib/androidBack.ts`, `@capacitor/app`) closes an open dialog with a
@@ -281,7 +281,21 @@ dialogs mount on first opening and stay mounted). Recharts lands in a shared
 chunk loaded with the dashboard or Structure; html2canvas stays a dynamic
 import in `lib/export.ts`. Keep heavy imports out of `App.tsx` and the shell.
 
-**Views.** `App.tsx` switches Dashboard / Peta (view id `browse`) / Structure.
+**Home** (`views/HomeView.tsx`, view id `home`, where the app opens). Two
+cards (continue reading; today's time against the goal and the streak), then
+one index at a time behind a segmented control (`qv.home.tab`): surahs as
+two-line rows in an auto-fill grid with a name/number filter
+(`qv.home.query`), the 30 juz, or Activity. **Activity**
+(`components/home/ActivityPanel.tsx`): today, current and longest streak, total
+time, and bars per week (Sunday first), month, year or all time
+(`qv.activity.period`), with earlier periods one step away and a daily goal
+(`qv.reading.goal`, minutes; a day counts for the streak once it meets it).
+The maths is `data/readingLog.ts` (pure, tested); `lib/readingStore.ts` keeps
+the log (`qv.reading.log`, seconds per local day) outside React and
+`useReadingTimer(reading)` in `App` adds to it every 10 s while the reader is
+open and either touched within the last two minutes or reciting.
+
+**Views.** `App.tsx` switches Home / Dashboard / Peta (view id `browse`) / Structure.
 Peta (`views/BrowseView.tsx`) is the Peta Mushaf (`components/peta/`) above an
 index of surahs, juz and manzils as a dense sortable list (`SurahList`,
 `DivisionList`; header clicks set the same `qv.browse.sort`) or cards
@@ -363,23 +377,29 @@ Pages grid (`MushafPageMap`) is gone.
 
 `scripts/fetch_audio.py --reciter <id>` downloads per-ayah MP3s from
 everyayah.com into `audio/<id>/SSSAAA.mp3` plus `index.json` (name, bitrate,
-`origin`, `recorded`, file count, `complete`). Reciters: `shuraym` (Sa'ud
-ash-Shuraym, 64 kbps, ~530 MB) and `yasser` (Yasser ad-Dosari, 128 kbps only).
+`origin`, `recorded`, file count, `complete`). Desktop reciters
+(`LOCAL_RECITERS`): `shuraym` (Sa'ud ash-Shuraym, 64 kbps, ~530 MB) and
+`yasser` (Yasser ad-Dosari, 128 kbps only).
 It resumes, validates the MP3 header, rewrites the index every 250 files, and
 `--check` reports what is missing. Neither source publishes a recording date
 (the ID3 tags only name the publisher: HidayahOnline.org, QuranicAudio.com), so
-`recorded` is null; the selector shows it only when set. To add a reciter, add
-it to `RECITERS` in both the script and `data/recitation.ts`. `audio/` is
+`recorded` is null; the selector shows it only when set. To add a desktop
+reciter, add it to `RECITERS` in the script and to `LOCAL_RECITERS` in
+`data/reciters.ts`. That file is the Android app's catalogue (40 reciters
+from everyayah.com's `recitations.js`: Hafs only, no translations, one bitrate
+each, 64 kbps where published); `bytes` there is exact for the two desktop
+sets and otherwise estimated from 40 sampled ayahs. `audio/` is
 gitignored and is **never** copied into `dist/`: the `localAudio` plugin in
 `vite.config.ts` serves it at `audio/` only from `npm run dev` and `npm run
 preview` (with Range support). On a static host the index fetch fails,
 `useReciters` returns no reciters, and the reader shows no audio UI.
 
 **Android app** (`data/audioStore.ts`, `isNativeApp()`): the APK ships no audio.
-`useReciters` lists every reciter in `RECITER_INFO` (`data/recitation.ts`,
-which MIRRORS `RECITERS` in the script: name, source folder, bitrate, total
-bytes). The learner downloads a surah at a time from everyayah.com into
-`Directory.Data/audio/<reciter>/SSSAAA.mp3` with `@capacitor/file-transfer`
+`useReciters` lists every reciter in `RECITER_INFO` (`data/reciters.ts`:
+name, source folder, bitrate, total bytes); picking one downloads nothing
+until the learner asks, and the selector notes how many surahs of each are on
+the device. The learner downloads a surah at a time from everyayah.com into
+`<volume>/audio/<reciter>/SSSAAA.mp3` with `@capacitor/file-transfer`
 (4 in parallel, each to `.part` then renamed; files under 2 KB count as
 failed). `surahs.json` in each reciter folder maps surah → bytes and is
 written only when the whole surah is in place. One app-wide queue
@@ -392,6 +412,21 @@ cancel); the options sheet shows what is on the device, "download all" and
 "delete" (with a confirm). This is the app's only network use, and only on
 the learner's tap.
 
+The volume is internal storage (`getFilesDir()`, the old `Directory.Data`) or
+the app's folder on an SD card, listed by the in-app `AudioStorage` plugin
+(`android/app/src/main/java/io/github/ikkops/quranviz/AudioStoragePlugin.java`,
+registered in `MainActivity`). Both are app-private: no storage permission,
+deleted on uninstall. The choice persists as `qv.audio.location`; all paths
+are absolute `file://` URIs (Filesystem and FileTransfer take them without a
+`directory`). Changing it moves the downloaded files (copy, then delete, file
+by file; refused if the target lacks space). A chosen card that isn't
+inserted falls back to internal storage with a note in the sheet.
+
+**Fullscreen.** `MainActivity` hides the status bar, navigation bar and the
+Galaxy taskbar (`WindowInsetsControllerCompat`, transient bars on swipe) on
+resume and whenever the window regains focus. The Java there is only compiled
+by CI (no Android SDK on the dev machine), so check the PR's `apk` job.
+
 - `data/recitation.ts` is the pure loop logic (unit-tested): `advance(cursor,
   range, opts, needsBasmalah)` returns the next file or null. Ranges are global
   verse ids, so they can cross surahs. The range is read each time a file ends,
@@ -402,15 +437,37 @@ the learner's tap.
   `useReciters(RECITERS)` lists the reciters whose index loads. The choice
   persists as `qv.audio.reciter` (falls back to the first present one). Switching
   reciter restarts the current ayah in the new voice.
-- `components/reader/Recitation.tsx`: `MiniPlayer` (prev/play/next, what is
-  playing, options button) docked under the reader, and `RecitationControls`
-  in the options sheet: reciter select (name · origin · bitrate), prev/play/next, From/To as surah + ayah dropdowns between −/+ steppers
+- `components/reader/Recitation.tsx`: `MiniPlayer` docked under the reader.
+  Row one is the seek bar (time into the range, estimated range length)
+  between the range's two ends as `− ref +` steppers (start left, end right);
+  row two is the transport with play centred: repeat, restart ayah, previous,
+  play, next, options. Below `PLAYER_ROOMY_PX` (560) the steppers drop to a
+  third row. The repeat button steps `ayahRepeat` through `REPEAT_CHOICES`
+  (stored as plays: 1, 2, 3, 4, 6, 12, 0 = ∞; worded as repetitions: none, 1×,
+  2×, 3×, 5×, 11×, ∞) and is tinted when on. The seek bar reads
+  `rec.clock` with `useSyncExternalStore` (position changes several times a
+  second and must not re-render the reader); ayah lengths are
+  `estimateAyahSeconds` (set bytes ÷ bitrate, shared by letters) until the
+  file has loaded, then the real duration; releasing the thumb calls
+  `rec.seek(id, offset)` via `locateInRange`.
+  `RecitationControls`
+  in the options sheet starts with Play (start the range now, close) and
+  Cancel (put range, options and reciter back as they were when it opened;
+  the sheet's own close keeps the changes), then: reciter select (name · origin · bitrate), From/To as surah + ayah dropdowns between −/+ steppers
   (picking a surah jumps to its first ayah for From, its last for To), "set to
   the playing ayah", reset, and
   repeat ayah / repeat range (0 = ∞) / gap / speed, persisted as
   `qv.audio.options`. Each verse row gets a "play from here" button; outside the
   range it sets the range to that ayah through the end of the scope. The range
   follows the scope until edited and resets on navigation unless a cursor exists.
+- `data/mediaControls.ts` wraps `@capgo/capacitor-media-session`: on Android
+  its foreground service shows the media notification (previous, play/pause,
+  next, position in the range) and keeps recitation playing in the background;
+  in a browser it is the Media Session API. `useRecitation` announces each
+  ayah (`describe(id)` → title/artist) and binds the buttons while the player
+  is enabled. The manifest declares `FOREGROUND_SERVICE`,
+  `FOREGROUND_SERVICE_MEDIA_PLAYBACK` and `POST_NOTIFICATIONS`. Untested on a
+  device from here.
 - The in-app browser pane blocks `/@vite/client`, so the dev server renders
   blank there; check the player with `npm run build` + the `quran-viz-preview`
   launch config instead.
@@ -418,7 +475,8 @@ the learner's tap.
 ## URL hash / deep links
 
 `#<view>[?<params>][/r/<scope>/<value>[/<anchor>]]` — parsed and written by
-`lib/hash.ts` (`parseHash` clamps reader values: surah 999 → 114).
+`lib/hash.ts` (`parseHash` clamps reader values: surah 999 → 114; an empty or
+unknown view is `home`).
 
 Examples: `#dashboard`, `#structure/r/surah/2`, `#dashboard/r/surah/2/262`,
 `#dashboard?v=length&m=letterCount&s=revelation&r=juz:28-30&p=Medinan`
@@ -445,7 +503,7 @@ Keys: `qv.structure.tab`, `qv.browse.layout`, `qv.peta.*`, `qv.compare.editions`
 `qv.settings`, `qv.browse.*` (Browse kind, query, sort, type filter),
 `qv.bookmarks` (owned by `App`; sanitized by `lib/bookmarks.ts`),
 `qv.search.translation`,
-`qv.lastRead`, `qv.welcome` (first run done), `qv.audio.options` (recitation repeats/gap/speed), `qv.audio.reciter`, `qv.colorMode` (owned by `App`, shared by dashboard, reader and
+`qv.lastRead`, `qv.welcome` (first run done), `qv.home.tab`, `qv.home.query`, `qv.activity.period`, `qv.reading.goal`, `qv.reading.log`, `qv.audio.options` (recitation repeats/gap/speed), `qv.audio.reciter`, `qv.colorMode` (owned by `App`, shared by dashboard, reader and
 search), `qv.edition` (reader translation), and `qv.reader.*` (gear-menu toggles,
 `tafsirEdition`, `glossLang`, `translationScale`, `infoLang`, `audio`, `mode`,
 `context`, `contextTab`). Theme,
@@ -491,7 +549,7 @@ content (translations, topic names, root glosses, CSV headers) is not translated
 ## Keyboard shortcuts and loading
 
 App-level shortcuts live in `lib/shortcuts.ts` (`shortcutFor` is pure and
-tested; `SHORTCUTS` feeds the `?` help sheet): Ctrl/Cmd+K or `/` search, `1`–`3`
+tested; `SHORTCUTS` feeds the `?` help sheet): Ctrl/Cmd+K or `/` search, `H` home, `1`–`3`
 views (closing the reader), `B` bookmarks, `?` help. They are ignored while typing or while a window
 is open (except Ctrl/Cmd+K). The reader keeps its own ←/→ (not while a sheet is open).
 

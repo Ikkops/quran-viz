@@ -90,6 +90,7 @@ export const en = {
     search: "Search the Qur'an",
     mainView: "Main view",
     views: {
+      home: "Home",
       dashboard: "Dashboard",
       browse: "Map",
       structure: "Structure",
@@ -114,6 +115,45 @@ export const en = {
     "Search: open the first result or the typed reference",
     "Close the open window",
   ],
+
+  home: {
+    sections: "Home sections",
+    tabs: { surah: "Surahs", juz: "Juz", activity: "Activity" },
+    filter: "Find a surah by name or number",
+    noSurah: "No surah matches.",
+    searchInstead: "Search the whole Qur'an",
+    ayahs: (n: number) => `${n} ayahs`,
+    startAt: (name: string) => `From ${name}`,
+    todayLine: (time: string, goal: number) => `Today: ${time} of ${goal} min`,
+    streakLine: (n: string) => `Streak: ${n} ${n === "1" ? "day" : "days"}`,
+  },
+
+  activity: {
+    title: "Reading activity",
+    today: "Today",
+    ofGoal: (goal: number) => `goal ${goal} min`,
+    streak: "Current streak",
+    streakNote: (goal: number) => `days with ${goal} min or more`,
+    longest: "Longest streak",
+    total: "Total time",
+    days: (n: number) => `${n} ${n === 1 ? "day" : "days"}`,
+    daysRead: (n: number) => `${n} ${n === 1 ? "day" : "days"} read`,
+    duration: (seconds: number) => {
+      const m = seconds <= 0 ? 0 : Math.max(1, Math.round(seconds / 60));
+      if (m < 60) return `${m} min`;
+      return m % 60 === 0 ? `${m / 60} h` : `${Math.floor(m / 60)} h ${m % 60} min`;
+    },
+    minutes: (n: number) => `${n} min a day`,
+    period: "Period",
+    periods: { week: "Week", month: "Month", year: "Year", all: "All time" },
+    earlier: "Earlier",
+    later: "Later",
+    summary: (time: string, read: string, of: string, avg: string) =>
+      `${time} in total · read on ${read} of ${of} days · ${avg} on a day you read`,
+    empty: "Nothing yet. Time counts while the reader is open and in use.",
+    goal: "Daily goal",
+    how: "Time counts while the reader is open and you are reading or listening. It stays on this device.",
+  },
 
   ui: {
     resize: "Resize (drag; double-click to reset)",
@@ -756,8 +796,17 @@ export const en = {
       rangeRepeat: "Repeat range",
       gap: "Gap",
       rate: "Speed",
-      times: (n: number) => (n === 0 ? "∞" : `${n}×`),
+      times: (n: number) => (n === 0 ? "∞" : n === 1 ? "none" : `${n - 1}×`),
       seconds: (s: number) => `${s} s`,
+      restart: "Start this ayah again",
+      repeatButton: (v: string) => `Repeat each ayah: ${v}`,
+      seek: "Position in the range",
+      seekText: (at: string, total: string) => `${at} of ${total}`,
+      endEstimate: "Length of the range. Estimated until each ayah has been played once.",
+      pickEnd: (end: string) => `${end}: choose surah and ayah`,
+      playNow: "Play",
+      cancel: "Cancel",
+      cancelHint: "Close and put the options back as they were",
       basmalah: "Basmalah",
       pass: (a: string, r: string) => `ayah ${a} · range ${r}`,
       idle: "Not playing",
@@ -781,6 +830,18 @@ export const en = {
       deleteAll: "Delete downloaded audio",
       deleteConfirm: (name: string, size: string) =>
         `Delete ${name}'s downloaded audio (${size})? You can download it again later.`,
+      saveOn: "Save audio on",
+      internal: "Internal storage",
+      sdCard: "SD card",
+      locationOption: (label: string, free: string) => `${label} · ${free} free`,
+      moveConfirm: (label: string, size: string) =>
+        `Move the downloaded audio (${size}) to ${label}? Playback and downloads pause until it is done.`,
+      moving: (done: number, total: number) => `Moving audio · ${done}/${total} files`,
+      moveNoSpace: "Not enough free space there. Nothing was moved.",
+      moveFailed: (f: string) =>
+        `Moving stopped at ${f}. The files not yet moved are still in the old place.`,
+      cardMissing:
+        "The SD card isn't inserted. New downloads go to internal storage for now.",
       sourceNote:
         "Audio is downloaded from everyayah.com once, then plays without a connection.",
     },

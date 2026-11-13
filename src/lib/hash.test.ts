@@ -22,7 +22,7 @@ describe("hash", () => {
       params: {},
       reader: { scope: "juz", value: 30, anchor: undefined },
     });
-    expect(parseHash("")).toEqual({ view: "dashboard", params: {}, reader: null });
+    expect(parseHash("")).toEqual({ view: "home", params: {}, reader: null });
   });
 
   it("clamps out-of-range reader values", () => {
