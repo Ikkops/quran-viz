@@ -33,6 +33,7 @@ describe("Welcome", () => {
     );
     expect(screen.getByRole("dialog")).toHaveAccessibleName(/Read the Qur'an/);
     // English UI: English editions only (no French).
+    await userEvent.click(screen.getByRole("combobox", { name: /Translation/ }));
     expect(screen.getByRole("option", { name: "en.sahih" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "fr.x" })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /Explore the map/ }));

@@ -51,6 +51,8 @@ export interface RowContext {
     kind: "ayah" | "grouped";
     lang: string;
     source: string;
+    /** When it was published, in the UI language. */
+    published: string;
     loading: boolean;
     ayah: (string | null)[] | null;
     groupAt: (id: number, prevId: number | null) => TafsirGroup | null;
@@ -87,7 +89,7 @@ export function SurahHeading({ s }: { s: Surah | undefined }) {
   return (
     <div className="mb-1 mt-4 flex items-baseline gap-2 border-b border-line pb-1.5">
       <span className="text-base font-semibold text-ink">
-        {s.number}. {s.nameEn}
+        {s.number}. {s.name}
       </span>
       <span lang="ar" dir="rtl" className="font-arabic text-lg text-ink-muted">
         {s.nameAr}
@@ -442,14 +444,31 @@ function InlineTafsir({
   if (tf.kind === "ayah") {
     const text = tf.ayah?.[v.id];
     if (!text) return null;
+    if (tf.lang === "ar")
+      return (
+        <p
+          lang="ar"
+          dir="rtl"
+          className="mt-2 rounded-lg bg-surface-sunken p-3 font-arabic text-base leading-loose text-ink-muted dark:bg-surface"
+        >
+          {text}
+        </p>
+      );
     return (
-      <p
+      <div
         lang={tf.lang}
-        dir={tf.lang === "ar" ? "rtl" : "ltr"}
-        className="mt-2 rounded-lg bg-surface-sunken p-3 font-arabic text-base leading-loose text-ink-muted dark:bg-surface"
+        className="mt-2 rounded-lg bg-surface-sunken p-3 dark:bg-surface"
       >
-        {text}
-      </p>
+        <p
+          className="max-w-[68ch] whitespace-pre-line font-reading text-ink-muted"
+          style={{ fontSize: `calc(0.9375rem * ${ctx.translationScale})` }}
+        >
+          {text}
+        </p>
+        <p className="mt-1 text-xs text-ink-subtle">
+          {tf.source}. {tf.published}.
+        </p>
+      </div>
     );
   }
   const g = tf.groupAt(v.id, prev?.id ?? null);
@@ -467,7 +486,9 @@ function InlineTafsir({
       >
         {g.text}
       </p>
-      <p className="mt-1 text-xs text-ink-subtle">{tf.source}.</p>
+      <p className="mt-1 text-xs text-ink-subtle">
+        {tf.source}. {tf.published}.
+      </p>
     </div>
   );
 }

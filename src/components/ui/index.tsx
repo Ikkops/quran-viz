@@ -10,10 +10,11 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
-  type SelectHTMLAttributes,
 } from "react";
 import { X } from "lucide-react";
 import { useI18n } from "../../i18n/I18nContext";
+
+export { Select, type SelectOption } from "./Select";
 
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
@@ -79,29 +80,6 @@ export function Badge({
     >
       {children}
     </span>
-  );
-}
-
-export function Select({
-  label,
-  className,
-  children,
-  ...props
-}: { label?: string } & SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-ink-muted">
-      {label}
-      <select
-        {...props}
-        className={cx(
-          "min-h-10 touch:min-h-11 w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink transition",
-          "disabled:cursor-not-allowed disabled:opacity-50",
-          className,
-        )}
-      >
-        {children}
-      </select>
-    </label>
   );
 }
 
@@ -507,16 +485,25 @@ export function Sheet({
   open: boolean;
   onClose: () => void;
   title: ReactNode;
-  side?: "bottom" | "right";
+  side?: "bottom" | "right" | "top";
   children: ReactNode;
   closeLabel: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  // Callers pass an inline `onClose`. If the effect below depended on it, every
+  // parent re-render (the reader re-renders when the keyboard resizes the
+  // WebView, and on its 3 s last-read timer) would run cleanup + setup again:
+  // focus jumped back to the opener and then to the panel, blurring a focused
+  // input, so the on-screen keyboard closed the moment it opened.
+  const onCloseRef = useRef(onClose);
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose;
+  });
   useEffect(() => {
     if (!open) return;
     const before = document.activeElement as HTMLElement | null;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") onCloseRef.current();
       else if (e.key === "Tab" && panelRef.current) {
         const f = panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE);
         if (!f.length) return;
@@ -532,15 +519,19 @@ export function Sheet({
       }
     };
     window.addEventListener("keydown", onKey);
-    const t = setTimeout(() => panelRef.current?.focus(), 0);
+    // Focus the panel unless something inside it (an autoFocus input) already
+    // has focus.
+    const t = setTimeout(() => {
+      const p = panelRef.current;
+      if (p && !p.contains(document.activeElement)) p.focus();
+    }, 0);
     return () => {
       window.removeEventListener("keydown", onKey);
       clearTimeout(t);
       before?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
   if (!open) return null;
-  const bottom = side === "bottom";
   return (
     <div className="fixed inset-0 z-50 bg-ink/30" onClick={onClose}>
       <div
@@ -552,9 +543,12 @@ export function Sheet({
         onClick={(e) => e.stopPropagation()}
         className={cx(
           "absolute flex flex-col bg-surface shadow-float outline-none",
-          bottom
-            ? "animate-sheet-up inset-x-0 bottom-0 max-h-[calc(85*var(--zvh))] rounded-t-xl pb-[env(safe-area-inset-bottom)]"
-            : "animate-sheet-in inset-y-0 right-0 w-[min(26rem,100%)] border-l border-line pt-[env(safe-area-inset-top)]",
+          side === "bottom" &&
+            "animate-sheet-up inset-x-0 bottom-0 mx-auto max-h-[calc(85*var(--zvh))] w-full max-w-3xl rounded-t-xl pb-[env(safe-area-inset-bottom)]",
+          side === "top" &&
+            "animate-sheet-down inset-x-0 top-0 mx-auto max-h-[calc(85*var(--zvh))] w-full max-w-3xl rounded-b-xl pt-[env(safe-area-inset-top)]",
+          side === "right" &&
+            "animate-sheet-in inset-y-0 right-0 w-[min(26rem,100%)] border-l border-line pt-[env(safe-area-inset-top)]",
         )}
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line py-1.5 pl-4 pr-1.5">

@@ -144,6 +144,11 @@ export function FilterBar({
 }) {
   const { t } = useI18n();
   const place = filter.place ?? "all";
+  const surahOptions = surahs.map((s) => ({
+    value: s.id,
+    label: `${s.id}. ${s.name}`,
+  }));
+  const juzOptions = range(30).map((j) => ({ value: j, label: String(j) }));
   const rangeLabel =
     filter.mode === "surah"
       ? t.dashboard.surahSpan(...filter.surahRange)
@@ -187,31 +192,23 @@ export function FilterBar({
                   <Select
                     label={t.controls.fromSurah}
                     value={filter.surahRange[0]}
-                    onChange={(e) => {
-                      const from = Math.min(Number(e.target.value), filter.surahRange[1]);
+                    searchable
+                    options={surahOptions}
+                    onChange={(v) => {
+                      const from = Math.min(v, filter.surahRange[1]);
                       onFilter({ ...filter, surahRange: [from, filter.surahRange[1]] });
                     }}
-                  >
-                    {surahs.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.id}. {s.nameEn}
-                      </option>
-                    ))}
-                  </Select>
+                  />
                   <Select
                     label={t.controls.toSurah}
                     value={filter.surahRange[1]}
-                    onChange={(e) => {
-                      const to = Math.max(Number(e.target.value), filter.surahRange[0]);
+                    searchable
+                    options={surahOptions}
+                    onChange={(v) => {
+                      const to = Math.max(v, filter.surahRange[0]);
                       onFilter({ ...filter, surahRange: [filter.surahRange[0], to] });
                     }}
-                  >
-                    {surahs.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.id}. {s.nameEn}
-                      </option>
-                    ))}
-                  </Select>
+                  />
                 </div>
               )}
               {filter.mode === "juz" && (
@@ -219,31 +216,21 @@ export function FilterBar({
                   <Select
                     label={t.controls.juzFrom}
                     value={filter.juzRange[0]}
-                    onChange={(e) => {
-                      const from = Math.min(Number(e.target.value), filter.juzRange[1]);
+                    options={juzOptions}
+                    onChange={(v) => {
+                      const from = Math.min(v, filter.juzRange[1]);
                       onFilter({ ...filter, juzRange: [from, filter.juzRange[1]] });
                     }}
-                  >
-                    {range(30).map((j) => (
-                      <option key={j} value={j}>
-                        {j}
-                      </option>
-                    ))}
-                  </Select>
+                  />
                   <Select
                     label={t.controls.juzTo}
                     value={filter.juzRange[1]}
-                    onChange={(e) => {
-                      const to = Math.max(Number(e.target.value), filter.juzRange[0]);
+                    options={juzOptions}
+                    onChange={(v) => {
+                      const to = Math.max(v, filter.juzRange[0]);
                       onFilter({ ...filter, juzRange: [filter.juzRange[0], to] });
                     }}
-                  >
-                    {range(30).map((j) => (
-                      <option key={j} value={j}>
-                        {j}
-                      </option>
-                    ))}
-                  </Select>
+                  />
                 </div>
               )}
             </div>

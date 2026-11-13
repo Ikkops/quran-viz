@@ -129,7 +129,7 @@ export function RootExplorer({
       const count = c?.count ?? 0;
       return {
         s,
-        name: surahMap.get(s)?.nameEn ?? String(s),
+        name: surahMap.get(s)?.name ?? String(s),
         type: surahMap.get(s)?.type ?? "Meccan",
         count,
         density: words ? (count / words) * 1000 : 0,
@@ -196,15 +196,14 @@ export function RootExplorer({
           <div className="w-64">
             <Select
               value={activeSurah}
-              onChange={(e) => setSurah(Number(e.target.value))}
-              aria-label={t.common.surah}
-            >
-              {surahIds.map((s) => (
-                <option key={s} value={s}>
-                  {s}. {surahMap.get(s)?.nameEn}
-                </option>
-              ))}
-            </Select>
+              onChange={setSurah}
+              ariaLabel={t.common.surah}
+              searchable
+              options={surahIds.map((s) => ({
+                value: s,
+                label: `${s}. ${surahMap.get(s)?.name ?? ""}`,
+              }))}
+            />
           </div>
         )}
       </div>

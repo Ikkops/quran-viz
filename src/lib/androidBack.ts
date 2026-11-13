@@ -20,7 +20,7 @@ export function backAction(dialogOpen: boolean, canGoBack: boolean): BackAction 
 export function installBackButton(): () => void {
   if (!Capacitor.isNativePlatform()) return () => {};
   const listener = CapacitorApp.addListener("backButton", ({ canGoBack }) => {
-    const dialogOpen = !!document.querySelector('[role="dialog"]');
+    const dialogOpen = !!document.querySelector('[role="dialog"], [data-select-popup]');
     switch (backAction(dialogOpen, canGoBack)) {
       case "close-dialog":
         window.dispatchEvent(

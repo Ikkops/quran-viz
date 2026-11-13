@@ -1,6 +1,8 @@
 import type { Verse } from "../../types/quran";
 import type { ReaderScope } from "../charts/common";
-import { TAFSIR_EDITIONS } from "../../data/editions";
+import { TAFSIR_EDITIONS, langName } from "../../data/editions";
+import { formatBytes } from "../../data/recitation";
+import { needsDownload, type TafsirDownloads } from "../../data/tafsirStore";
 import type { GlossLang } from "../../data/useWordByWord";
 import type { InfoLang } from "../../data/useSurahInfo";
 import { persisted, usePersistentState } from "../../lib/usePersistentState";
@@ -23,6 +25,38 @@ const SCOPE_FIELD: Record<ReaderScope, keyof Verse> = {
 
 export function scopeField(v: Verse, scope: ReaderScope): number {
   return v[SCOPE_FIELD[scope]] as number;
+}
+
+/** Tafsir choices grouped by language, the UI language's group first. */
+export function tafsirOptions(uiLang: string, dl?: TafsirDownloads) {
+  const rank = (l: string) => (l === uiLang ? 0 : 1);
+  return [...TAFSIR_EDITIONS]
+    .sort((a, b) => rank(a.lang) - rank(b.lang))
+    .map((x) => ({
+      value: x.id,
+      // In the app, an edition still to download shows its size.
+      label:
+        dl && needsDownload(x, dl)
+          ? `${x.label} · ⤓ ${formatBytes(x.download!.bytes)}`
+          : x.label,
+      group: langName(x.lang, uiLang),
+    }));
+}
+
+/** The ways the reader can divide the text into windows (reader settings). */
+export const DIVISIONS = ["surah", "juz", "hizb", "ruku", "page"] as const;
+export type Division = (typeof DIVISIONS)[number];
+const DIVISION_KEY = "qv.reader.scope";
+
+/** The division last chosen in the reader, read when a "last read" link is
+ *  followed (Home stays mounted, so a hook there would hold a stale copy). */
+export function preferredDivision(): Division {
+  try {
+    const raw = JSON.parse(localStorage.getItem(DIVISION_KEY) ?? "null");
+    return (DIVISIONS as readonly string[]).includes(raw) ? (raw as Division) : "surah";
+  } catch {
+    return "surah";
+  }
 }
 
 export const BASMALA = "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ";
@@ -93,6 +127,11 @@ export function useReaderPrefs() {
     "en",
     persisted.oneOf(LANGS),
   );
+  const [division, setDivision] = usePersistentState<Division>(
+    DIVISION_KEY,
+    "surah",
+    persisted.oneOf(DIVISIONS),
+  );
   const [infoLang, setInfoLang] = usePersistentState<InfoLang>(
     K + "infoLang",
     "en",
@@ -129,6 +168,8 @@ export function useReaderPrefs() {
     persisted.oneOf(RECITERS),
   );
   return {
+    division,
+    setDivision,
     showTranslit,
     setShowTranslit,
     showTafsir,

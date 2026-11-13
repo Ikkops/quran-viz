@@ -32,8 +32,8 @@ colors:
   tajweed-p-night: "#FB923C"
   tajweed-o: "#BE185D"
   tajweed-o-night: "#FDA4AF"
-  tajweed-c: "#C81E1E"
-  tajweed-c-night: "#FB7185"
+  tajweed-c: "#1D4ED8"
+  tajweed-c-night: "#93C5FD"
   tajweed-m: "#7F1D1D"
   tajweed-m-night: "#F26060"
   tajweed-g: "#137A39"
@@ -42,14 +42,14 @@ colors:
   tajweed-a-night: "#A3E635"
   tajweed-u: "#5F6878"
   tajweed-u-night: "#9CA3AF"
-  tajweed-d: "#4B5563"
-  tajweed-d-night: "#B8BEC9"
-  tajweed-b: "#374151"
-  tajweed-b-night: "#D1D5DB"
+  tajweed-d: "#374151"
+  tajweed-d-night: "#D1D5DB"
+  tajweed-b: "#334155"
+  tajweed-b-night: "#CBD5E1"
   tajweed-f: "#0369A1"
   tajweed-f-night: "#38BDF8"
-  tajweed-w: "#1D4ED8"
-  tajweed-w-night: "#93C5FD"
+  tajweed-w: "#4B5563"
+  tajweed-w-night: "#B8BEC9"
   tajweed-i: "#7C3AED"
   tajweed-i-night: "#A78BFA"
   tajweed-q: "#0F766E"
@@ -171,25 +171,30 @@ violet, qalqalah teal, unpronounced letters warm grey). Each colour has a day an
 and keeps at least 4.5:1 on Stone Paper, Leaf and Gutter of its theme (`tajweed.test.ts`).
 Source of truth: `RULE_COLORS` in `src/data/tajweed.ts`.
 
-| Rule | Day | Night |
-|---|---|---|
-| Natural prolongation (Madd Ṭabīʿī) | #9A5200 | #FBBF24 |
-| Permissible prolongation (Madd Jāʾiz) | #B93A08 | #FB923C |
-| Obligatory prolongation — separate (Munfaṣil) | #BE185D | #FDA4AF |
-| Obligatory prolongation — joined (Muttaṣil) | #C81E1E | #FB7185 |
-| Necessary prolongation (Madd Lāzim) | #7F1D1D | #F26060 |
-| Ghunnah (nasalization) | #137A39 | #4ADE80 |
-| Idghām with ghunnah | #47750C | #A3E635 |
-| Idghām without ghunnah | #5F6878 | #9CA3AF |
-| Idghām (labial, mīm) | #4B5563 | #B8BEC9 |
-| Idghām (mutajānisayn / mutaqāribayn) | #374151 | #D1D5DB |
-| Ikhfāʾ (hiding) | #0369A1 | #38BDF8 |
-| Ikhfāʾ (labial, mīm) | #1D4ED8 | #93C5FD |
-| Iqlāb (conversion) | #7C3AED | #A78BFA |
-| Qalqalah (echo) | #0F766E | #2DD4BF |
-| Hamzat al-Waṣl (silent connecting hamza) | #6E6660 | #A8A29E |
-| Silent (not pronounced) | #80644F | #C4A88E |
-| Lām Shamsiyyah (assimilated lām) | #57534E | #D6D3D1 |
+| Code | Rule | Day | Night |
+|---|---|---|---|
+| n | Natural prolongation (Madd Ṭabīʿī) | #9A5200 | #FBBF24 |
+| p | Prolongation at a stop (Madd ʿĀriḍ li-s-Sukūn) | #B93A08 | #FB923C |
+| o | Prolongation before hamza (Madd Wājib / Munfaṣil) | #BE185D | #FDA4AF |
+| m | Necessary prolongation (Madd Lāzim) | #7F1D1D | #F26060 |
+| g | Ghunnah (nasalization) | #137A39 | #4ADE80 |
+| a | Idghām with ghunnah | #47750C | #A3E635 |
+| u | Idghām without ghunnah | #5F6878 | #9CA3AF |
+| w | Idghām Shafawī (mīm into mīm) | #4B5563 | #B8BEC9 |
+| d | Idghām Mutajānisayn | #374151 | #D1D5DB |
+| b | Idghām Mutaqāribayn | #334155 | #CBD5E1 |
+| f | Ikhfāʾ (hiding) | #0369A1 | #38BDF8 |
+| c | Ikhfāʾ Shafawī (mīm before bāʾ) | #1D4ED8 | #93C5FD |
+| i | Iqlāb (conversion) | #7C3AED | #A78BFA |
+| q | Qalqalah (echo) | #0F766E | #2DD4BF |
+| h | Hamzat al-Waṣl (silent connecting hamza) | #6E6660 | #A8A29E |
+| s | Silent (not pronounced) | #80644F | #C4A88E |
+| l | Lām Shamsiyyah (assimilated lām) | #57534E | #D6D3D1 |
+
+What each code marks was read off the `quran-tajweed` edition itself: `c` is always mīm sākinah
+before bāʾ, `w` mīm into mīm, `d` د→ت / ت→ط / ذ→ظ, `b` ل→ر / ق→ك. (Until 2026-11 the app had
+`c` as madd muttaṣil and `w`/`d`/`b` shifted by one.) The reader's "Tajweed rules" sheet shows
+each rule with a real example word (`TAJWEED_EXAMPLES`).
 
 ### Named Rules
 **The Revelation Rule.** Ochre, malachite and slate mean Makkiyah, Madaniyah and Hijra, in every
@@ -245,6 +250,13 @@ pill-shaped everything; no nested rounded cards.
 - **Quiet:** no fill, ink-muted text, gutter fill on hover.
 - **Focus:** 2px lapis ring with 2px offset, `:focus-visible` only.
 
+### Dropdowns
+- **Select:** a surface button with a hairline border and a chevron; open, the
+  border turns lapis. The list is a raised surface card (12px radius, float
+  shadow) under the button, or above it near the bottom edge; the chosen option
+  is lapis with a check, the active one a gutter tint; group headings in small
+  ink-subtle type. Never the platform's native picker.
+
 ### Badges
 - **Revelation badges:** text in the revelation colour on a 12% tint of it, 4px radius.
 
@@ -258,6 +270,9 @@ pill-shaped everything; no nested rounded cards.
   and hizb in the head margin, page number at the foot; ۞ and ۩ in rubric.
 - **Konteks ayat:** docked beside the text from 960px of reader width, else a
   sheet (bottom on phones, right edge otherwise).
+- **Head:** floats over the text and slides up out of the way while reading
+  down; a scroll up brings it back. "Go to" drops from the top edge; About this
+  surah, Tajweed rules and the player options rise from the bottom.
 - **Mini-player:** one slim bar under the text; everything else in a sheet.
 
 ### Peta Mushaf (signature)

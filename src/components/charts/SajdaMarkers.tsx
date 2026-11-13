@@ -29,7 +29,7 @@ export function SajdaMarkers({
           >
             <div className="mb-1.5 flex items-center justify-between" dir="ltr">
               <span className="text-sm font-semibold text-ink">
-                {s?.nameEn} · {v.s}:{v.a}
+                {s?.name} · {v.s}:{v.a}
               </span>
               <div className="flex gap-1">
                 <Badge>

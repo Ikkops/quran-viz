@@ -131,7 +131,7 @@ export function MarksPanel({
   const [open, setOpen] = useState<string | null>(marks.collections[0]?.id ?? null);
   const refOf = (ayah: number) => {
     const v = data.verses[ayah - 1];
-    return v ? `${data.surahs[v.s - 1]?.nameEn ?? ""} ${v.s}:${v.a}` : "";
+    return v ? `${data.surahs[v.s - 1]?.name ?? ""} ${v.s}:${v.a}` : "";
   };
   const go = (ayah: number) => {
     const v = data.verses[ayah - 1];

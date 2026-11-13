@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Info } from "lucide-react";
 import type { Surah, Verse } from "../../types/quran";
 import { READER_SCOPES, type ReaderScope, type ReaderTarget } from "../charts/common";
 import { useI18n } from "../../i18n/I18nContext";
@@ -99,7 +98,6 @@ export function GoToSheet({
   scope,
   at,
   onGo,
-  onInfo,
 }: {
   surahs: Surah[];
   verses: Verse[];
@@ -107,8 +105,6 @@ export function GoToSheet({
   /** The ayah the reader is on. */
   at: Verse;
   onGo: (t: ReaderTarget) => void;
-  /** Show "About this surah" for the chosen surah (reads by surah). */
-  onInfo: (surah: number) => void;
 }) {
   const { t } = useI18n();
   const g = t.reader.goToSheet;
@@ -119,7 +115,7 @@ export function GoToSheet({
   const firstOfSurah = id - v.a + 1;
 
   const surahItems = useMemo(
-    () => surahs.map((s) => ({ key: s.id, label: `${s.id}. ${s.nameEn}`, s })),
+    () => surahs.map((s) => ({ key: s.id, label: `${s.id}. ${s.name}`, s })),
     [surahs],
   );
   const ayahItems = useMemo(
@@ -165,6 +161,7 @@ export function GoToSheet({
             /^\d+$/.test(q)
               ? String(it.key).startsWith(q)
               : plain(it.s.nameEn).includes(plain(q)) ||
+                plain(it.s.nameId).includes(plain(q)) ||
                 (searchKeyArabic(q) !== "" &&
                   searchKeyArabic(it.s.nameAr).includes(searchKeyArabic(q)))
           }
@@ -190,31 +187,19 @@ export function GoToSheet({
       </div>
       <div className="flex flex-wrap items-end gap-2">
         <div className="w-36">
-          <Select
+          <Select<ReaderScope>
             label={g.readBy}
             value={by}
-            onChange={(e) => setBy(e.target.value as ReaderScope)}
-          >
-            {READER_SCOPES.map((s) => (
-              <option key={s} value={s}>
-                {t.scope[s]}
-              </option>
-            ))}
-          </Select>
+            onChange={setBy}
+            options={READER_SCOPES.map((s) => ({ value: s, label: t.scope[s] }))}
+          />
         </div>
-        <button
-          type="button"
-          onClick={() => onInfo(v.s)}
-          className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-line px-3 text-sm font-medium text-ink hover:border-ink-subtle touch:min-h-11"
-        >
-          <Info size={16} aria-hidden /> {t.reader.about}
-        </button>
         <button
           type="button"
           onClick={go}
           className="ml-auto min-h-10 flex-1 rounded-lg bg-illumination px-5 text-base font-semibold text-white hover:opacity-90 dark:text-paper touch:min-h-11"
         >
-          {g.go(`${surah?.nameEn ?? ""} ${v.s}:${v.a}`)}
+          {g.go(`${surah?.name ?? ""} ${v.s}:${v.a}`)}
         </button>
       </div>
     </div>

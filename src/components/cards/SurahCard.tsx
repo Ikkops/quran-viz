@@ -85,7 +85,7 @@ export function SurahCard({
           {surah.id}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-semibold text-ink">{surah.nameEn}</div>
+          <div className="truncate font-semibold text-ink">{surah.name}</div>
           <div className="truncate text-xs text-ink-muted dark:text-ink-subtle">
             {i.meaning(surah)}
           </div>

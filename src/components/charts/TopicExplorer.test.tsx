@@ -31,8 +31,8 @@ const VERSES = [
 ] as Verse[];
 
 const SURAHS = new Map<number, Surah>([
-  [2, { id: 2, nameEn: "Al-Baqarah", type: "Medinan" } as Surah],
-  [20, { id: 20, nameEn: "Taha", type: "Meccan" } as Surah],
+  [2, { id: 2, nameEn: "Al-Baqarah", name: "Al-Baqarah", type: "Medinan" } as Surah],
+  [20, { id: 20, nameEn: "Taha", name: "Taha", type: "Meccan" } as Surah],
 ]);
 
 function Harness({ onOpen }: { onOpen: ChartContext["onOpen"] }) {

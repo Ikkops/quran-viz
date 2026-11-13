@@ -43,7 +43,8 @@ exists, the script gunzips it automatically) **and** `../reference/quran-refs/qu
 - **Tests** use jsdom + RTL (`vitest.config.ts`, `src/test/setup.ts`).
   `@tanstack/react-virtual` is mocked in tests (jsdom has 0-height container →
   0 virtual rows).
-- **Android (Capacitor 8)**: `npx cap sync android` copies `dist/` into
+- **Android (Capacitor 8)**: build with `npm run build:android` (leaves the
+  downloadable tafsirs out), then `npx cap sync android` copies `dist/` into
   `android/app/src/main/assets/public/` (gitignored). `.github/workflows/android.yml`
   builds it; `versionCode` = run number and release signing both come from env
   vars in `android/app/build.gradle`. In the app, `<a download>` does nothing, so
@@ -71,7 +72,32 @@ tafsirs, `id.mukhtasar-qul` and `id.saadi-qul`, as passage lists
 its `group_key`, so `group_tafsir` keeps it once; Sa'di is ~9 MB, hence per-surah
 files), and one `translations/<edition>.json` per edition
 (including the three QUL Indonesian ones, `id.kemenag-qul`/`id.kfc-qul`/
-`id.sabiq-qul`, cleaned of footnote residue in five verses). Regenerate with
+`id.sabiq-qul`, cleaned of footnote residue in five verses). Three more
+Indonesian tafsirs come from checked-in snapshots that
+`scripts/fetch_tafsir_id.py` writes to `scripts/data/tafsir/<name>.json.gz`
+(6,236 notes in mushaf order; re-fetch only to refresh, sequential and polite):
+`id.jalalayn` (api.alquran.cloud, written as `translations/id.jalalayn.json`
+but not listed in `editions.json`), and Kemenag's `id.kemenag-tahlili`
+(equran.id) and `id.kemenag-wajiz` (the gadingnst/quran-api crawl, cleaned by
+`clean_scraped`), both grouped by `collapse_runs` (Kemenag repeats one note
+over a passage). `id.muntakhab` (Quraish Shihab) is an ordinary quran.db
+edition that `TAFSIR_EDITIONS` also lists as an `ayah` tafsir. Every
+`TAFSIR_EDITIONS` entry carries `published` (en/id line shown after `source`
+under each note). The three snapshot editions carry `download: { bytes }`
+(checked against the files by `editions.test.ts`): `npm run build:android`
+(`vite build --mode android`, the `androidData` plugin in `vite.config.ts`,
+run by CI) deletes them from `dist/data`, and the app downloads one on request
+(`data/tafsirStore.ts`) from `raw.githubusercontent.com/Ikkops/quran-viz/main/
+public/data/` into `<Data>/data/<same path>`, with `downloads.json` written
+only when every file is in. The loaders (`useTranslation`, `useGroupedTafsir`)
+resolve URLs through `dataFileUrl`, so the device copy is read instead; until
+then the reader settings and the context sheet show `TafsirDownloadOffer`
+(size, progress, cancel) and the tafsir select adds the size. So new files for
+those editions reach the app only once merged to `main`. Surah names:
+`nameEn` is qul.db `chapters.name_simple` (quran.com spelling, "Al-Fatihah");
+`nameId` comes from the checked-in `scripts/data/surah_names_id.json` (114
+unique names, equran.id spelling: Ghafir, Al-Mujadilah, Al-Insyirah; the ETL
+fails otherwise). Regenerate with
 `npm run build:data` — **never hand-edit files in `public/data/`.**
 
 **Revelation order and ayah-level places.** `surahs[].revelationOrder` (1–114,
@@ -129,7 +155,7 @@ category key or `t<QUL id>`, `v` the node's own ayah ids); the client
 (`data/topics.ts:buildTopicTree`) rolls descendants' ayahs up into `all`. To
 move or rename a topic, edit those two files and rerun the ETL.
 
-The ETL reads read-only from `../reference/quran-refs/qul.db` (the `meta_ruku`,
+The ETL reads read-only from `../reference/quran-refs/qul.db` (the `chapters`, `meta_ruku`,
 `meta_manzil`, `similar`, `themes`, `topics`/`topic_ayahs`, `translations`,
 `wbw` (`wbw-id`), `surah_info` and `tafsirs` (`mukhtasar-id`, `saadi-id`) tables) and from `hadith.db` only `asbab` rows
 with `source='sahih-ar'` (never `wahidi-en`, a copyrighted translation).
@@ -203,6 +229,22 @@ an id.
   is labelled). Open `Modal`s form a stack: only the topmost handles Escape and
   the focus trap, so About opened over Welcome closes on its own. `SegmentedControl` never
   grows wider than its container; a long strip scrolls sideways on phones.
+- `Select` (`ui/Select.tsx`) — the app's dropdown; there are no native
+  `<select>`s (their Android/browser pickers did not fit the app). Props:
+  `options: { value, label, group? }[]`, `onChange(value)`, `label` or
+  `ariaLabel`, `size="sm"`, `searchable` (filter field; folds case, accents,
+  apostrophes and hyphens). A `role="combobox"` button opens a `role="listbox"`
+  popup portalled into `#app-root` (so zoom, theme and fonts apply) and
+  positioned `fixed` in the root's zoomed px (rect ÷ zoom), flipping above
+  when there is no room below. Focus stays on the trigger
+  (`aria-activedescendant`), so opening it blurs nothing. Escape closes only the
+  list (capture-phase listener), so the sheet or popover around it stays open;
+  `useDismiss`, the reader's ←/→, app shortcuts and Android back all treat
+  `[data-select-popup]` / a focused combobox accordingly.
+- `Sheet` — `side` is `bottom`, `top` or `right`. Its effect depends on `open`
+  only (`onClose` through a ref): callers pass inline `onClose`s, and re-running
+  the effect on every parent render used to pull focus out of a focused input,
+  so Android's keyboard closed the moment it opened (bookmark name field).
 
 **Design system.** `PRODUCT.md` (who the app is for) and
 `DESIGN.md` ("Mushaf sebagai instrumen": tokens, type, rules) are the design
@@ -345,9 +387,10 @@ saved on open and restored on close). Opening pushes a history entry, moving
 inside the reader (`replaceState`) does not, and closing steps back when the
 reader was opened in this session — so Android back leaves the reader in one
 step. Parts: `ReaderToolbar` (one row: back, the title as a button that opens
-`GoToSheet`, search, one icon that flips ayahs / mushaf pages, the player's
-show/hide, settings), `GoToSheet` (surah, ayah and page columns kept in step,
-"read by" scope, About this surah, Go), `VerseRow` (one ayah: its number alone
+`GoToSheet` from the top, search, About this surah (a bottom sheet for the
+surah of the ayah at the top), one icon that flips ayahs / mushaf pages, the
+player's show/hide, settings), `GoToSheet` (surah, ayah and page columns kept
+in step, "read by" scope, Go), `VerseRow` (one ayah: its number alone
 as the marker that opens the context, play, pin, bookmark, context, and a
 "more" menu with copy text/link, quran.com), `MushafPage`
 (the scope grouped by mushaf page, continuous text, juz/hizb head margin),
@@ -364,7 +407,17 @@ ayah), never the first ayah on opening. Section themes load in the UI language
 to cover every section). The reader measures its own
 width (`clientWidth`, so zoom-safe): below 560px the tools go icon-only, from
 960px the context panel docks beside the text (`qv.reader.context`), otherwise
-it opens in a `Sheet` (bottom on phones, right edge on wider layouts). Root and
+it opens in a `Sheet` (bottom on phones, right edge on wider layouts). The head
+(toolbar + `QuranStrip`) floats over the list (`absolute`, the virtualizer's
+`paddingStart`/`scrollPaddingStart` reserve its measured height) and slides away
+on a scroll down, back on a scroll up (`nextHeadHidden` in `lib/hideOnScroll.ts`);
+the reader's own scrolls (anchor jumps, following the recitation) never hide it,
+and it stays while search, settings or any sheet is open. Settings start with
+"Read by" (surah, juz, hizb, rukuʿ, page; `qv.reader.scope`), which reopens the
+current ayah in that division; Home's last-read links use it
+(`preferredDivision`). Tajweed colours have no legend in settings: "Tajweed
+rules" opens `TajweedRules` (each rule, a line on it, a real example word from
+`TAJWEED_EXAMPLES`). Root and
 topic links go to `#dashboard?v=root-explorer&root=<bw>` /
 `?v=topic-explorer&topic=<key>`; `App` remounts the dashboard so it reads them.
 Anchor jumps scroll instantly: during a smooth scroll the virtualizer skips
@@ -446,8 +499,8 @@ written only when the whole surah is in place. One app-wide queue
 downloaded stops playback and sets `rec.missing`. The `MiniPlayer` then
 becomes the download offer (what, estimated size by word share, progress,
 cancel); the options sheet shows what is on the device, "download all" and
-"delete" (with a confirm). This is the app's only network use, and only on
-the learner's tap.
+"delete" (with a confirm). This and the downloadable tafsirs (see the ETL
+section) are the app's only network use, and only on the learner's tap.
 
 Settings → Audio storage chooses where audio lives: the two app-private
 volumes below, or any folder (`chooseAudioFolder`: the system folder picker,
@@ -475,8 +528,10 @@ by CI (no Android SDK on the dev machine), so check the PR's `apk` job.
 - `data/recitation.ts` is the pure loop logic (unit-tested): `advance(cursor,
   range, opts, needsBasmalah)` returns the next file or null. Ranges are global
   verse ids, so they can cross surahs. The range is read each time a file ends,
-  so editing it while audio plays never restarts the current ayah; an ayah left
-  outside the new range wraps to its start. `001001.mp3` doubles as the basmalah
+  so a range that still holds the playing ayah never restarts it. When the
+  learner edits the range and leaves the playing ayah outside it, the reader's
+  `editRange` calls `rec.moveTo(range.from)` at once (paused stays paused); a
+  range changed by navigation instead lets the ayah finish and wraps. `001001.mp3` doubles as the basmalah
   before ayah 1 of surahs with `hasBismillah` (once, not on ayah repeats).
 - `data/useRecitation.ts` drives one `<audio>` element and warms the next file;
   `useReciters(RECITERS)` lists the reciters whose index loads. The choice
@@ -564,7 +619,9 @@ and `src/i18n/id.ts` (typed `Messages`, so a missing key fails `tsc`). Component
 call `useI18n()` (`i18n/I18nContext.tsx`) for `t` (strings; params are functions),
 `n` (locale number format — use it instead of `toLocaleString()`), `place`,
 `category` and `meaning` (surah meaning; Indonesian meanings are a static list in
-`id.ts`). Data keys stay English (`"Meccan"`, fawatih categories, POS tags): translate at
+`id.ts`). Surah names: show `surah.name`, which `App` sets to `nameEn`
+(quran.com spelling) or `nameId` (Kemenag) by UI language; filters match both.
+Data keys stay English (`"Meccan"`, fawatih categories, POS tags): translate at
 display time, never in `selectors`/data. The choice persists as `qv.lang`
 (default from `navigator.language`); outside the provider (tests) it is English.
 Never hard-code UI text in components: add it to both dictionaries. Dataset
@@ -610,7 +667,7 @@ per-view rows from `csvRows()` in `DashboardView`.
 
 - **Popovers and sheets**: the reader's popovers (`Popover` in
   `ReaderToolbar`) and row menus close on outside press and Escape; `Sheet`
-  (`components/ui`) is the docked dialog (bottom or right) with its own Escape,
+  (`components/ui`) is the docked dialog (bottom, top or right) with its own Escape,
   focus handling and `role="dialog"`, so Android back closes it first.
 - **Adding a new lazy data source**: create `useFoo(enabled)` wrapping
   `useLazyJson`. Wire it in `DashboardView` (for morph-level) or `ReaderView` /

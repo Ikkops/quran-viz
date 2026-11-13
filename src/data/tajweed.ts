@@ -197,31 +197,37 @@ export interface TajweedRule {
 /** code → { rule name, colours }. Grouped by family for a readable legend:
  *  madd runs amber → deep red, ghunnah is green, idghām cool grey, ikhfāʾ
  *  blue, and letters that aren't pronounced warm grey. Every colour keeps at
- *  least 4.5:1 against all three surfaces of its theme (`tajweed.test.ts`). */
+ *  least 4.5:1 against all three surfaces of its theme (`tajweed.test.ts`).
+ *
+ *  What each code marks was checked against the edition itself: `c` is always
+ *  mīm sākinah before bāʾ (ikhfāʾ shafawī), `w` mīm into mīm (idghām shafawī),
+ *  `d` د→ت / ت→ط / ذ→ظ (mutajānisayn), `b` ل→ر / ق→ك (mutaqāribayn), `o` a
+ *  long vowel before hamza in the word or the next, `p` a long vowel before a
+ *  stop. */
 export const RULE_COLORS: Record<string, TajweedRule> = {
   // Madd (prolongation), short → long
   n: { name: "Natural prolongation (Madd Ṭabīʿī)", color: "#9A5200", dark: "#FBBF24" },
-  p: { name: "Permissible prolongation (Madd Jāʾiz)", color: "#B93A08", dark: "#FB923C" },
+  p: {
+    name: "Prolongation at a stop (Madd ʿĀriḍ li-s-Sukūn)",
+    color: "#B93A08",
+    dark: "#FB923C",
+  },
   o: {
-    name: "Obligatory prolongation — separate (Munfaṣil)",
+    name: "Prolongation before hamza (Madd Wājib / Munfaṣil)",
     color: "#BE185D",
     dark: "#FDA4AF",
-  },
-  c: {
-    name: "Obligatory prolongation — joined (Muttaṣil)",
-    color: "#C81E1E",
-    dark: "#FB7185",
   },
   m: { name: "Necessary prolongation (Madd Lāzim)", color: "#7F1D1D", dark: "#F26060" },
   // Ghunnah / idghām (nasalization & merging)
   g: { name: "Ghunnah (nasalization)", color: "#137A39", dark: "#4ADE80" },
   a: { name: "Idghām with ghunnah", color: "#47750C", dark: "#A3E635" },
   u: { name: "Idghām without ghunnah", color: "#5F6878", dark: "#9CA3AF" },
-  d: { name: "Idghām (labial, mīm)", color: "#4B5563", dark: "#B8BEC9" },
-  b: { name: "Idghām (mutajānisayn / mutaqāribayn)", color: "#374151", dark: "#D1D5DB" },
+  w: { name: "Idghām Shafawī (mīm into mīm)", color: "#4B5563", dark: "#B8BEC9" },
+  d: { name: "Idghām Mutajānisayn", color: "#374151", dark: "#D1D5DB" },
+  b: { name: "Idghām Mutaqāribayn", color: "#334155", dark: "#CBD5E1" },
   // Ikhfāʾ / iqlāb / qalqalah
   f: { name: "Ikhfāʾ (hiding)", color: "#0369A1", dark: "#38BDF8" },
-  w: { name: "Ikhfāʾ (labial, mīm)", color: "#1D4ED8", dark: "#93C5FD" },
+  c: { name: "Ikhfāʾ Shafawī (mīm before bāʾ)", color: "#1D4ED8", dark: "#93C5FD" },
   i: { name: "Iqlāb (conversion)", color: "#7C3AED", dark: "#A78BFA" },
   q: { name: "Qalqalah (echo)", color: "#0F766E", dark: "#2DD4BF" },
   // Silent / connecting
@@ -239,21 +245,44 @@ export const TAJWEED_LEGEND: ({ code: string } & TajweedRule)[] = [
   "n",
   "p",
   "o",
-  "c",
   "m",
   "g",
   "a",
   "u",
+  "w",
   "d",
   "b",
   "f",
-  "w",
+  "c",
   "i",
   "q",
   "h",
   "s",
   "l",
 ].map((code) => ({ code, ...RULE_COLORS[code] }));
+
+/** One real example per rule for the Tajweed rules page: the reference and the
+ *  word(s) in the edition's own markup, only that rule's span kept. Taken from
+ *  `tajweed.json` (Al-Fātiḥah first, then Juz ʿAmma), never typed by hand. */
+export const TAJWEED_EXAMPLES: Record<string, { ref: string; marked: string }> = {
+  n: { ref: "1:1", marked: "ٱلرَّحْمَ[n[ـٰ]نِ" },
+  p: { ref: "1:1", marked: "ٱلرَّح[p[ِي]مِ" },
+  o: { ref: "78:1", marked: "يَتَس[o[َا]ٓءَلُونَ" },
+  m: { ref: "1:7", marked: "ٱلضّ[m[َا]ٓلِّينَ" },
+  g: { ref: "78:1", marked: "عَ[g[مّ]َ" },
+  a: { ref: "78:13", marked: "سِرَا[a[جًا و]َهَّاجًا" },
+  u: { ref: "78:36", marked: "مّ[u[ِن ر]َّبِّكَ" },
+  w: { ref: "83:4", marked: "أَنَّه[w[ُم م]َّبْعُوثُونَ" },
+  d: { ref: "109:4", marked: "عَبَ[d[د]تُّمْ" },
+  b: { ref: "4:158", marked: "بَ[b[ل] رَّفَعَهُ" },
+  f: { ref: "78:12", marked: "سَبْ[f[عًا ش]ِدَادًا" },
+  c: { ref: "79:14", marked: "ه[c[ُم ب]ِٱلسَّاهِرَةِ" },
+  i: { ref: "80:16", marked: "كِرَا[i[مِۭ ب]َرَرَةٍ" },
+  q: { ref: "78:6", marked: "نَ[q[جْ]عَلِ" },
+  h: { ref: "1:1", marked: "[h[ٱ]للَّهِ" },
+  s: { ref: "78:27", marked: "كَانُو[s[اْ]" },
+  l: { ref: "1:1", marked: "ٱ[l[ل]رَّحْمَـٰنِ" },
+};
 
 /** The colour of a rule code in the current theme (undefined for unknown codes). */
 export function tajweedColor(rule: string, dark: boolean): string | undefined {

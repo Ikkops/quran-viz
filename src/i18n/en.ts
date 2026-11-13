@@ -146,6 +146,8 @@ export const en = {
   ui: {
     resize: "Resize (drag; double-click to reset)",
     resizeTitle: "Drag to resize · double-click to reset",
+    filterOptions: "Filter",
+    noMatches: "No matches",
   },
 
   settings: {
@@ -718,6 +720,17 @@ export const en = {
       roots: "Roots & topics",
     },
     noTafsir: "No tafsir passage for this ayah.",
+    tafsirDownload: {
+      offer: (name: string, size: string) =>
+        `${name} isn't on this device yet. Download it once (${size}) to read it offline.`,
+      download: "Download",
+      downloading: (pct: number) => `Downloading… ${pct}%`,
+      progress: "Tafsir download progress",
+      cancel: "Cancel download",
+      failed: "The download stopped. Check the connection and try again.",
+      remove: "Remove from device",
+      note: "Downloaded from the app's GitHub repository.",
+    },
     noWords: "No word-by-word data for this ayah.",
     noAsbab: "No verified asbab al-nuzul narration covers this ayah.",
     noSimilar: "No similar ayahs are listed for this ayah.",
@@ -745,6 +758,11 @@ export const en = {
     tafsir: "Tafsir context",
     tafsirSource: "Tafsir source",
     tajweed: "Tajweed colours",
+    tajweedRules: "Tajweed rules",
+    tajweedIntro:
+      "What each colour marks, with an example from the mushaf. The colouring comes from the quran-tajweed edition, not from a rule engine.",
+    divideBy: "Read by",
+    aboutSurah: (name: string) => `About ${name}`,
     wbw: "Word by word",
     glossLang: "Gloss language",
     glossEn: "English",
@@ -875,22 +893,41 @@ export const en = {
   /** Tajweed rule names, keyed by markup code. */
   tajweed: {
     n: "Natural prolongation (Madd Ṭabīʿī)",
-    p: "Permissible prolongation (Madd Jāʾiz)",
-    o: "Obligatory prolongation — separate (Munfaṣil)",
-    c: "Obligatory prolongation — joined (Muttaṣil)",
+    p: "Prolongation at a stop (Madd ʿĀriḍ li-s-Sukūn)",
+    o: "Prolongation before hamza (Madd Wājib / Munfaṣil)",
     m: "Necessary prolongation (Madd Lāzim)",
     g: "Ghunnah (nasalization)",
     a: "Idghām with ghunnah",
     u: "Idghām without ghunnah",
-    d: "Idghām (labial, mīm)",
-    b: "Idghām (mutajānisayn / mutaqāribayn)",
+    w: "Idghām Shafawī (mīm into mīm)",
+    d: "Idghām Mutajānisayn",
+    b: "Idghām Mutaqāribayn",
     f: "Ikhfāʾ (hiding)",
-    w: "Ikhfāʾ (labial, mīm)",
+    c: "Ikhfāʾ Shafawī (mīm before bāʾ)",
     i: "Iqlāb (conversion)",
     q: "Qalqalah (echo)",
     h: "Hamzat al-Waṣl (silent connecting hamza)",
     s: "Silent (not pronounced)",
     l: "Lām Shamsiyyah (assimilated lām)",
+  } as Record<string, string>,
+  tajweedHelp: {
+    n: "A long vowel with no hamza or sukun after it. Held for 2 counts.",
+    p: "A long vowel before a letter made silent by stopping. Held 2, 4 or 6 counts.",
+    o: "A long vowel followed by a hamza, in the same word or the next. Held 4–5 counts in Ḥafṣ.",
+    m: "A long vowel followed by a permanent sukun or shaddah, as in the opening letters (الٓمٓ). Held 6 counts.",
+    g: "Nūn or mīm with shaddah: nasalized for 2 counts.",
+    a: "Nūn sākinah or tanwīn merged into ي ن م و, with nasalization.",
+    u: "Nūn sākinah or tanwīn merged into ل or ر, without nasalization.",
+    w: "Mīm sākinah merged into the mīm after it, with nasalization.",
+    d: "A letter merged into one from the same point of articulation, such as د into ت.",
+    b: "A letter merged into a close one, such as ل into ر.",
+    f: "Nūn sākinah or tanwīn before one of 15 letters: hidden, with nasalization.",
+    c: "Mīm sākinah before bāʾ: hidden, with nasalization.",
+    i: "Nūn sākinah or tanwīn before bāʾ: turned into a mīm sound, nasalized.",
+    q: "ق ط ب ج د with sukun: a slight echo.",
+    h: "The connecting hamza: silent when joined to the word before it.",
+    s: "Written but not pronounced.",
+    l: "The lām of al- before a sun letter: silent, and the next letter is doubled.",
   } as Record<string, string>,
 
   welcome: {
@@ -911,7 +948,7 @@ export const en = {
   about: {
     title: "About this app",
     purpose:
-      "A study tool for the Qur'an's structure: length, place and order of revelation, divisions, vocabulary, roots, topics and similar ayahs, each linked to the ayah itself with its translation, tafsir and asbab al-nuzul. Everything ships inside the app and works offline.",
+      "A study tool for the Qur'an's structure: length, place and order of revelation, divisions, vocabulary, roots, topics and similar ayahs, each linked to the ayah itself with its translation, tafsir and asbab al-nuzul. Everything works offline; in the Android app, recitation and three tafsirs (Tahlili, Wajiz, Indonesian Jalalain) are downloaded once on request.",
     sourcesTitle: "Sources",
     sources: [
       [
@@ -921,6 +958,14 @@ export const en = {
       [
         "Indonesian translations, tafsir, word by word",
         "Quranic Universal Library (QUL, Tarteel): the Kemenag RI, King Fahd Complex and Sabiq translations, Tafsir al-Mukhtasar and Tafsir as-Sa'di, and Indonesian word-by-word glosses.",
+      ],
+      [
+        "More Indonesian tafsir",
+        "Tafsir Tahlili and Tafsir Wajiz © Kementerian Agama RI: Tahlili via equran.id, Wajiz via the gadingnst/quran-api dataset (taken from quran.kemenag.go.id). Tafsir al-Jalalain (Indonesian) from the Tanzil edition via api.alquran.cloud. Tafsir al-Muntakhab (Indonesian translation supervised by M. Quraish Shihab, Cairo 2001), via Tanzil. Each tafsir's publication date shows under its notes.",
+      ],
+      [
+        "Surah names",
+        "English: quran.com spelling. Indonesian: Kemenag transliteration.",
       ],
       [
         "Topics, similar ayahs, surah introductions, rukuʿ and manzil",

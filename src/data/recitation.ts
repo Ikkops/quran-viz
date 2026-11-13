@@ -93,6 +93,11 @@ export function cursorAt(
   return { id, ayahPass: 0, rangePass, basmalah: needsBasmalah(id) };
 }
 
+/** True when ayah `id` lies outside `range` (an edited range left it behind). */
+export function outsideRange(id: number, range: LoopRange): boolean {
+  return id < range.from || id > range.to;
+}
+
 /** The cursor after the current file ends, or null when playback is done. */
 export function advance(
   cur: Cursor,

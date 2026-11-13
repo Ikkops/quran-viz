@@ -53,17 +53,12 @@ export function SettingsView({
   return (
     <div className="mx-auto grid max-w-5xl grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] items-start gap-4">
       <Section title={t.settings.language}>
-        <Select
-          aria-label={t.settings.language}
+        <Select<Lang>
+          ariaLabel={t.settings.language}
           value={lang}
-          onChange={(e) => setLang(e.target.value as Lang)}
-        >
-          {LANGS.map((l) => (
-            <option key={l} value={l}>
-              {MESSAGES[l].langName}
-            </option>
-          ))}
-        </Select>
+          onChange={setLang}
+          options={LANGS.map((l) => ({ value: l, label: MESSAGES[l].langName }))}
+        />
       </Section>
       <Section title={t.settings.appearance}>
         <div className="space-y-3">
@@ -177,14 +172,9 @@ export function SettingsView({
           <Select
             label={t.settings.arabicFont}
             value={theme.arabicFont}
-            onChange={(e) => theme.setArabicFont(e.target.value)}
-          >
-            {ARABIC_FONTS.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </Select>
+            onChange={theme.setArabicFont}
+            options={ARABIC_FONTS.map((f) => ({ value: f, label: f }))}
+          />
           <Slider
             label={t.settings.arabicSize}
             min={0.5}
@@ -207,14 +197,12 @@ export function SettingsView({
         <Select
           label={t.settings.lastReadCount}
           value={lastReadCount}
-          onChange={(e) => onLastReadCount(Number(e.target.value))}
-        >
-          {LAST_READ_COUNTS.map((c) => (
-            <option key={c} value={c}>
-              {t.settings.places(c)}
-            </option>
-          ))}
-        </Select>
+          onChange={onLastReadCount}
+          options={LAST_READ_COUNTS.map((c) => ({
+            value: c,
+            label: t.settings.places(c),
+          }))}
+        />
         <p className="mt-2 text-xs text-ink-subtle">{t.settings.lastReadHelp}</p>
       </Section>
 

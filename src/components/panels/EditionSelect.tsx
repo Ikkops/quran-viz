@@ -18,16 +18,19 @@ export function EditionSelect({
   const { t, lang } = useI18n();
   const groups = groupTranslations(index, t.locale, lang);
   return (
-    <Select label={label} value={value} onChange={(e) => onChange(e.target.value)}>
-      {groups.map((g) => (
-        <optgroup key={g.language} label={g.label}>
-          {g.editions.map((e) => (
-            <option key={e.identifier} value={e.identifier}>
-              {e.englishName}
-            </option>
-          ))}
-        </optgroup>
-      ))}
-    </Select>
+    <Select
+      label={label}
+      ariaLabel={label ? undefined : t.reader.translation}
+      value={value}
+      onChange={onChange}
+      searchable
+      options={groups.flatMap((g) =>
+        g.editions.map((e) => ({
+          value: e.identifier,
+          label: e.englishName,
+          group: g.label,
+        })),
+      )}
+    />
   );
 }

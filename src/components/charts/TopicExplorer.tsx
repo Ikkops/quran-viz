@@ -160,7 +160,7 @@ export function TopicExplorer({
       const count = c?.count ?? 0;
       return {
         s,
-        name: surahMap.get(s)?.nameEn ?? String(s),
+        name: surahMap.get(s)?.name ?? String(s),
         type: surahMap.get(s)?.type ?? "Meccan",
         count,
         density: total ? (count / total) * 100 : 0,
@@ -394,7 +394,7 @@ export function TopicExplorer({
                     >
                       <span className="w-44 shrink-0 text-ink">
                         <span className="tabular-nums text-ink-subtle">{g.s}.</span>{" "}
-                        {surahMap.get(g.s)?.nameEn ?? g.s}{" "}
+                        {surahMap.get(g.s)?.name ?? g.s}{" "}
                         <span className="text-xs tabular-nums text-ink-subtle">
                           ({n(g.count)})
                         </span>

@@ -33,7 +33,7 @@ import type {
   ReciterIndex,
 } from "../../data/useRecitation";
 import { useI18n } from "../../i18n/I18nContext";
-import { cx, QuietIconButton } from "../ui";
+import { cx, QuietIconButton, Select } from "../ui";
 
 /** The Android app's per-surah audio download, as the player shows it. */
 export interface AudioDownloadPrompt {
@@ -57,9 +57,6 @@ export interface AudioStorage {
   onDeleteAll: () => void;
 }
 
-const sel =
-  "min-w-0 rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-ink";
-
 function Choice<T extends number>({
   label,
   value,
@@ -74,20 +71,13 @@ function Choice<T extends number>({
   onChange: (v: T) => void;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-sm text-ink-muted">
-      {label}
-      <select
-        className={sel}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value) as T)}
-      >
-        {choices.map((c) => (
-          <option key={c} value={c}>
-            {format(c)}
-          </option>
-        ))}
-      </select>
-    </label>
+    <Select<T>
+      size="sm"
+      label={label}
+      value={value}
+      onChange={onChange}
+      options={choices.map((c) => ({ value: c, label: format(c) }))}
+    />
   );
 }
 
@@ -129,33 +119,32 @@ function RangeEnd({
         <QuietIconButton label={a.earlier(label)} onClick={() => onShift(-1)}>
           <Minus size={15} />
         </QuietIconButton>
-        <select
-          className={cx(sel, "flex-1")}
+        <Select
+          size="sm"
+          className="flex-1"
           value={v.s}
-          aria-label={a.surahOf(label)}
-          onChange={(e) => {
-            const s = surahs.find((x) => x.number === Number(e.target.value));
+          ariaLabel={a.surahOf(label)}
+          searchable
+          onChange={(n) => {
+            const s = surahs.find((x) => x.number === n);
             if (s) onPick(firstIds[s.number] + (end === "from" ? 0 : s.ayahCount - 1));
           }}
-        >
-          {surahs.map((s) => (
-            <option key={s.number} value={s.number}>
-              {s.number}. {s.nameEn}
-            </option>
-          ))}
-        </select>
-        <select
-          className={cx(sel, "w-[4.5rem] tabular-nums")}
+          options={surahs.map((s) => ({
+            value: s.number,
+            label: `${s.number}. ${s.name}`,
+          }))}
+        />
+        <Select
+          size="sm"
+          className="w-[4.5rem] tabular-nums"
           value={v.a}
-          aria-label={a.ayahOf(label)}
-          onChange={(e) => onPick(firstIds[v.s] + Number(e.target.value) - 1)}
-        >
-          {Array.from({ length: surah.ayahCount }, (_, i) => (
-            <option key={i} value={i + 1}>
-              {i + 1}
-            </option>
-          ))}
-        </select>
+          ariaLabel={a.ayahOf(label)}
+          onChange={(n) => onPick(firstIds[v.s] + n - 1)}
+          options={Array.from({ length: surah.ayahCount }, (_, i) => ({
+            value: i + 1,
+            label: String(i + 1),
+          }))}
+        />
         <QuietIconButton label={a.later(label)} onClick={() => onShift(1)}>
           <Plus size={15} />
         </QuietIconButton>
@@ -629,20 +618,17 @@ export function RecitationControls({
           {a.cancel}
         </button>
       </div>
-      <label className="flex flex-col gap-1 text-sm text-ink-muted">
-        {a.reciter}
-        <select
-          className={sel}
-          value={reciter}
-          onChange={(e) => onReciter(e.target.value)}
-        >
-          {reciters.map((r) => (
-            <option key={r.id} value={r.id}>
-              {[a.reciterOption(r), reciterNote?.(r.id)].filter(Boolean).join(" · ")}
-            </option>
-          ))}
-        </select>
-      </label>
+      <Select
+        size="sm"
+        label={a.reciter}
+        value={reciter}
+        onChange={onReciter}
+        searchable={reciters.length > 8}
+        options={reciters.map((r) => ({
+          value: r.id,
+          label: [a.reciterOption(r), reciterNote?.(r.id)].filter(Boolean).join(" · "),
+        }))}
+      />
 
       <div className="flex flex-col gap-3">
         <RangeEnd

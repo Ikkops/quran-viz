@@ -37,8 +37,8 @@ function DivisionTooltip({
   const { t, n } = useI18n();
   if (!active || !payload?.length) return null;
   const r = payload[0].payload;
-  const from = surahMap.get(r.first.s)?.nameEn ?? r.first.s;
-  const to = surahMap.get(r.last.s)?.nameEn ?? r.last.s;
+  const from = surahMap.get(r.first.s)?.name ?? r.first.s;
+  const to = surahMap.get(r.last.s)?.name ?? r.last.s;
   return (
     <TooltipShell>
       <div className="mb-1 font-semibold text-ink">

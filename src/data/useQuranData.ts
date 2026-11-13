@@ -29,7 +29,17 @@ export function useQuranData(): State {
       .then(([surahs, verses, editions, meta]) => {
         if (!alive) return;
         setState({
-          data: { surahs, verses, editions, meta },
+          data: {
+            // `name` is the display name; App re-labels it by UI language.
+            surahs: surahs.map((s) => ({
+              ...s,
+              nameId: s.nameId ?? s.nameEn,
+              name: s.nameEn,
+            })),
+            verses,
+            editions,
+            meta,
+          },
           loading: false,
           error: null,
         });

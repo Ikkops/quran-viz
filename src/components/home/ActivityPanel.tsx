@@ -16,7 +16,7 @@ import {
 import { useReadingLog } from "../../lib/readingStore";
 import { persisted, usePersistentState } from "../../lib/usePersistentState";
 import { useI18n } from "../../i18n/I18nContext";
-import { Card, QuietIconButton, SegmentedControl, cx } from "../ui";
+import { Card, QuietIconButton, SegmentedControl, Select, cx } from "../ui";
 
 function useDateFormats() {
   const { lang } = useI18n();
@@ -289,20 +289,16 @@ export function ActivityPanel({
       </Card>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <label className="flex items-center gap-2 text-sm text-ink-muted">
-          {a.goal}
-          <select
+        <div className="flex items-center gap-2 text-sm text-ink-muted">
+          <span aria-hidden>{a.goal}</span>
+          <Select
+            className="w-36"
+            ariaLabel={a.goal}
             value={goal}
-            onChange={(e) => onGoal(Number(e.target.value))}
-            className="min-h-10 rounded-md border border-line bg-surface px-2 text-sm text-ink touch:min-h-11"
-          >
-            {GOAL_CHOICES.map((g) => (
-              <option key={g} value={g}>
-                {a.minutes(g)}
-              </option>
-            ))}
-          </select>
-        </label>
+            onChange={onGoal}
+            options={GOAL_CHOICES.map((g) => ({ value: g, label: a.minutes(g) }))}
+          />
+        </div>
         <p className="text-xs text-ink-subtle">{a.how}</p>
       </div>
     </section>

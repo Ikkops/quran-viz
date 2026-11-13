@@ -6,6 +6,7 @@ import {
   ayahAudioUrl,
   estimateAudioBytes,
   formatBytes,
+  outsideRange,
   surahAudioFiles,
   cursorAt,
   setRangeEnd,
@@ -186,5 +187,15 @@ describe("seek bar maths", () => {
     const total = (RECITER_INFO.shuraym.bytes * 8) / 64_000;
     expect(estimateAyahSeconds("shuraym", 50, 100)).toBeCloseTo(total / 2);
     expect(estimateAyahSeconds("nobody", 50, 100)).toBe(0);
+  });
+});
+
+describe("outsideRange", () => {
+  it("is true only past either end", () => {
+    const r = { from: 10, to: 12 };
+    expect(outsideRange(9, r)).toBe(true);
+    expect(outsideRange(10, r)).toBe(false);
+    expect(outsideRange(12, r)).toBe(false);
+    expect(outsideRange(13, r)).toBe(true);
   });
 });

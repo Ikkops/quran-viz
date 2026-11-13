@@ -124,7 +124,9 @@ body {
   .animate-fade-in,
   .animate-zoom-in,
   .animate-sheet-up,
-  .animate-sheet-in {
+  .animate-sheet-down,
+  .animate-sheet-in,
+  .animate-pop-in {
     animation: none;
   }
   html {
@@ -231,6 +233,33 @@ body {
 }
 .animate-sheet-in {
   animation: sheetIn 0.2s ease-out;
+}
+@keyframes sheetDown {
+  from {
+    transform: translateY(-24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.animate-sheet-down {
+  animation: sheetDown 0.2s ease-out;
+}
+/* Select listboxes and other small popups. */
+@keyframes popIn {
+  from {
+    transform: scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.animate-pop-in {
+  animation: popIn 0.12s ease-out;
 }
 
 /* The mushaf's red ink: rub' al-hizb and sajdah signs inside the text. */

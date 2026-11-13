@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { groupTranslations, isRtl, langName, editionByIdentifier } from "./editions";
+import { statSync } from "node:fs";
+import { resolve } from "node:path";
+import {
+  DOWNLOADED_TAFSIR_PATHS,
+  TAFSIR_EDITIONS,
+  tafsirFiles,
+  editionByIdentifier,
+  groupTranslations,
+  isRtl,
+  langName,
+} from "./editions";
 import type { EditionsIndex } from "../types/quran";
 
 const index: EditionsIndex = {
@@ -83,5 +93,54 @@ describe("editionByIdentifier", () => {
   });
   it("returns undefined for unknown", () => {
     expect(editionByIdentifier(index, "nope")).toBeUndefined();
+  });
+});
+
+describe("TAFSIR_EDITIONS", () => {
+  // File names only (lazy globs load nothing): every tafsir needs the data
+  // its kind is read from.
+  const translations = Object.keys(
+    import.meta.glob("../../public/data/translations/*.json"),
+  );
+  const grouped = Object.keys(import.meta.glob("../../public/data/tafsir/*/*.json"));
+
+  it("has unique ids", () => {
+    const ids = TAFSIR_EDITIONS.map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  for (const t of TAFSIR_EDITIONS) {
+    it(`${t.id} has ${t.kind === "ayah" ? "a translation file" : "114 surah files"}`, () => {
+      if (t.kind === "ayah") {
+        expect(translations).toContain(`../../public/data/translations/${t.id}.json`);
+      } else {
+        const files = grouped.filter((f) =>
+          f.startsWith(`../../public/data/tafsir/${t.id}/`),
+        );
+        const surahs = files.map((f) => Number(f.split("/").pop()!.replace(".json", "")));
+        expect(surahs.sort((a, b) => a - b)).toEqual(
+          Array.from({ length: 114 }, (_, i) => i + 1),
+        );
+      }
+    });
+  }
+
+  // The size the download offer quotes stays close to the real files.
+  for (const t of TAFSIR_EDITIONS.filter((x) => x.download)) {
+    it(`${t.id} quotes its download size`, () => {
+      const bytes = tafsirFiles(t).reduce(
+        (sum, f) => sum + statSync(resolve(__dirname, "../../public/data", f)).size,
+        0,
+      );
+      expect(Math.abs(bytes - t.download!.bytes) / bytes).toBeLessThan(0.05);
+    });
+  }
+
+  it("leaves only downloadable editions out of the app", () => {
+    expect(DOWNLOADED_TAFSIR_PATHS).toEqual([
+      "translations/id.jalalayn.json",
+      "tafsir/id.kemenag-wajiz",
+      "tafsir/id.kemenag-tahlili",
+    ]);
   });
 });
