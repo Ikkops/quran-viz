@@ -1,30 +1,18 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
-  BarChart3,
-  Bookmark as BookmarkIcon,
-  BookOpen,
-  Info,
-  Keyboard,
-  Languages,
-  Layers,
-  LayoutGrid,
-  Moon,
-  Search,
-  Settings as SettingsIcon,
-  Sun,
-} from "lucide-react";
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useQuranData } from "./data/useQuranData";
-import { persisted, usePersistentState } from "./lib/usePersistentState";
+import { persisted, readPersisted, usePersistentState } from "./lib/usePersistentState";
 import { useTheme } from "./theme/ThemeContext";
 import type { ColorMode, ReaderTarget } from "./components/charts/common";
-import {
-  Card,
-  IconButton,
-  Modal,
-  ModalHeader,
-  SegmentedControl,
-  Skeleton,
-} from "./components/ui";
+import { Card, Modal, ModalHeader, Skeleton } from "./components/ui";
 import { BookmarkList } from "./components/panels/BookmarkList";
 import { surahMapOf } from "./data/selectors";
 import {
@@ -33,16 +21,49 @@ import {
   toggleBookmark,
   type Bookmark,
 } from "./lib/bookmarks";
-import { DashboardView } from "./views/DashboardView";
-import { StructureView } from "./views/StructureView";
-import { BrowseView } from "./views/BrowseView";
-import { TranslationCompare } from "./components/panels/TranslationCompare";
-import { ReaderModal } from "./components/panels/ReaderModal";
-import { GlobalSearchModal } from "./components/panels/GlobalSearchModal";
-import { SettingsModal, type ChartSettings } from "./components/panels/SettingsModal";
+// Views, the reader and the dialogs load on first use (Recharts and the
+// reader's parts stay out of the first download).
+const DashboardView = lazy(() =>
+  import("./views/DashboardView").then((m) => ({ default: m.DashboardView })),
+);
+const StructureView = lazy(() =>
+  import("./views/StructureView").then((m) => ({ default: m.StructureView })),
+);
+const BrowseView = lazy(() =>
+  import("./views/BrowseView").then((m) => ({ default: m.BrowseView })),
+);
+const ReaderView = lazy(() =>
+  import("./components/reader/ReaderView").then((m) => ({ default: m.ReaderView })),
+);
+import type { ExploreTarget } from "./components/reader/VerseContextPanel";
+import type { ChartSettings } from "./components/panels/SettingsModal";
+const GlobalSearchModal = lazy(() =>
+  import("./components/panels/GlobalSearchModal").then((m) => ({
+    default: m.GlobalSearchModal,
+  })),
+);
+const SettingsModal = lazy(() =>
+  import("./components/panels/SettingsModal").then((m) => ({ default: m.SettingsModal })),
+);
+const AboutModal = lazy(() =>
+  import("./components/panels/AboutModal").then((m) => ({ default: m.AboutModal })),
+);
+const Welcome = lazy(() =>
+  import("./components/panels/Welcome").then((m) => ({ default: m.Welcome })),
+);
+import type { WelcomeChoice } from "./components/panels/Welcome";
 import { parseHash, serializeHash, type View } from "./lib/hash";
 import { SHORTCUTS, shortcutFor } from "./lib/shortcuts";
-import { LANGS, useI18n, type Lang } from "./i18n/I18nContext";
+import { effectiveUiScale, isWideLayout, useViewportWidth } from "./lib/uiScale";
+import {
+  BottomTabs,
+  NavRail,
+  TopBar,
+  type NavProps,
+} from "./components/shell/Navigation";
+import { useI18n } from "./i18n/I18nContext";
+import { searchEditionFor } from "./data/searchEdition";
+import { installBackButton } from "./lib/androidBack";
 
 /** Current hash, parsed. Dashboard params are kept when the reader opens or
  *  closes so a shared link reopens the same chart. */
@@ -52,36 +73,97 @@ const readHash = () =>
 export default function App() {
   const { data, loading, error } = useQuranData();
   const theme = useTheme();
-  const { t, n, lang, setLang } = useI18n();
+  const { t, n, lang } = useI18n();
   const initial = readHash();
   const [view, setViewState] = useState<View>(initial.view);
   const [reader, setReader] = useState<ReaderTarget | null>(initial.reader);
-  const setView = (v: View) => {
+  // Each view remembers its scroll position: switching tabs and coming back
+  // returns to the same card or chart. Recorded at the moment of switching
+  // (not from scroll events, which background tabs and WebViews may skip).
+  const scrollByView = useRef<Partial<Record<View, number>>>({});
+  const viewRef = useRef(view);
+  // The reader is a page over the current view (which stays mounted, hidden):
+  // remember the view's scroll when it opens, restore it when it closes.
+  const readerRef = useRef(reader); // the reader target, readable in handlers
+  const scrollUnderReader = useRef(0);
+  const showReader = (t: ReaderTarget | null) => {
+    if (t && !readerRef.current) scrollUnderReader.current = window.scrollY;
+    readerRef.current = t;
+    setReader(t);
+  };
+  const changeView = (v: View) => {
+    if (v !== viewRef.current && !readerRef.current)
+      scrollByView.current[viewRef.current] = window.scrollY;
     setViewState(v);
-    if (typeof window !== "undefined") window.location.hash = serializeHash(v, reader);
+  };
+  useLayoutEffect(() => {
+    if (viewRef.current === view) return;
+    viewRef.current = view;
+    window.scrollTo(0, scrollByView.current[view] ?? 0);
+  }, [view]);
+  const isReading = !!reader;
+  useLayoutEffect(() => {
+    window.scrollTo(0, isReading ? 0 : scrollUnderReader.current);
+  }, [isReading]);
+  // True while the history entry before this one is the view the reader was
+  // opened from (opened in this session): closing then steps back, so the
+  // Android back gesture doesn't land in the reader again.
+  const openedHere = useRef(false);
+  const setView = (v: View) => {
+    openedHere.current = false;
+    changeView(v);
+    showReader(null);
+    if (typeof window !== "undefined") window.location.hash = serializeHash(v, null);
     // (Leaving the dashboard drops its params; it writes them back on return.)
   };
+  // Android back gesture: close a window, else history back, else exit.
+  useEffect(() => installBackButton(), []);
   // Sync view + reader with browser back/forward navigation.
   useEffect(() => {
     const onHash = () => {
       const p = readHash();
-      setViewState(p.view);
-      setReader(p.reader);
+      if (!p.reader) openedHere.current = false;
+      changeView(p.view);
+      showReader(p.reader);
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
-  // Keep the URL in sync when the reader opens / navigates / closes so verses
-  // are deep-linkable and shareable.
+  // Keep the URL in sync so ayahs are deep-linkable. Opening the reader adds a
+  // history entry; moving inside it replaces that entry; closing steps back.
   const navigateReader = (t: ReaderTarget | null) => {
-    setReader(t);
-    if (t) setLastRead(t);
-    if (typeof window !== "undefined")
-      window.location.hash = serializeHash(
-        view,
-        t,
-        view === "dashboard" ? readHash().params : {},
-      );
+    const params = view === "dashboard" ? readHash().params : {};
+    if (!t) {
+      if (openedHere.current) {
+        openedHere.current = false;
+        window.history.back(); // hashchange closes it
+        return;
+      }
+      showReader(null);
+      window.history.replaceState(null, "", `#${serializeHash(view, null, params)}`);
+      return;
+    }
+    setLastRead(t);
+    const hash = serializeHash(view, t, params);
+    if (readerRef.current) window.history.replaceState(null, "", `#${hash}`);
+    else {
+      openedHere.current = true;
+      window.location.hash = hash;
+    }
+    showReader(t);
+  };
+  // Ayah context → root / topic explorer on the dashboard.
+  const [dashKey, setDashKey] = useState(0);
+  const explore = (x: ExploreTarget) => {
+    const params: Record<string, string> =
+      x.kind === "root"
+        ? { v: "root-explorer", root: x.key }
+        : { v: "topic-explorer", topic: x.key };
+    openedHere.current = false;
+    window.location.hash = serializeHash("dashboard", null, params);
+    changeView("dashboard");
+    showReader(null);
+    setDashKey((k) => k + 1); // remount: it reads the link on mount
   };
   // Shared by the dashboard charts, reader badges and search results.
   const [colorMode, setColorMode] = usePersistentState<ColorMode>(
@@ -98,6 +180,26 @@ export default function App() {
       : storedEdition;
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  // Mounted from their first opening on (lazy chunks; state kept after closing).
+  const [settingsUsed, setSettingsUsed] = useState(false);
+  const [searchUsed, setSearchUsed] = useState(false);
+  if (settingsOpen && !settingsUsed) setSettingsUsed(true);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const [aboutUsed, setAboutUsed] = useState(false);
+  if (aboutOpen && !aboutUsed) setAboutUsed(true);
+  // First run: shown once to a new learner (someone with a reading position or
+  // settings has used the app before), and not over a shared deep link.
+  const [welcomed, setWelcomed] = usePersistentState(
+    "qv.welcome",
+    readPersisted<unknown>("qv.lastRead", null) !== null ||
+      readPersisted<unknown>("qv.settings", null) !== null,
+    persisted.bool,
+  );
+  const [deepLinked] = useState(
+    () => typeof window !== "undefined" && window.location.hash.length > 1,
+  );
+  const [welcomeAgain, setWelcomeAgain] = useState(false);
+  if (searchOpen && !searchUsed) setSearchUsed(true);
   // Query to open search with (word-cloud click); bumped key remounts the input.
   const [searchSeed, setSearchSeed] = useState<{ q: string; n: number }>({ q: "", n: 0 });
   const openSearch = (q = "") => {
@@ -114,10 +216,14 @@ export default function App() {
     [],
     sanitizeBookmarks,
   );
+  // Interface scale, capped on narrow screens (lib/uiScale.ts).
+  const viewportWidth = useViewportWidth();
+  const zoom = effectiveUiScale(settings.uiScale, viewportWidth);
+  const wide = isWideLayout(viewportWidth, zoom);
   const [bookmarksOpen, setBookmarksOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   // App-wide keyboard shortcuts (see lib/shortcuts.ts).
-  const modalOpen = !!reader || searchOpen || settingsOpen || bookmarksOpen || helpOpen;
+  const modalOpen = searchOpen || settingsOpen || bookmarksOpen || helpOpen;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement as HTMLElement | null;
@@ -135,13 +241,12 @@ export default function App() {
         setSearchOpen(true);
       } else if (action.kind === "bookmarks") setBookmarksOpen(true);
       else if (action.kind === "help") setHelpOpen(true);
-      else {
-        setViewState(action.view);
-        window.location.hash = serializeHash(action.view, null);
-      }
+      else setView(action.view);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+    // setView only touches refs and state setters, so a stale copy is safe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modalOpen, data]);
   const surahMap = useMemo(() => (data ? surahMapOf(data.surahs) : new Map()), [data]);
   // Last-read position for the "Resume" button.
@@ -150,183 +255,149 @@ export default function App() {
     null,
   );
 
+  const openRead = () => navigateReader(lastRead ?? { scope: "surah", value: 1 });
+  const showWelcome = !!data && ((!welcomed && !deepLinked && !reader) || welcomeAgain);
+  const finishWelcome = (choice: WelcomeChoice) => {
+    setWelcomed(true);
+    setWelcomeAgain(false);
+    if (choice === "read") openRead();
+    else if (choice === "map") setView("browse");
+  };
+  const reading = !!(data && reader);
+  // The last-read ayah (its anchor, else the first ayah of its scope) and the
+  // bookmarked ayahs, for the Peta Mushaf overlays.
+  const lastReadId = useMemo(() => {
+    if (!data || !lastRead) return undefined;
+    if (lastRead.anchor) return lastRead.anchor;
+    const key = {
+      surah: "s",
+      manzil: "manzil",
+      juz: "juz",
+      hizb: "hizb",
+      rub: "rub",
+      ruku: "ruku",
+      page: "page",
+    } as const;
+    return data.verses.find((v) => v[key[lastRead.scope]] === lastRead.value)?.id;
+  }, [data, lastRead]);
+  const bookmarkIds = useMemo(() => bookmarks.map((b) => b.id), [bookmarks]);
+  const navProps: NavProps = {
+    view,
+    reading,
+    onView: setView,
+    onRead: openRead,
+    canResume: !!lastRead,
+    resumeTitle: lastRead
+      ? t.app.resumeAt(t.scope[lastRead.scope], lastRead.value)
+      : undefined,
+    onSearch: () => openSearch(),
+    onBookmarks: () => setBookmarksOpen(true),
+    bookmarkCount: bookmarks.length,
+    onShortcuts: () => setHelpOpen(true),
+    onSettings: () => setSettingsOpen(true),
+    onAbout: () => setAboutOpen(true),
+    totals: data
+      ? t.app.totals(
+          data.meta.totals.surahs,
+          n(data.meta.totals.ayahs),
+          n(data.meta.totals.words),
+        )
+      : null,
+    countsNote: t.app.countsNote,
+    ready: !!data,
+  };
+
   return (
     <div
-      className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100"
+      className={`min-h-[calc(100*var(--zvh))] bg-paper pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] font-ui text-ink${
+        wide ? " grid grid-cols-[13.5rem_minmax(0,1fr)]" : ""
+      }`}
       // `--zvh` is 1vh corrected for this zoom: use `calc(N*var(--zvh))` instead of
       // `Nvh` anywhere below, since CSS zoom multiplies `vh` lengths.
       style={
         {
-          zoom: settings.uiScale,
-          "--zvh": `calc(1vh / ${settings.uiScale})`,
+          zoom,
+          "--zvh": `calc(1vh / ${zoom})`,
         } as CSSProperties
       }
     >
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-700 dark:bg-slate-900/80">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
-              <BookOpen size={20} />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold leading-tight">{t.app.title}</h1>
-              <p className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
-                {data ? (
-                  <>
-                    {t.app.totals(
-                      data.meta.totals.surahs,
-                      n(data.meta.totals.ayahs),
-                      n(data.meta.totals.words),
-                    )}
-                    <span
-                      className="cursor-help"
-                      aria-label={t.app.aboutCounts}
-                      title={t.app.countsNote}
-                    >
-                      <Info size={12} className="text-slate-400" />
-                    </span>
-                  </>
-                ) : (
-                  t.app.loadingDataset
-                )}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {lastRead && !reader && data && (
-              <button
-                onClick={() => navigateReader(lastRead)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-                title={t.app.resumeAt(t.scope[lastRead.scope], lastRead.value)}
-              >
-                <BookOpen size={15} />
-                {t.app.resume}
-              </button>
-            )}
-            {data && (
-              <IconButton
-                onClick={() => setBookmarksOpen(true)}
-                aria-label={t.app.bookmarks(bookmarks.length)}
-                title={t.app.bookmarks(bookmarks.length)}
-              >
-                <BookmarkIcon size={16} />
-              </IconButton>
-            )}
-            <IconButton onClick={() => openSearch()} aria-label={t.app.search}>
-              <Search size={16} />
-            </IconButton>
-            <SegmentedControl<View>
-              value={view}
-              onChange={setView}
-              ariaLabel={t.app.mainView}
-              options={[
-                {
-                  value: "dashboard",
-                  label: t.app.views.dashboard,
-                  icon: <BarChart3 size={15} />,
-                },
-                {
-                  value: "browse",
-                  label: t.app.views.browse,
-                  icon: <LayoutGrid size={15} />,
-                },
-                {
-                  value: "structure",
-                  label: t.app.views.structure,
-                  icon: <Layers size={15} />,
-                },
-                {
-                  value: "compare",
-                  label: t.app.views.compare,
-                  icon: <Languages size={15} />,
-                },
-              ]}
-            />
-            <SegmentedControl<Lang>
-              value={lang}
-              onChange={setLang}
-              ariaLabel={t.app.language}
-              options={LANGS.map((l) => ({ value: l, label: l.toUpperCase() }))}
-            />
-            <IconButton onClick={theme.toggleDark} aria-label={t.app.toggleDark}>
-              {theme.dark ? <Sun size={16} /> : <Moon size={16} />}
-            </IconButton>
-            <IconButton
-              onClick={() => setHelpOpen(true)}
-              aria-label={t.app.shortcuts}
-              title={t.app.shortcutsTitle}
-            >
-              <Keyboard size={16} />
-            </IconButton>
-            <IconButton onClick={() => setSettingsOpen(true)} aria-label={t.app.settings}>
-              <SettingsIcon size={16} />
-            </IconButton>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-7xl px-4 py-5">
-        {loading && <LoadingSkeleton />}
-        {error && (
-          <Card className="p-6 text-center text-sm text-red-500">
-            {t.app.failedData(error)}
-            <p className="mt-2 text-slate-400">
-              {t.app.didYouBuild} <code>npm run build:data</code>?
-            </p>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="mt-3 rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300"
-            >
-              {t.common.retry}
-            </button>
-          </Card>
-        )}
-        {data && view === "dashboard" && (
-          <DashboardView
-            data={data}
-            settings={settings}
-            colorMode={colorMode}
-            onColorMode={setColorMode}
-            onOpen={navigateReader}
-            onSearch={openSearch}
-          />
-        )}
-        {data && view === "browse" && <BrowseView data={data} onOpen={navigateReader} />}
-        {data && view === "structure" && (
-          <StructureView data={data} onOpen={navigateReader} />
-        )}
-        {data && view === "compare" && (
-          <div className="h-[calc(78*var(--zvh))]">
-            <TranslationCompare
+      {wide && <NavRail {...navProps} />}
+      <div className="min-w-0">
+        {!wide && !reading && <TopBar {...navProps} />}
+        {data && reader && (
+          <Suspense fallback={<ReaderSkeleton />}>
+            <ReaderView
+              target={reader}
               surahs={data.surahs}
               verses={data.verses}
               editions={data.editions}
-              primary={theme.primary}
+              edition={edition}
+              onEditionChange={setEdition}
+              colorMode={colorMode}
+              palette={theme.palette}
+              arabicScale={theme.arabicScale}
+              onArabicScale={theme.setArabicScale}
+              onNavigate={navigateReader}
+              onClose={() => navigateReader(null)}
+              bookmarks={bookmarks}
+              onBookmarks={setBookmarks}
+              onExplore={explore}
+              phone={!wide}
+              dark={theme.dark}
             />
-          </div>
+          </Suspense>
         )}
-      </main>
-
-      {data && reader && (
-        <ReaderModal
-          target={reader}
-          surahs={data.surahs}
-          verses={data.verses}
-          editions={data.editions}
-          edition={edition}
-          onEditionChange={setEdition}
-          colorMode={colorMode}
-          palette={theme.palette}
-          arabicScale={theme.arabicScale}
-          onArabicScale={theme.setArabicScale}
-          onNavigate={navigateReader}
-          onClose={() => navigateReader(null)}
-          bookmarks={bookmarks}
-          onBookmarks={setBookmarks}
-        />
-      )}
+        <main
+          hidden={reading}
+          className={`mx-auto max-w-7xl px-4 pt-5 ${
+            wide ? "pb-8" : "pb-[calc(5rem+env(safe-area-inset-bottom))]"
+          }`}
+        >
+          {loading && <LoadingSkeleton />}
+          {error && (
+            <Card className="p-6 text-center text-sm">
+              <p role="alert" className="font-medium text-rubric">
+                {t.app.failedData}
+              </p>
+              <p className="mt-2 text-ink-muted">{t.app.failedDataHelp}</p>
+              <p className="mt-1 text-xs text-ink-subtle">{error}</p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="mt-3 min-h-10 rounded-lg border border-line px-4 text-sm font-medium text-ink hover:bg-surface-sunken"
+              >
+                {t.common.retry}
+              </button>
+            </Card>
+          )}
+          <Suspense fallback={<LoadingSkeleton />}>
+            {data && view === "dashboard" && (
+              <DashboardView
+                key={dashKey}
+                data={data}
+                settings={settings}
+                colorMode={colorMode}
+                onColorMode={setColorMode}
+                onOpen={navigateReader}
+                onSearch={openSearch}
+              />
+            )}
+            {data && view === "browse" && (
+              <BrowseView
+                data={data}
+                onOpen={navigateReader}
+                lastRead={lastReadId}
+                bookmarks={bookmarkIds}
+                onExplore={explore}
+              />
+            )}
+            {data && view === "structure" && (
+              <StructureView data={data} onOpen={navigateReader} />
+            )}
+          </Suspense>
+        </main>
+      </div>
+      {!wide && <BottomTabs {...navProps} />}
 
       {data && (
         <Modal
@@ -366,41 +437,71 @@ export default function App() {
             {SHORTCUTS.map((sc, i) => (
               <tr
                 key={sc.keys}
-                className="border-b border-slate-100 last:border-0 dark:border-slate-700/60"
+                className="border-b border-surface-sunken last:border-0 dark:border-line/60"
               >
-                <td className="whitespace-nowrap py-1.5 pr-4 font-mono text-xs text-slate-600 dark:text-slate-300">
+                <td className="whitespace-nowrap py-1.5 pr-4 font-mono text-xs text-ink-muted">
                   {sc.keys}
                 </td>
-                <td className="py-1.5 text-slate-700 dark:text-slate-200">
-                  {t.shortcuts[i] ?? sc.does}
-                </td>
+                <td className="py-1.5 text-ink">{t.shortcuts[i] ?? sc.does}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </Modal>
 
-      <SettingsModal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        settings={settings}
-        onSettings={setSettings}
-      />
+      <Suspense fallback={null}>
+        {settingsUsed && (
+          <SettingsModal
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            settings={settings}
+            onSettings={setSettings}
+            onAbout={() => setAboutOpen(true)}
+            onWelcome={() => {
+              setSettingsOpen(false);
+              setWelcomeAgain(true);
+            }}
+          />
+        )}
 
-      {data && (
-        <GlobalSearchModal
-          key={searchSeed.n}
-          initialQuery={searchSeed.q}
-          editionId={edition}
-          open={searchOpen}
-          onClose={() => setSearchOpen(false)}
-          verses={data.verses}
-          surahs={data.surahs}
-          colorMode={colorMode}
-          palette={theme.palette}
-          onOpenReader={navigateReader}
-        />
-      )}
+        {data && showWelcome && (
+          <Welcome
+            open
+            onDone={finishWelcome}
+            editions={data.editions.editions}
+            edition={edition}
+            onEdition={setEdition}
+            onAbout={() => setAboutOpen(true)}
+          />
+        )}
+
+        {aboutUsed && <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />}
+
+        {data && searchUsed && (
+          <GlobalSearchModal
+            key={searchSeed.n}
+            initialQuery={searchSeed.q}
+            editionId={edition}
+            latinEditionId={searchEditionFor(lang, edition, data.editions.editions)}
+            open={searchOpen}
+            onClose={() => setSearchOpen(false)}
+            verses={data.verses}
+            surahs={data.surahs}
+            colorMode={colorMode}
+            palette={theme.palette}
+            onOpenReader={navigateReader}
+          />
+        )}
+      </Suspense>
+    </div>
+  );
+}
+
+function ReaderSkeleton() {
+  return (
+    <div className="mx-auto max-w-4xl space-y-4 px-4 pt-5">
+      <Skeleton className="h-24" />
+      <Skeleton className="h-[calc(60*var(--zvh))]" />
     </div>
   );
 }

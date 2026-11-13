@@ -1,7 +1,7 @@
 import { useLazyJson } from "./useLazyJson";
-import type { Topic } from "../types/quran";
+import type { TopicNode } from "../types/quran";
 
-/** Lazily loads (and module-caches) the QUL topics with their ayahs, only when `enabled`. */
+/** Lazily loads (and module-caches) the curated topic tree, only when `enabled`. */
 export function useTopics(enabled: boolean) {
-  return useLazyJson<Topic[]>("topics.json", enabled);
+  return useLazyJson<TopicNode[]>("topics.json", enabled);
 }

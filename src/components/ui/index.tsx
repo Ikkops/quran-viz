@@ -1,5 +1,9 @@
 import {
+  createContext,
+  useContext,
   useEffect,
+  useId,
+  useLayoutEffect,
   useRef,
   useState,
   type ButtonHTMLAttributes,
@@ -25,8 +29,8 @@ export function Card({
   return (
     <div
       className={cx(
-        "rounded-2xl border border-slate-200 bg-white shadow-sm",
-        "dark:border-slate-700 dark:bg-slate-800/60",
+        "rounded-2xl border border-line bg-white shadow-sm",
+        "dark:border-line dark:bg-surface/60",
         className,
       )}
     >
@@ -45,14 +49,10 @@ export function SectionTitle({
   right?: ReactNode;
 }) {
   return (
-    <div className="mb-3 flex items-start justify-between gap-3">
-      <div>
-        <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100">
-          {title}
-        </h3>
-        {subtitle && (
-          <p className="text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>
-        )}
+    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-[12rem] flex-1">
+        <h2 className="text-base font-semibold text-ink">{title}</h2>
+        {subtitle && <p className="text-sm text-ink-subtle">{subtitle}</p>}
       </div>
       {right}
     </div>
@@ -72,7 +72,7 @@ export function Badge({
     <span
       className={cx(
         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-        !color && "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200",
+        !color && "bg-surface-sunken text-ink dark:bg-line",
         className,
       )}
       style={color ? { backgroundColor: `${color}22`, color } : undefined}
@@ -89,14 +89,12 @@ export function Select({
   ...props
 }: { label?: string } & SelectHTMLAttributes<HTMLSelectElement>) {
   return (
-    <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+    <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-ink-muted">
       {label}
       <select
         {...props}
         className={cx(
-          "w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm text-slate-800 outline-none transition",
-          "focus:border-slate-400 focus:ring-2 focus:ring-slate-200",
-          "dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-slate-700",
+          "min-h-10 w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink transition",
           "disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
@@ -113,11 +111,11 @@ export function Slider({
   ...props
 }: { label?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-slate-600 dark:text-slate-300">
+    <label className="flex flex-col gap-1 text-xs font-medium text-ink-muted">
       {label && (
         <span className="flex justify-between">
           <span>{label}</span>
-          <span className="tabular-nums text-slate-400">{value}</span>
+          <span className="tabular-nums text-ink-subtle">{value}</span>
         </span>
       )}
       <input type="range" value={value} {...props} className="accent-current" />
@@ -137,19 +135,21 @@ export function Toggle({
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className="flex items-center justify-between gap-3 text-sm text-slate-700 dark:text-slate-200"
+      className="flex min-h-11 items-center justify-between gap-3 text-left text-sm text-ink"
     >
       <span>{label}</span>
       <span
         className={cx(
-          "relative h-5 w-9 rounded-full transition",
-          checked ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600",
+          "relative h-5 w-9 shrink-0 rounded-full transition motion-reduce:transition-none",
+          checked ? "bg-illumination" : "bg-ink-subtle/50",
         )}
       >
         <span
           className={cx(
-            "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition",
+            "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition motion-reduce:transition-none",
             checked ? "left-4" : "left-0.5",
           )}
         />
@@ -167,9 +167,9 @@ export function IconButton({
     <button
       {...props}
       className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition",
-        "hover:bg-slate-50 disabled:opacity-50",
-        "dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700",
+        "inline-flex items-center justify-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-sm font-medium text-ink transition",
+        "hover:bg-paper disabled:opacity-50",
+        "dark:border-ink-subtle/50 dark:bg-surface dark:text-ink dark:hover:bg-line",
         className,
       )}
     >
@@ -193,7 +193,9 @@ export function SegmentedControl<T extends string>({
     <div
       role="group"
       aria-label={ariaLabel}
-      className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1 dark:border-slate-700 dark:bg-slate-800"
+      // Never wider than its container: on a phone a long strip (the reader's 7
+      // scopes, Structure's 8 tabs) scrolls sideways instead of widening the page.
+      className="scrollbar-none inline-flex max-w-full overflow-x-auto rounded-xl border border-line bg-surface-sunken p-1 dark:bg-surface"
     >
       {options.map((o) => (
         <button
@@ -201,10 +203,10 @@ export function SegmentedControl<T extends string>({
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
           className={cx(
-            "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition",
+            "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition",
             value === o.value
-              ? "bg-white text-slate-900 shadow-sm dark:bg-slate-600 dark:text-white"
-              : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
+              ? "bg-white text-ink shadow-sm dark:bg-ink-subtle/50 dark:text-white"
+              : "text-ink-muted hover:text-ink dark:text-ink-subtle",
           )}
         >
           {o.icon}
@@ -214,6 +216,9 @@ export function SegmentedControl<T extends string>({
     </div>
   );
 }
+
+/** Open dialogs, oldest first (see the Escape handler in `Modal`). */
+const modalStack: object[] = [];
 
 export function Modal({
   open,
@@ -239,6 +244,7 @@ export function Modal({
   onWidthChange?: (width: number | null) => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
   const overlayRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   // Width while a drag is in progress (committed via onWidthChange on release).
@@ -319,29 +325,39 @@ export function Modal({
       onPointerDown={startResize(side)}
       onDoubleClick={() => onWidthChange?.(null)}
       onKeyDown={keyResize(side)}
+      // Just outside the card, in the overlay's padding, so it never covers the
+      // card's own scrollbar.
       className={cx(
-        "group absolute inset-y-0 z-30 hidden w-2.5 cursor-ew-resize touch-none outline-none sm:block",
-        side < 0 ? "left-0" : "right-0",
+        "group absolute inset-y-0 z-30 hidden w-3 cursor-ew-resize touch-none outline-none focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-illumination sm:block",
+        side < 0 ? "-left-3" : "-right-3",
       )}
     >
       <span
         className={cx(
           "absolute inset-y-8 w-1 rounded-full transition",
-          "group-hover:bg-slate-300 group-focus-visible:bg-slate-400 dark:group-hover:bg-slate-600",
-          liveWidth !== null && "bg-slate-400 dark:bg-slate-500",
-          side < 0 ? "left-0.5" : "right-0.5",
+          "group-hover:bg-white/70 group-focus-visible:bg-white dark:group-hover:bg-ink-muted",
+          liveWidth !== null && "bg-white dark:bg-ink-subtle",
+          side < 0 ? "right-1" : "left-1",
         )}
       />
     </div>
   );
 
-  // Close on Escape + restore focus on close.
+  // Close on Escape + restore focus on close. Only the topmost open dialog
+  // handles keys, so Escape over a stacked dialog (About over Welcome) closes one.
+  const onCloseRef = useRef(onClose);
+  useLayoutEffect(() => {
+    onCloseRef.current = onClose;
+  });
   useEffect(() => {
     if (!open) return;
+    const token = {};
+    modalStack.push(token);
     previouslyFocused.current = document.activeElement as HTMLElement | null;
     const onKey = (e: KeyboardEvent) => {
+      if (modalStack[modalStack.length - 1] !== token) return;
       if (e.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
       // Focus trap: keep Tab within the panel.
@@ -372,55 +388,67 @@ export function Modal({
     return () => {
       window.removeEventListener("keydown", onKey);
       clearTimeout(t);
+      modalStack.splice(modalStack.indexOf(token), 1);
       previouslyFocused.current?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
   return (
-    <div
-      ref={overlayRef}
-      className={cx(
-        "fixed inset-0 z-50 flex bg-slate-900/50 backdrop-blur-sm",
-        fullHeight
-          ? "items-center justify-center p-4 sm:p-8"
-          : "items-center justify-center p-4",
-      )}
-      onClick={() => {
-        if (!justResized.current) onClose();
-      }}
-    >
+    <ModalTitleId.Provider value={titleId}>
       <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={ariaLabel}
-        tabIndex={-1}
+        ref={overlayRef}
         className={cx(
-          // Sized against the overlay (h-full / max-h-full), not `vh`: the app root
-          // carries a CSS `zoom` (Interface scale), which multiplies `vh` lengths
-          // inside it and would push the panel past the viewport edges.
-          "animate-zoom-in w-full rounded-2xl bg-white shadow-2xl outline-none dark:bg-slate-900",
+          "fixed inset-0 z-50 flex bg-black/50 backdrop-blur-sm",
           fullHeight
-            ? "flex h-full max-w-5xl flex-col overflow-y-auto"
-            : "max-h-full max-w-3xl overflow-y-auto",
-          onWidthChange && "relative",
-          className,
+            ? "items-center justify-center p-4 sm:p-8"
+            : "items-center justify-center p-4",
         )}
-        style={
-          shownWidth !== null
-            ? { width: `${shownWidth * 100}%`, maxWidth: "none" }
-            : undefined
-        }
-        onClick={(e) => e.stopPropagation()}
+        onClick={() => {
+          if (!justResized.current) onClose();
+        }}
       >
-        {children}
-        {onWidthChange && handle(-1)}
-        {onWidthChange && handle(1)}
+        <div
+          ref={panelRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={ariaLabel}
+          aria-labelledby={ariaLabel ? undefined : titleId}
+          tabIndex={-1}
+          className={cx(
+            // Sized against the overlay (h-full / max-h-full), not `vh`: the app root
+            // carries a CSS `zoom` (Interface scale), which multiplies `vh` lengths
+            // inside it and would push the panel past the viewport edges.
+            "animate-zoom-in relative flex w-full outline-none",
+            fullHeight ? "h-full max-w-5xl" : "max-h-full max-w-3xl",
+            className,
+          )}
+          style={
+            shownWidth !== null
+              ? { width: `${shownWidth * 100}%`, maxWidth: "none" }
+              : undefined
+          }
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* The card; the resize handles sit outside it, beside its edges. */}
+          <div
+            className={cx(
+              "min-h-0 w-full overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-paper",
+              fullHeight && "flex h-full flex-col",
+            )}
+          >
+            {children}
+          </div>
+          {onWidthChange && handle(-1)}
+          {onWidthChange && handle(1)}
+        </div>
       </div>
-    </div>
+    </ModalTitleId.Provider>
   );
 }
+
+/** Lets `ModalHeader`'s heading name its dialog (aria-labelledby). */
+const ModalTitleId = createContext<string | undefined>(undefined);
 
 export function ModalHeader({
   title,
@@ -431,21 +459,23 @@ export function ModalHeader({
   subtitle?: ReactNode;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
+  const titleId = useContext(ModalTitleId);
   return (
-    <div className="flex items-start justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-700">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+    <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
+      <div className="min-w-0">
+        <h2 id={titleId} className="text-lg font-semibold text-ink">
           {title}
         </h2>
-        {subtitle && (
-          <p className="text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>
-        )}
+        {subtitle && <p className="text-sm text-ink-subtle">{subtitle}</p>}
       </div>
       <button
+        type="button"
         onClick={onClose}
-        className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+        aria-label={t.common.close}
+        className="-mr-2 -mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-subtle hover:bg-surface-sunken hover:text-ink"
       >
-        <X size={20} />
+        <X size={20} aria-hidden />
       </button>
     </div>
   );
@@ -453,8 +483,119 @@ export function ModalHeader({
 
 export function Skeleton({ className }: { className?: string }) {
   return (
-    <div
-      className={cx("animate-pulse rounded-xl bg-slate-200 dark:bg-slate-700", className)}
-    />
+    <div className={cx("rounded-xl motion-safe:animate-pulse bg-line", className)} />
+  );
+}
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])';
+
+/**
+ * A panel docked to the bottom edge (phones) or the right edge (wider layouts),
+ * over a dimmed page: the reader's ayah context and player options. Escape,
+ * the backdrop and Android back (a synthetic Escape) close it; focus moves in
+ * on open and returns on close.
+ */
+export function Sheet({
+  open,
+  onClose,
+  title,
+  side = "bottom",
+  children,
+  closeLabel,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: ReactNode;
+  side?: "bottom" | "right";
+  children: ReactNode;
+  closeLabel: string;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const before = document.activeElement as HTMLElement | null;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "Tab" && panelRef.current) {
+        const f = panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE);
+        if (!f.length) return;
+        const first = f[0];
+        const last = f[f.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    const t = setTimeout(() => panelRef.current?.focus(), 0);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      clearTimeout(t);
+      before?.focus?.();
+    };
+  }, [open, onClose]);
+  if (!open) return null;
+  const bottom = side === "bottom";
+  return (
+    <div className="fixed inset-0 z-50 bg-ink/30" onClick={onClose}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={typeof title === "string" ? title : undefined}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+        className={cx(
+          "absolute flex flex-col bg-surface shadow-float outline-none",
+          bottom
+            ? "animate-sheet-up inset-x-0 bottom-0 max-h-[calc(85*var(--zvh))] rounded-t-xl pb-[env(safe-area-inset-bottom)]"
+            : "animate-sheet-in inset-y-0 right-0 w-[min(26rem,100%)] border-l border-line pt-[env(safe-area-inset-top)]",
+        )}
+      >
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line py-1.5 pl-4 pr-1.5">
+          <h2 className="min-w-0 truncate text-base font-semibold text-ink">{title}</h2>
+          <QuietIconButton label={closeLabel} onClick={onClose}>
+            <X size={19} />
+          </QuietIconButton>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/** A quiet square icon button (DESIGN.md "Buttons · Quiet"), 40px. */
+export function QuietIconButton({
+  label,
+  pressed,
+  className,
+  children,
+  ...props
+}: {
+  label: string;
+  pressed?: boolean;
+} & ButtonHTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      aria-pressed={pressed}
+      {...props}
+      className={cx(
+        "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-30",
+        pressed
+          ? "bg-surface-sunken text-illumination"
+          : "text-ink-muted hover:bg-surface-sunken hover:text-ink",
+        className,
+      )}
+    >
+      {children}
+    </button>
   );
 }

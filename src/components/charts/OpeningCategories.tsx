@@ -15,7 +15,7 @@ import { ALL_CATEGORIES } from "../../data/fawatih";
 import { FAWATIH_COLORS } from "../../theme/palettes";
 import { GenericTooltip } from "../tooltips";
 import { SurahCard } from "../cards/SurahCard";
-import { axisColor, type ChartContext } from "./common";
+import { axisColor, CURSOR_FILL, type ChartContext } from "./common";
 import { useI18n } from "../../i18n/I18nContext";
 
 /** Surah counts per opening category. Click a bar to list its surahs as
@@ -70,7 +70,7 @@ export function OpeningCategories({
             />
             <Tooltip
               content={<GenericTooltip unit={t.charts.surahsClick} />}
-              cursor={{ fill: "rgba(148,163,184,0.12)" }}
+              cursor={{ fill: CURSOR_FILL }}
             />
             <Bar
               dataKey="count"
@@ -104,19 +104,19 @@ export function OpeningCategories({
                 backgroundColor: FAWATIH_COLORS[selected] ?? FAWATIH_COLORS.Unknown,
               }}
             />
-            <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+            <h4 className="text-sm font-semibold text-ink">
               {category(selected)} · {t.charts.surahsN(members.length)}
             </h4>
             <button
               type="button"
               onClick={() => onSelect(null)}
               aria-label={t.charts.closeList}
-              className="ml-auto rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700"
+              className="ml-auto rounded-md p-1 text-ink-subtle hover:bg-surface-sunken hover:text-ink-muted dark:hover:bg-line"
             >
               <X size={15} />
             </button>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-2 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
             {members.map((d) => {
               const s = surahMap.get(d.id)!;
               return (
@@ -132,7 +132,7 @@ export function OpeningCategories({
           </div>
         </section>
       ) : (
-        <p className="text-xs text-slate-400">{t.charts.clickBar}</p>
+        <p className="text-xs text-ink-subtle">{t.charts.clickBar}</p>
       )}
     </div>
   );

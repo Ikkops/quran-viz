@@ -188,36 +188,54 @@ export function alignTajweedToWords(
 
 export interface TajweedRule {
   name: string;
+  /** Colour on the day theme's paper, leaf and gutter. */
   color: string;
+  /** Colour on the night theme's. */
+  dark: string;
 }
 
-/** code → { rule name, colour }. Grouped by family for a readable legend. */
+/** code → { rule name, colours }. Grouped by family for a readable legend:
+ *  madd runs amber → deep red, ghunnah is green, idghām cool grey, ikhfāʾ
+ *  blue, and letters that aren't pronounced warm grey. Every colour keeps at
+ *  least 4.5:1 against all three surfaces of its theme (`tajweed.test.ts`). */
 export const RULE_COLORS: Record<string, TajweedRule> = {
   // Madd (prolongation), short → long
-  n: { name: "Natural prolongation (Madd Ṭabīʿī)", color: "#f59e0b" },
-  p: { name: "Permissible prolongation (Madd Jāʾiz)", color: "#fb923c" },
-  o: { name: "Obligatory prolongation — separate (Munfaṣil)", color: "#fb7185" },
-  c: { name: "Obligatory prolongation — joined (Muttaṣil)", color: "#f43f5e" },
-  m: { name: "Necessary prolongation (Madd Lāzim)", color: "#dc2626" },
+  n: { name: "Natural prolongation (Madd Ṭabīʿī)", color: "#9A5200", dark: "#FBBF24" },
+  p: { name: "Permissible prolongation (Madd Jāʾiz)", color: "#B93A08", dark: "#FB923C" },
+  o: {
+    name: "Obligatory prolongation — separate (Munfaṣil)",
+    color: "#BE185D",
+    dark: "#FDA4AF",
+  },
+  c: {
+    name: "Obligatory prolongation — joined (Muttaṣil)",
+    color: "#C81E1E",
+    dark: "#FB7185",
+  },
+  m: { name: "Necessary prolongation (Madd Lāzim)", color: "#7F1D1D", dark: "#F26060" },
   // Ghunnah / idghām (nasalization & merging)
-  g: { name: "Ghunnah (nasalization)", color: "#16a34a" },
-  a: { name: "Idghām with ghunnah", color: "#22c55e" },
-  u: { name: "Idghām without ghunnah", color: "#6b7280" },
-  d: { name: "Idghām (labial, mīm)", color: "#4b5563" },
-  b: { name: "Idghām (mutajānisayn / mutaqāribayn)", color: "#374151" },
+  g: { name: "Ghunnah (nasalization)", color: "#137A39", dark: "#4ADE80" },
+  a: { name: "Idghām with ghunnah", color: "#47750C", dark: "#A3E635" },
+  u: { name: "Idghām without ghunnah", color: "#5F6878", dark: "#9CA3AF" },
+  d: { name: "Idghām (labial, mīm)", color: "#4B5563", dark: "#B8BEC9" },
+  b: { name: "Idghām (mutajānisayn / mutaqāribayn)", color: "#374151", dark: "#D1D5DB" },
   // Ikhfāʾ / iqlāb / qalqalah
-  f: { name: "Ikhfāʾ (hiding)", color: "#0ea5e9" },
-  w: { name: "Ikhfāʾ (labial, mīm)", color: "#38bdf8" },
-  i: { name: "Iqlāb (conversion)", color: "#8b5cf6" },
-  q: { name: "Qalqalah (echo)", color: "#14b8a6" },
+  f: { name: "Ikhfāʾ (hiding)", color: "#0369A1", dark: "#38BDF8" },
+  w: { name: "Ikhfāʾ (labial, mīm)", color: "#1D4ED8", dark: "#93C5FD" },
+  i: { name: "Iqlāb (conversion)", color: "#7C3AED", dark: "#A78BFA" },
+  q: { name: "Qalqalah (echo)", color: "#0F766E", dark: "#2DD4BF" },
   // Silent / connecting
-  h: { name: "Hamzat al-Waṣl (silent connecting hamza)", color: "#9ca3af" },
-  s: { name: "Silent (not pronounced)", color: "#cbd5e1" },
-  l: { name: "Lām Shamsiyyah (assimilated lām)", color: "#94a3b8" },
+  h: {
+    name: "Hamzat al-Waṣl (silent connecting hamza)",
+    color: "#6E6660",
+    dark: "#A8A29E",
+  },
+  s: { name: "Silent (not pronounced)", color: "#80644F", dark: "#C4A88E" },
+  l: { name: "Lām Shamsiyyah (assimilated lām)", color: "#57534E", dark: "#D6D3D1" },
 };
 
 /** Ordered list for the legend (groups kept together). */
-export const TAJWEED_LEGEND: { code: string; name: string; color: string }[] = [
+export const TAJWEED_LEGEND: ({ code: string } & TajweedRule)[] = [
   "n",
   "p",
   "o",
@@ -236,3 +254,9 @@ export const TAJWEED_LEGEND: { code: string; name: string; color: string }[] = [
   "s",
   "l",
 ].map((code) => ({ code, ...RULE_COLORS[code] }));
+
+/** The colour of a rule code in the current theme (undefined for unknown codes). */
+export function tajweedColor(rule: string, dark: boolean): string | undefined {
+  const r = RULE_COLORS[rule];
+  return r && (dark ? r.dark : r.color);
+}

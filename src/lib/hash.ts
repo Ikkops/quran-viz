@@ -5,8 +5,9 @@ import {
   type ReaderTarget,
 } from "../components/charts/common";
 
-export type View = "dashboard" | "browse" | "structure" | "compare";
-export const VIEWS: readonly View[] = ["dashboard", "browse", "structure", "compare"];
+/** Top-level views. ("compare" became a reader layout; old links open the dashboard.) */
+export type View = "dashboard" | "browse" | "structure";
+export const VIEWS: readonly View[] = ["dashboard", "browse", "structure"];
 const MAX_AYAH = 6236;
 
 export interface HashState {

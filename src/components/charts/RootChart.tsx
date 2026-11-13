@@ -27,16 +27,16 @@ function RootTooltip({
   return (
     <TooltipShell>
       <div className="mb-1 flex items-center gap-2">
-        <span className="font-arabic text-base text-slate-800 dark:text-slate-100">
+        <span lang="ar" className="font-arabic text-base text-ink">
           {d.ar}
         </span>
-        <span className="text-[11px] text-slate-400">({d.bw})</span>
+        <span className="text-xs text-ink-subtle">({d.bw})</span>
       </div>
-      {d.gloss && <p className="mb-1 text-[11px] italic text-slate-400">{d.gloss}</p>}
-      <div className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">
+      {d.gloss && <p className="mb-1 text-xs italic text-ink-subtle">{d.gloss}</p>}
+      <div className="font-semibold tabular-nums text-ink">
         {t.charts.occurrences(n(d.count))}
       </div>
-      <p className="mt-1 text-[11px] text-slate-400">{t.charts.exploreRoot}</p>
+      <p className="mt-1 text-xs text-ink-subtle">{t.charts.exploreRoot}</p>
     </TooltipShell>
   );
 }

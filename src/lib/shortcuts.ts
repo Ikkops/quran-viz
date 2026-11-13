@@ -9,7 +9,7 @@ export type ShortcutAction =
 
 export const SHORTCUTS: { keys: string; does: string }[] = [
   { keys: "Ctrl K  or  /", does: "Search the Qur'an (Arabic, 2:255, or translation)" },
-  { keys: "1 · 2 · 3 · 4", does: "Dashboard · Browse · Structure · Compare" },
+  { keys: "1 · 2 · 3", does: "Dashboard · Map · Structure" },
   { keys: "B", does: "Bookmarks" },
   { keys: "?", does: "This list" },
   { keys: "← / →", does: "Reader: previous / next surah, juz, page…" },
@@ -22,7 +22,6 @@ const VIEW_KEYS: Record<string, View> = {
   "1": "dashboard",
   "2": "browse",
   "3": "structure",
-  "4": "compare",
 };
 
 /** Map a keydown to an app shortcut. `typing` = focus is in a text field;

@@ -16,7 +16,7 @@ export const en = {
     all: "All",
     surah: "Surah",
     surahs: "surahs",
-    verses: "Verses",
+    verses: "Ayahs",
     words: "Words",
     letters: "Letters",
     showAll: "show all",
@@ -60,14 +60,21 @@ export const en = {
   sort: {
     quran: "Mushaf order",
     revelation: "Revelation order",
-    verses: "Verse count",
+    verses: "Ayah count",
     words: "Word count",
     letters: "Letter count",
   },
 
   app: {
-    title: "Quran — Data Visualization",
-    totals: (s: number, a: string, w: string) => `${s} surahs · ${a} verses · ${w} words`,
+    title: "Qur'an — Data Visualization",
+    titleShort: "Qur'an Data",
+    nav: "Main navigation",
+    read: "Read",
+    continueReading: "Continue reading",
+    startReading: "Start reading",
+    searchShort: "Search…",
+    bookmarksLabel: "Bookmarks",
+    totals: (s: number, a: string, w: string) => `${s} surahs · ${a} ayahs · ${w} words`,
     aboutCounts: "About these counts",
     countsNote:
       "Word and letter counts are computed from the Uthmani digital text " +
@@ -80,26 +87,26 @@ export const en = {
     resume: "Resume",
     resumeAt: (scope: string, v: number) => `Resume at ${scope} ${v}`,
     bookmarks: (n: number) => `Bookmarks (${n})`,
-    search: "Search the Quran",
+    search: "Search the Qur'an",
     mainView: "Main view",
     views: {
       dashboard: "Dashboard",
-      browse: "Browse",
+      browse: "Map",
       structure: "Structure",
-      compare: "Compare",
     },
     toggleDark: "Toggle dark mode",
     shortcuts: "Keyboard shortcuts",
     shortcutsTitle: "Keyboard shortcuts (?)",
     settings: "Settings",
     language: "Language",
-    failedData: (e: string) => `Failed to load data: ${e}`,
-    didYouBuild: "Did you run",
+    failedData: "The Qur'an data didn't load.",
+    failedDataHelp:
+      "Check the connection and try again. If it keeps failing, reinstall or update the app.",
   },
 
   shortcuts: [
     "Search the Qur'an (Arabic, 2:255, or translation)",
-    "Dashboard · Browse · Structure · Compare",
+    "Dashboard · Map · Structure",
     "Bookmarks",
     "This list",
     "Reader: previous / next surah, juz, page…",
@@ -120,7 +127,7 @@ export const en = {
     darkMode: "Dark mode",
     uiScale: (pct: number) => `Interface scale — ${pct}%`,
     palette: "Colour palette",
-    quranText: "Quran text",
+    quranText: "Qur'an text",
     arabicFont: "Arabic font",
     arabicSize: "Arabic font size",
     charts: "Charts",
@@ -132,24 +139,27 @@ export const en = {
     pasteTheme: "Paste a theme code…",
     applied: "Theme applied",
     invalid: "Invalid code",
+    customColor: "Custom accent colour",
+    about: "About this app",
+    welcomeAgain: "Show the welcome screen",
   },
 
   bookmarks: {
     title: "Bookmarks",
-    empty: "No bookmarks yet. Use the bookmark icon on any verse in the reader.",
+    empty: "No bookmarks yet. Use the bookmark icon on any ayah in the reader.",
     remove: (ref: string) => `Remove bookmark ${ref}`,
   },
 
   viz: {
     groups: {
       Surahs: "Surahs",
-      Verses: "Verses",
+      Verses: "Ayahs",
       Vocabulary: "Vocabulary",
       Topics: "Topics",
     },
     labels: {
       length: "Surah length",
-      correlation: "Words vs verses",
+      correlation: "Words vs ayahs",
       opening: "Opening categories",
       histogram: "Length distribution",
       boxplots: "Length box plots",
@@ -160,28 +170,62 @@ export const en = {
       pos: "Part of speech",
       "topic-explorer": "Topic explorer",
     },
+    questions: {
+      length: "Which surahs are the longest?",
+      correlation: "Do surahs with more ayahs have more words?",
+      opening: "How do the surahs open?",
+      histogram: "How long is a typical ayah?",
+      boxplots: "How much do ayah lengths vary within a surah?",
+      extremes: "Which ayahs are the longest and the shortest?",
+      cloud: "Which words come up most often?",
+      roots: "Which roots come up most often?",
+      "root-explorer": "Where does a root occur?",
+      pos: "Which parts of speech make up the text?",
+      "topic-explorer": "Where does the Qur'an speak about a topic?",
+    },
     metrics: {
       wordCount: "Words",
       letterCount: "Letters",
-      ayahCount: "Verses",
-      avgWords: "Avg / verse",
+      ayahCount: "Ayahs",
+      avgWords: "Avg / ayah",
     },
   },
 
   dashboard: {
-    scope: (s: number, v: string) => `${s} surahs · ${v} verses`,
+    scope: (s: number, v: string) => `${s} surahs · ${v} ayahs`,
     posSub: (n: string) =>
       `Whole Qur'an · ${n} morphological segments · Quranic Arabic Corpus`,
     loadingCorpus: "Loading the Quranic Arabic Corpus…",
     rootsSub: "Quranic Arabic Corpus roots",
-    topicsSub: (n: string) => `${n} QUL topics`,
+    topicsSub: (n: string) => `${n} topics`,
     cloudSub: "click a word to search for it",
     openingSub: "click a bar to list its surahs",
-    resizeSub: "drag the chart's corner to resize",
     metric: "Metric",
     cloudLang: "Cloud language",
     arabic: "Arabic",
     english: "English",
+    questions: "Questions",
+    changeQuestion: "Change question",
+    filters: "Filters",
+    removeFilter: (l: string) => `Remove filter: ${l}`,
+    surahSpan: (a: number, b: number) => `Surah ${a}–${b}`,
+    juzSpan: (a: number, b: number) => `Juz ${a}–${b}`,
+    sortChip: (s: string) => `Sorted by ${s.toLowerCase()}`,
+    barsChip: (l: string) => `Bars: ${l.toLowerCase()}`,
+    showData: "Show data",
+    showChart: "Show chart",
+    tableNote: (shown: string, total: string) =>
+      `First ${shown} of ${total} rows. Download the CSV for all of them.`,
+    tableAria: "The data behind this chart",
+    openInReader: "Open in reader",
+    clearSelection: "Clear selection",
+    tapAgain: "Tap again, or use the button, to read it.",
+    surahDetail: (place: string, ayahs: string, words: string) =>
+      `${place} · ${ayahs} ayahs · ${words} words`,
+    ayahDetail: (words: string) => `${words} words`,
+    bucket: (range: string, n: string, share: string) =>
+      `${range} words: ${n} ayahs (${share})`,
+    bucketFirst: "The first ones in mushaf order:",
     png: "Download the chart as an image",
     csv: "Download the data behind this view",
   },
@@ -189,7 +233,7 @@ export const en = {
   controls: {
     visualization: "Visualization",
     range: "Range",
-    entire: "Entire Quran",
+    entire: "Entire Qur'an",
     bySurah: "By surah range",
     byJuz: "By juz range",
     noFilters: "Whole Qur'an (corpus aggregate) — no filters apply.",
@@ -213,6 +257,82 @@ export const en = {
     reset: "Reset controls",
   },
 
+  /** The one-line answer under each dashboard question (facts from data/answers.ts). */
+  answers: {
+    units: { wordCount: "words", letterCount: "letters", ayahCount: "ayahs" },
+    length: (
+      top: string,
+      val: string,
+      unit: string,
+      share: string | null,
+      low: string,
+      lowVal: string,
+    ) =>
+      `${top} has the most ${unit}: ${val}${share ? `, ${share} of the range` : ""}. The fewest: ${low} (${lowVal}).`,
+    lengthAvg: (top: string, val: string, low: string, lowVal: string) =>
+      `${top} has the longest ayahs, ${val} words each on average; ${low} the shortest (${lowVal}).`,
+    corr: (
+      r: number,
+      rText: string,
+      dense: string,
+      a: string,
+      sparse: string,
+      b: string,
+    ) =>
+      `${r >= 0.9 ? "Yes, closely" : r >= 0.7 ? "Mostly" : r >= 0.4 ? "Only loosely" : "Hardly"} (r = ${rText}). Ayahs run longest in ${dense} (${a} words on average) and shortest in ${sparse} (${b}).`,
+    opening: (cat: string, k: number, total: number) =>
+      `Most often with ${cat}: ${k} of ${total} surahs.`,
+    histogram: (q1: string, q3: string, median: string, mode: string, share: string) =>
+      `Half of the ayahs have ${q1}–${q3} words; the median is ${median}. The commonest length is ${mode} words (${share} of ayahs).`,
+    boxplots: (wide: string, min: string, max: string, high: string, median: string) =>
+      `${wide} varies most, from ${min} to ${max} words per ayah. ${high} has the highest median, ${median} words.`,
+    extremes: (ref: string, name: string, w: string, shortW: number, shortN: string) =>
+      `The longest is ${ref} in ${name}, ${w} words. ${shortN} ${shortN === "1" ? "ayah has" : "ayahs have"} only ${shortW} ${shortW === 1 ? "word" : "words"}.`,
+    cloud: (w1: string, c1: string, w2: string, w3: string) =>
+      `${w1} leads (${c1} times), then ${w2} and ${w3}.`,
+    roots: (ar: string, gloss: string, n: string) =>
+      `${ar}${gloss ? ` (${gloss})` : ""} leads, with ${n} occurrences in this range.`,
+    rootWhere: (ar: string, top: string, k: string, surahs: number) =>
+      `${ar} occurs in ${surahs} surahs, most often in ${top} (${k} times).`,
+    topicWhere: (name: string, n: string, surahs: number, top: string, k: string) =>
+      `${name}: ${n} ayahs in ${surahs} surahs, most of them in ${top} (${k}).`,
+    pickTopic: "Pick a topic below to see where it occurs.",
+    pos: (a: string, pa: string, b: string, pb: string) =>
+      `${a}: ${pa} of all segments; ${b}: ${pb}.`,
+    none: "Nothing in this range.",
+  },
+
+  table: {
+    /** Column names for the data table (the CSV keeps its English keys). */
+    cols: {
+      surah: "Surah",
+      name: "Name",
+      arabic: "Arabic",
+      type: "Type",
+      revelation_order: "Revealed",
+      ayahs: "Ayahs",
+      words: "Words",
+      letters: "Letters",
+      avg_words_per_ayah: "Words / ayah",
+      meccan_ayahs: "Meccan ayahs",
+      medinan_ayahs: "Medinan ayahs",
+      hijra_ayahs: "Hijra ayahs",
+      opening_category: "Opening",
+      ayah: "Ayah",
+      place: "Place",
+      juz: "Juz",
+      page: "Page",
+      word: "Word",
+      count: "Count",
+      root: "Root",
+      buckwalter: "Buckwalter",
+      gloss: "Gloss",
+      topic: "Topic",
+      tag: "Tag",
+      label: "Label",
+    } as Record<string, string>,
+  },
+
   legend: {
     filterBy: (l: string) => `Filter by ${l}`,
     group: "Chart legend filter",
@@ -225,9 +345,9 @@ export const en = {
   tooltip: {
     type: "Type",
     revealed: "Revealed",
-    avgWords: "Avg words/verse",
+    avgWords: "Avg words/ayah",
     opening: (c: string) => `Opening: ${c}`,
-    units: { words: "words", letters: "letters", verses: "verses" },
+    units: { words: "words", letters: "letters", verses: "ayahs" },
     inPlace: (n: string, unit: string, place: string) => `${n} ${unit} in ${place} ayahs`,
     inHijra: (n: string, unit: string) =>
       `${n} ${unit} in ayahs revealed during the Hijra`,
@@ -235,15 +355,15 @@ export const en = {
   },
 
   charts: {
-    wordsPerVerse: "Words per verse",
+    wordsPerVerse: "Words per ayah",
     surahsClick: "surahs — click to list them",
     surahsN: (n: number) => `${n} surah${n === 1 ? "" : "s"}`,
     closeList: "Close surah list",
     listAria: (c: string) => `${c} surahs`,
     clickBar: "Click a bar to see the surahs in it.",
     nWords: (n: number) => `${n} words`,
-    longest: "Longest verses",
-    shortest: "Shortest verses",
+    longest: "Longest ayahs",
+    shortest: "Shortest ayahs",
     clickSearch: "click to search",
     segments: (n: string) => `${n} segments`,
     occurrences: (n: string) => `${n} occurrences`,
@@ -264,18 +384,24 @@ export const en = {
     noRoot: (q: string) => `No root matches “${q}”.`,
     rootSummary: (total: string, inS: number, of: number) =>
       `— ${total} occurrences in ${inS} of ${of} surahs. Click a bar to read the first one.`,
-    tagged: "Tagged verses",
-    per100: "Per 100 verses",
+    tagged: "Tagged ayahs",
+    per100: "Per 100 ayahs",
     findTopic: "Find a topic: Moses, prayer, صبر…",
     findTopicAria: "Find a topic",
-    nVerses: (n: string) => `${n} verses`,
+    nVerses: (n: string) => `${n} ayahs`,
     noTopic: (q: string) => `No topic matches “${q}”.`,
     topicSummary: (n: string, inS: number, of: number) =>
-      `— ${n} verses in ${inS} of ${of} surahs.`,
-    taggedClick: "Tagged verses — click one to read it",
+      `— ${n} ayahs in ${inS} of ${of} surahs.`,
+    allTopics: "All topics",
+    topicBreadcrumb: "Topic path",
+    subtopics: "Subtopics",
+    pickTopic:
+      "Pick a category, then narrow it down. Counts are ayahs in the current range.",
+    versesBySurah: "Ayahs by surah — click an ayah to read it",
     showFewer: "Show fewer",
     showAllN: (n: string) => `Show all ${n}`,
-    topicSource: "Source: Quranic Universal Library (QUL), ayah-topics resource 45.",
+    topicSource:
+      "Source: Quranic Universal Library (QUL) ayah topics; duplicates merged and arranged into categories for this app.",
   },
 
   /** Corpus part-of-speech labels, keyed by tag (falls back to the data label). */
@@ -310,11 +436,59 @@ export const en = {
     SUP: "Supplemental",
   } as Record<string, string>,
 
+  peta: {
+    title: "Mushaf map",
+    subtitle:
+      "All 6,236 ayahs in mushaf order, one row per juz; each ayah is as wide as its text.",
+    mapLabel: "Mushaf map: arrow keys move between ayahs, Enter opens the reader",
+    rowsAre: "Rows: juz",
+    marks: "Show",
+    sajda: "Sajdah",
+    lastRead: "Last read",
+    bookmarks: "Bookmarks",
+    highlight: "Highlight",
+    none: "Nothing",
+    root: "A root",
+    topic: "A topic",
+    rootPh: "Root: كتب, ktb or a meaning…",
+    topicPh: "Topic: prayer, patience…",
+    clear: "Clear",
+    rootHits: (ar: string, gloss: string, n: string, ayahs: string) =>
+      `${ar} · ${gloss} · ${n} occurrences in ${ayahs} ayahs`,
+    topicHits: (name: string, ayahs: string) => `${name} · ${ayahs} ayahs`,
+    explore: "Open in the explorer",
+    readout: (ref: string, surah: string, place: string, juz: number, page: number) =>
+      `${ref} · ${surah} · ${place} · juz ${juz} · page ${page}`,
+    hint: "Point at an ayah to see where it is; click to read it. On a phone, tap to select, then open.",
+    read: (ref: string) => `Read ${ref}`,
+    noMatch: "No match.",
+    replay: "Play revelation order",
+    revealing: (order: number) => `Revealed #${order}`,
+    revealNote:
+      "Surahs appear in the order they were revealed, at their place in the mushaf.",
+  },
+
   browse: {
-    title: "Browse",
-    surahSub: (n: number) => `${n} of 114 surahs · click a card to read.`,
-    juzSub: "The 30 juz · click a card to read from its start",
-    manzilSub: "The 7 manzils (a week's recitation) · click a card to read",
+    cols: {
+      no: "No.",
+      surah: "Surah",
+      place: "Place",
+      revealed: "Revealed",
+      ayahs: "Ayahs",
+      words: "Words",
+      length: "Length",
+      range: "Range",
+      surahs: "Surahs",
+      pages: "Pages",
+    },
+    sortedBy: (col: string) => `Sort by ${col}`,
+    layoutAria: "Layout",
+    layoutList: "List",
+    layoutCards: "Cards",
+    title: "Index",
+    surahSub: (n: number) => `${n} of 114 surahs · click one to read.`,
+    juzSub: "The 30 juz · click one to read from its start",
+    manzilSub: "The 7 manzils (a week's recitation) · click one to read",
     browseBy: "Browse by",
     filterPh: "Name, number or meaning…",
     filterAria: "Filter surahs",
@@ -373,7 +547,7 @@ export const en = {
       hizb: "Hizb breakdown",
       ruku: "Ruku' breakdown",
       sajda: "Sajda markers",
-      similar: "Similar verses",
+      similar: "Similar ayahs",
     },
     subtitles: {
       overview: "Totals and Meccan / Medinan split",
@@ -384,13 +558,13 @@ export const en = {
       juz: "Words per juz (1–30). Click a bar to read from the start of that juz",
       hizb: "Words per hizb (1–60), coloured by parent juz. Click to read the hizb",
       ruku: "Words per ruku' (1–558), alternating colour by surah. Click to read the ruku'. Source: QUL",
-      sajda: "The 15 prostration verses. Click to jump to the verse",
+      sajda: "The 15 prostration ayahs. Click to jump to the ayah",
       similar:
-        "Arcs join verses with overlapping wording, across the whole mushaf. Click an arc to read it",
+        "Arcs join ayahs with overlapping wording, across the whole mushaf. Click an arc to read it",
     },
     traditional: (n: string) => `~${n} traditional`,
     mushafPages: "Mushaf pages",
-    sajdaVerses: "Sajda verses",
+    sajdaVerses: "Sajda ayahs",
     meccanAyahs: "Meccan ayahs",
     medinanAyahs: "Medinan ayahs",
     bySurah: (s: number, n: string) => `${s} surahs · ${n} ayahs by surah`,
@@ -403,7 +577,7 @@ export const en = {
     focus: "Focus",
     allSurahs: "All surahs",
     pairs: (n: string) => `${n} pairs`,
-    arcAria: "Arc diagram of similar verses across the mushaf",
+    arcAria: "Arc diagram of similar ayahs across the mushaf",
     clickFocus: "(click to focus)",
     pairInfo: (score: number, words: number) =>
       `· score ${score} · ${words} shared words · click to read`,
@@ -418,7 +592,7 @@ export const en = {
   },
 
   search: {
-    title: "Search the Quran",
+    title: "Search the Qur'an",
     placeholder: "Arabic (any spelling), 2:255, or a translation word…",
     queryAria: "Search query",
     clear: "Clear search",
@@ -431,10 +605,54 @@ export const en = {
   },
 
   reader: {
-    aria: "Quran reader",
+    stripLabel: "Position in the whole Qur'an (click to jump)",
+    searchToggle: "Search in this view",
+    back: "Back",
+    scopeLabel: "Read by",
+    modeLabel: "Layout",
+    modes: {
+      ayah: "Ayah by ayah",
+      mushaf: "Mushaf pages",
+      compare: "Compare translations",
+    },
+    modeShort: { ayah: "Ayahs", mushaf: "Mushaf", compare: "Compare" },
+    moreActions: "More actions",
+    context: "Ayah context",
+    contextFor: (ref: string) => `Context · ${ref}`,
+    openContext: (ref: string) => `Open context for ${ref}`,
+    contextPanel: "Ayah context panel",
+    closeContext: "Close context",
+    contextTabs: {
+      tafsir: "Tafsir",
+      words: "Word by word",
+      asbab: "Asbab",
+      similar: "Similar ayahs",
+      roots: "Roots & topics",
+    },
+    noTafsir: "No tafsir passage for this ayah.",
+    noWords: "No word-by-word data for this ayah.",
+    noAsbab: "No verified asbab al-nuzul narration covers this ayah.",
+    noSimilar: "No similar ayahs are listed for this ayah.",
+    similarScore: (score: number, words: number) =>
+      `${score}% alike · ${words} shared words`,
+    similarSource: "Source: Quranic Universal Library (QUL), similar-ayah resource.",
+    rootsHere: "Roots in this ayah",
+    rootTotal: (n: string) => `${n}× in the Qur'an`,
+    noRoots: "No roots recorded for this ayah.",
+    topicsHere: "Topics",
+    noTopics: "Not tagged with a topic.",
+    openRoot: (root: string) => `Open root ${root} in the explorer`,
+    openTopic: (topic: string) => `Open topic ${topic} in the explorer`,
+    readAyah: (ref: string) => `Read ${ref}`,
+    page: (n: number) => `Page ${n}`,
+    selectAyah: (ref: string) => `Select ${ref}`,
+    compareEditions: "Translations side by side",
+    removeEdition: (name: string) => `Remove ${name}`,
+    recitationPlayer: "Recitation player",
+    aria: "Qur'an reader",
     meta: (meaning: string, place: string, rev: number, v: number, w: string) =>
-      `${meaning} · ${place} · revealed #${rev} · ${v} verses · ${w} words`,
-    nVerses: (n: number) => `${n} verses`,
+      `${meaning} · ${place} · revealed #${rev} · ${v} ayahs · ${w} words`,
+    nVerses: (n: number) => `${n} ayahs`,
     bookmarks: "Bookmarks",
     about: "About this surah",
     settings: "Reader settings",
@@ -468,9 +686,9 @@ export const en = {
     next: (s: string) => `Next ${s}`,
     jump: (s: string) => `Jump to ${s}`,
     translation: "Translation",
-    searchPh: "Search verse / number",
-    searchAria: "Search verses in this view",
-    noMatch: "No verses match your search.",
+    searchPh: "Search ayah / number",
+    searchAria: "Search ayahs in this view",
+    noMatch: "No ayahs match your search.",
     exceptionTitle: (p: string, surahType: string) =>
       `${p} in a ${surahType} surah (traditional attribution)`,
     exHijra: "Revealed during the Hijra",
@@ -479,22 +697,68 @@ export const en = {
     copied: (what: "text" | "link") => `Copied ${what}`,
     copyFailed: "Copy failed",
     removeBookmark: "Remove bookmark",
-    bookmarkVerse: "Bookmark verse",
+    bookmarkVerse: "Bookmark ayah",
     bookmark: "Bookmark",
     editNote: "Edit bookmark note",
     note: "Note",
-    copyText: "Copy verse text",
+    copyText: "Copy ayah text",
     copyTextTitle: "Copy Arabic + translation + reference",
     copyLink: "Copy quran.com link",
     openQc: "Open on quran.com",
     notePh: "Note for this bookmark (Enter to save)",
     noteAria: "Bookmark note",
     notePrefix: (n: string) => `Note: ${n}`,
-    versesRange: (r: string) => `Verses ${r}`,
+    versesRange: (r: string) => `Ayahs ${r}`,
     arabicOnly: "Arabic only.",
     continueTo: (s: string, v: number) => `Continue to ${s} ${v}`,
     nextRevealed: (id: number, name: string) =>
       `Next in revelation order: ${id}. ${name}`,
+    audio: {
+      options: "Player options",
+      nowPlaying: "Now playing",
+      toggle: "Recitation",
+      reciter: "Reciter",
+      reciterOption: (r: {
+        name: string;
+        origin?: string;
+        bitrate: number;
+        recorded?: string | null;
+        complete: boolean;
+      }) =>
+        [
+          r.name,
+          r.recorded ? `rec. ${r.recorded}` : null,
+          r.origin,
+          `${r.bitrate} kbps`,
+          r.complete ? null : "downloading…",
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      bar: "Recitation player",
+      play: "Play",
+      pause: "Pause",
+      prevAyah: "Previous ayah",
+      nextAyah: "Next ayah",
+      playFrom: "Play from this ayah",
+      from: "From",
+      to: "To",
+      earlier: (end: string) => `Move "${end}" one ayah earlier`,
+      later: (end: string) => `Move "${end}" one ayah later`,
+      setHere: (end: string) => `Set "${end}" to the ayah now playing`,
+      surahOf: (end: string) => `${end}: surah`,
+      ayahOf: (end: string) => `${end}: ayah`,
+      resetRange: "Reset the range to this view",
+      ayahRepeat: "Repeat ayah",
+      rangeRepeat: "Repeat range",
+      gap: "Gap",
+      rate: "Speed",
+      times: (n: number) => (n === 0 ? "∞" : `${n}×`),
+      seconds: (s: number) => `${s} s`,
+      basmalah: "Basmalah",
+      pass: (a: string, r: string) => `ayah ${a} · range ${r}`,
+      idle: "Not playing",
+      failed: (f: string) => `Couldn't play ${f}`,
+    },
   },
 
   /** Tajweed rule names, keyed by markup code. */
@@ -517,6 +781,61 @@ export const en = {
     s: "Silent (not pronounced)",
     l: "Lām Shamsiyyah (assimilated lām)",
   } as Record<string, string>,
+
+  welcome: {
+    heading: "Read the Qur'an and see how it fits together",
+    intro: "Three choices to start. You can change any of them later in Settings.",
+    language: "Interface language",
+    font: "Qur'an font",
+    sample: "ٱلْحَمْدُ لِلَّهِ",
+    translation: "Translation",
+    translationHint: "Shown under each ayah in the reader.",
+    read: "Start reading",
+    readHint: "Opens Al-Fatihah",
+    explore: "Explore the map",
+    exploreHint: "Every ayah of the mushaf at a glance",
+    about: "About this app and its sources",
+  },
+
+  about: {
+    title: "About this app",
+    purpose:
+      "A study tool for the Qur'an's structure: length, place and order of revelation, divisions, vocabulary, roots, topics and similar ayahs, each linked to the ayah itself with its translation, tafsir and asbab al-nuzul. Everything ships inside the app and works offline.",
+    sourcesTitle: "Sources",
+    sources: [
+      [
+        "Qur'an text and translations",
+        "The quran-database project: the Uthmani text and over 100 translation editions. The Qur'an text is in the public domain; each translation belongs to its translator or publisher.",
+      ],
+      [
+        "Indonesian translations, tafsir, word by word",
+        "Quranic Universal Library (QUL, Tarteel): the Kemenag RI, King Fahd Complex and Sabiq translations, Tafsir al-Mukhtasar and Tafsir as-Sa'di, and Indonesian word-by-word glosses.",
+      ],
+      [
+        "Topics, similar ayahs, surah introductions, rukuʿ and manzil",
+        "Quranic Universal Library (QUL). Topics were merged, renamed and arranged into categories for this app.",
+      ],
+      [
+        "Roots and parts of speech",
+        "Quranic Arabic Corpus (corpus.quran.com), under the GNU General Public License.",
+      ],
+      [
+        "Asbab al-nuzul",
+        "Only Arabic narrations graded sahih in the hadith collections.",
+      ],
+      [
+        "Revelation order",
+        "The standard Egyptian order. The timeline's periods come from the sirah and from verified asbab narrations.",
+      ],
+    ] as [string, string][],
+    placesTitle: "Makkiyah and Madaniyah",
+    places:
+      "Each surah carries the place in its mushaf header. Some ayahs are attributed to the other place (164 here, from two agreeing sources), and charts can count by ayah. These are traditional attributions, and commentators dispute many of them.",
+    countsTitle: "Word and letter counts",
+    fontsTitle: "Fonts and icon",
+    fonts:
+      "Amiri, Amiri Quran, Scheherazade New, Lateef, Noto Naskh Arabic, Literata and Source Sans 3, all under the SIL Open Font License. The icon is اِقْرَأْ (“Read”, the first revealed word) set in Amiri, with the vowel marks in red as in the old mushafs.",
+  },
 };
 
 export type Messages = typeof en;

@@ -23,6 +23,9 @@ import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import topics as topics_mod  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]            # quran-viz/
 REPO = ROOT.parent                                    # Quran/
 DB_GZ = REPO / "quran-database-main" / "quran.db.gz"
@@ -35,6 +38,10 @@ PLACES = ("Meccan", "Medinan", "Hijra")
 # Curated period in which each surah began to be revealed (Browse timeline).
 CHRONOLOGY = Path(__file__).resolve().parent / "data" / "surah_chronology.json"
 CHRONO_BASES = ("asbab", "sirah", "urutan")
+# Curated topic tree (Topic explorer): categories + duplicate merges, and the
+# Indonesian (optionally English) name of every topic cluster.
+TOPIC_TAXONOMY = Path(__file__).resolve().parent / "data" / "topic_taxonomy.json"
+TOPIC_NAMES = Path(__file__).resolve().parent / "data" / "topic_names_id.tsv"
 # Hadith corpus (reference/hadith/build_db.py); only its verified Arabic
 # asbab al-nuzul (`sahih-ar`) is exported.
 HADITH_DB = REPO / "reference" / "quran-refs" / "hadith.db"
@@ -135,6 +142,103 @@ def _bare(text: str) -> str:
     return t.replace("ٱ", "ا").replace("أ", "ا").replace("إ", "ا").replace("آ", "ا")
 
 
+def dagger_alif(text: str) -> str:
+    """The `quran-tajweed` and `quran-wordbyword` editions write the superscript
+    (dagger) alif as U+0672 ALEF WITH WAVY HAMZA ABOVE in 1,561 places, e.g.
+    ذَٲلِكَ for ذَٰلِكَ; every one sits where the Uthmani text (and QUL) has
+    U+0670. Fonts draw it as an alif with a hamza, so map it back."""
+    return text.replace("\u0672", "\u0670")
+
+
+TANWIN = "\u064b\u064c\u064d"
+SMALL_MEEM = "\u06e2\u06ed"  # small high / small low meem
+SMALL_YEH, SMALL_HIGH_YEH, TATWEEL = "\u06e6", "\u06e7", "\u0640"
+LETTER_CHAR = re.compile(r"[\u0621-\u064a\u066e\u066f\u0671-\u06d3]")
+# Letters with no left-joining form: nothing after them connects to them.
+NON_JOINING = set("ءاأإآٱدذرزوؤةى")
+
+
+def fix_uthmani_marks(text: str, following: str = "") -> str:
+    """Two display fixes for the Tanzil-style Uthmani text (`ar`, and QUL's
+    copy of it behind wordbyword-id.json). `following` is the next ayah's text,
+    for a tanwin that ends this one.
+
+    - Tanwin + small meem (ۢ/ۭ) is that encoding's way of writing the staggered
+      (idgham/ikhfa) tanwin, which only special fonts draw as such; every font
+      the app offers draws a small meem, which in the Madinah and Indonesian
+      mushafs means iqlab. Keep the meem only before ب (real iqlab).
+      Nun + small meem (مِنۢ بَعْدِ) is always iqlab and is left alone.
+    - A small yeh (ۦ) inside a word (إِبْرَٰهِۦمَ) is a spacing character that
+      breaks the joining, so after a joining letter write it as tatweel + small
+      high yeh (ـۧ), as the tajweed edition does."""
+    full = text + " " + following
+    out = []
+    for i, c in enumerate(text):
+        if c in SMALL_MEEM and i and text[i - 1] in TANWIN:
+            nxt = LETTER_CHAR.search(full, i + 1)
+            if not nxt or nxt.group() != "ب":
+                continue
+        elif c == SMALL_YEH:
+            j = i + 1
+            while j < len(text) and not text[j].isspace() and not LETTER_CHAR.match(text[j]):
+                j += 1
+            k = i - 1
+            while k >= 0 and not LETTER_CHAR.match(text[k]):
+                k -= 1
+            if (j < len(text) and LETTER_CHAR.match(text[j])
+                    and k >= 0 and text[k] not in NON_JOINING):
+                out.append(TATWEEL + SMALL_HIGH_YEH)
+                continue
+        out.append(c)
+    return "".join(out)
+
+
+TAJWEED_OPEN = re.compile(r"\[([a-z]+)(?::(\d+))?\[")
+
+
+def flatten_tajweed(text: str) -> str:
+    """Flatten nested or rule-less tajweed markup into plain `[r[...]` runs.
+    34 ayahs nest a tag inside another (`[o[ُوٓ[s[اْ]‌ۚ]`) or open a bracket with
+    no rule (32:3 `[ٮٰ]`); the client regex stops at the first `]`, so their
+    brackets showed as text. Each run takes its innermost rule; well-formed
+    markup comes out unchanged."""
+    out, stack, buf = [], [], []
+
+    def flush():
+        if not buf:
+            return
+        chunk = "".join(buf)
+        buf.clear()
+        tag = next((t for t in reversed(stack) if t), None)
+        if tag:
+            rule, num = tag
+            out.append(f"[{rule}{':' + num if num else ''}[{chunk}]")
+        else:
+            out.append(chunk)
+
+    i = 0
+    while i < len(text):
+        m = TAJWEED_OPEN.match(text, i)
+        if m:
+            flush()
+            stack.append((m.group(1), m.group(2)))
+            i = m.end()
+            continue
+        c = text[i]
+        if c == "[":
+            flush()
+            stack.append(None)
+        elif c == "]":
+            flush()
+            if stack:
+                stack.pop()
+        else:
+            buf.append(c)
+        i += 1
+    flush()
+    return "".join(out)
+
+
 def strip_leading_basmala(text: str) -> str:
     """Remove a leading basmala from ayah-1 text, returning the remainder."""
     words = text.split()
@@ -213,6 +317,53 @@ def pair_wbw(arabic: str, glosses: list[str]) -> list[list[str]]:
     return [[w, g] for w, g in zip(words, glosses)]
 
 
+def load_topic_names(path: Path) -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
+    """topic_names_id.tsv: QUL id <TAB> Indonesian [<TAB> English [<TAB> Arabic]];
+    the English and Arabic columns override QUL's names and may be empty."""
+    names_id: dict[int, str] = {}
+    names_en: dict[int, str] = {}
+    names_ar: dict[int, str] = {}
+    for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if not line.strip() or line.startswith("#"):
+            continue
+        cols = line.split("\t")
+        if len(cols) not in (2, 3, 4) or not cols[0].isdigit() or not cols[1].strip():
+            sys.exit(f"{path.name}:{n}: expected 'id<TAB>name[<TAB>English[<TAB>Arabic]]'")
+        tid = int(cols[0])
+        if tid in names_id:
+            sys.exit(f"{path.name}:{n}: topic {tid} listed twice")
+        names_id[tid] = cols[1]
+        if len(cols) >= 3 and cols[2].strip():
+            names_en[tid] = cols[2]
+        if len(cols) == 4 and cols[3].strip():
+            names_ar[tid] = cols[3]
+    return names_id, names_en, names_ar
+
+
+def build_topic_tree(qul: sqlite3.Connection) -> list[dict]:
+    """QUL topics -> curated tree nodes with (surah, ayah) pairs in `v`."""
+    tagged: dict = {}
+    for tid, s, a in qul.execute("SELECT topic_id, surah, ayah FROM topic_ayahs"):
+        tagged.setdefault(tid, set()).add((s, a))
+    raw = [topics_mod.RawTopic(
+        id=tid, name=name or "", ar=ar or "", desc=desc or "",
+        parent=p or None, tparent=tp or None, oparent=op or None,
+        thematic=bool(th), ontology=bool(on), ayahs=frozenset(tagged.get(tid, ())))
+        for tid, name, ar, desc, p, tp, op, th, on in qul.execute(
+            "SELECT topic_id, name, arabic_name, description, parent_id, "
+            "thematic_parent_id, ontology_parent_id, thematic, ontology FROM topics")]
+    tax = json.loads(TOPIC_TAXONOMY.read_text(encoding="utf-8"))
+    names_id, names_en, names_ar = load_topic_names(TOPIC_NAMES)
+    clusters = topics_mod.cluster_topics(raw, tax["merge"])
+    try:
+        topics_mod.split_clusters(clusters, tax.get("split", []))
+        topics_mod.adjust_verses(clusters, tax.get("verses", {}))
+        return topics_mod.build_tree(clusters, tax["tree"], names_id,
+                                     tax["flatten"], names_en, names_ar)
+    except topics_mod.TaxonomyError as e:
+        sys.exit(f"topic taxonomy: {e}")
+
+
 def export_reference_extras(key_to_id: dict, surah_type: dict) -> list[dict]:
     """Batch-2 exports from qul.db + hadith.db: section themes, topics,
     Indonesian word-by-word, surah introductions, verified asbab al-nuzul and
@@ -227,22 +378,17 @@ def export_reference_extras(key_to_id: dict, surah_type: dict) -> list[dict]:
     themes = [[aid(s, lo), aid(s, hi), t] for t, s, lo, hi in qul.execute(
         "SELECT theme, surah, ayah_from, ayah_to FROM themes ORDER BY surah, ayah_from")]
     write_json(OUT / "themes.json", themes)
-    print(f"themes.json: {len(themes)} sections")
+    step(f"themes.json: {len(themes)} sections")
 
-    # Topics with the ayah ids they tag, most-tagged first.
-    tagged: dict = {}
-    for tid, s, a in qul.execute(
-            "SELECT topic_id, surah, ayah FROM topic_ayahs ORDER BY surah, ayah"):
-        tagged.setdefault(tid, []).append(aid(s, a))
-    topics = []
-    for tid, name, ar, desc in qul.execute(
-            "SELECT topic_id, name, arabic_name, description FROM topics"):
-        if tid in tagged:
-            topics.append({"id": tid, "name": name, "ar": ar or "",
-                           "desc": desc or "", "v": tagged[tid]})
-    topics.sort(key=lambda t: (-len(t["v"]), t["name"]))
-    write_json(OUT / "topics.json", topics)
-    print(f"topics.json: {len(topics)} topics")
+    # Topics: QUL's duplicate-ridden topic list folded into the curated tree
+    # (scripts/topics.py, scripts/data/topic_taxonomy.json + topic_names_id.tsv).
+    nodes = build_topic_tree(qul)
+    for n in nodes:
+        if "v" in n:
+            n["v"] = [aid(s, a) for s, a in n["v"]]
+    write_json(OUT / "topics.json", nodes)
+    step(f"topics.json: {len(nodes)} nodes, "
+          f"{sum(1 for n in nodes if n['p'] == -1)} top categories")
 
     # Indonesian word-by-word, paired with QUL's own Arabic words (the gloss
     # boundaries follow QUL's text, not the `quran-wordbyword` edition).
@@ -252,10 +398,13 @@ def export_reference_extras(key_to_id: dict, surah_type: dict) -> list[dict]:
             "ORDER BY surah, ayah, word"):
         glosses.setdefault((s, a), []).append(t)
     wbw_id: list = [None] * (len(key_to_id) + 1)
-    for s, a, text in qul.execute("SELECT s, a, text FROM verses"):
+    qverses = qul.execute("SELECT s, a, text FROM verses ORDER BY s, a").fetchall()
+    for n, (s, a, text) in enumerate(qverses):
+        nxt = qverses[n + 1] if n + 1 < len(qverses) else None
+        text = fix_uthmani_marks(text, nxt[2] if nxt and nxt[0] == s else "")
         wbw_id[aid(s, a)] = pair_wbw(text, glosses[(s, a)])
     write_json(OUT / "wordbyword-id.json", wbw_id)
-    print(f"wordbyword-id.json: {sum(1 for x in wbw_id if x)} ayahs")
+    step(f"wordbyword-id.json: {sum(1 for x in wbw_id if x)} ayahs")
 
     # Surah introductions (plain text, paragraphs separated by blank lines).
     for lang in ("en", "id"):
@@ -264,7 +413,7 @@ def export_reference_extras(key_to_id: dict, surah_type: dict) -> list[dict]:
                 "SELECT surah, text FROM surah_info WHERE lang=?", (lang,)):
             info[n] = text.strip()
         write_json(OUT / f"surah-info-{lang}.json", info)
-    print("surah-info-{en,id}.json: 114 surahs each")
+    step("surah-info-{en,id}.json: 114 surahs each")
 
     # QUL Indonesian translations -> extra editions.
     extra = []
@@ -277,7 +426,7 @@ def export_reference_extras(key_to_id: dict, surah_type: dict) -> list[dict]:
         extra.append({"identifier": ident, "language": "id", "name": name,
                       "englishName": english, "type": "translation",
                       "count": sum(1 for x in arr if x)})
-    print(f"translations/: {len(extra)} QUL Indonesian editions")
+    step(f"translations/: {len(extra)} QUL Indonesian editions")
 
     # QUL Indonesian tafsirs -> tafsir/<ident>/<surah>.json passage lists.
     for qed, ident in QUL_TAFSIRS.items():
@@ -290,7 +439,7 @@ def export_reference_extras(key_to_id: dict, surah_type: dict) -> list[dict]:
         out_dir.mkdir(parents=True, exist_ok=True)
         for surah, passages in by_surah.items():
             write_json(out_dir / f"{surah}.json", passages)
-        print(f"tafsir/{ident}/: {sum(map(len, by_surah.values()))} passages")
+        step(f"tafsir/{ident}/: {sum(map(len, by_surah.values()))} passages")
     qul.close()
 
     # Verified asbab al-nuzul (Arabic only): [first id, last id, [narrations]].
@@ -312,14 +461,14 @@ def export_reference_extras(key_to_id: dict, surah_type: dict) -> list[dict]:
                   "(صحيح أسباب النزول), via asbab-al-nuzul-dataset (MIT)",
         "items": [[lo, hi, texts] for (lo, hi), texts in groups.items()],
     })
-    print(f"asbab.json: {len(groups)} ayah ranges")
+    step(f"asbab.json: {len(groups)} ayah ranges")
 
     asbab_ids = {i for lo, hi in groups for i in range(lo, hi + 1)}
     chrono = json.loads(CHRONOLOGY.read_text(encoding="utf-8"))
     check_chronology(chrono, surah_type, key_to_id, asbab_ids)
     write_json(OUT / "chronology.json",
                {"periods": chrono["periods"], "surahs": chrono["surahs"]})
-    print(f"chronology.json: {len(chrono['periods'])} periods, "
+    step(f"chronology.json: {len(chrono['periods'])} periods, "
           f"{len(chrono['surahs'])} surahs")
     return extra
 
@@ -464,6 +613,7 @@ def main() -> None:
     # should render a basmala line above verse 1). Al-Fatiha (1) keeps it as
     # verse 1 and At-Tawbah (9) has none, so neither ends up here.
     has_basmala = set()
+    texts = []
     for r in ayahs:
         text = r["text"]
         if r["number_in_surah"] == 1 and r["surah_id"] not in (1, 9):
@@ -471,6 +621,10 @@ def main() -> None:
             if stripped != text:
                 text = stripped
                 has_basmala.add(r["surah_id"])
+        texts.append(text)
+    for n, r in enumerate(ayahs):
+        last = n + 1 == len(ayahs) or ayahs[n + 1]["surah_id"] != r["surah_id"]
+        text = fix_uthmani_marks(texts[n], "" if last else texts[n + 1])
         w, l = count_words(text), count_letters(text)
         verses.append({
             "id": r["id"], "s": r["surah_id"], "a": r["number_in_surah"],
@@ -492,7 +646,7 @@ def main() -> None:
         a["pages"].add(r["page"])
         a["juzs"].add(r["juz_id"])
     write_json(OUT / "verses.json", verses)
-    print(f"verses.json: {len(verses)} verses")
+    step(f"verses.json: {len(verses)} verses")
 
     # Array length for ayah-id-indexed files (1-indexed, position 0 unused).
     # Computed from the DB rather than hardcoded so it tracks any upstream change.
@@ -520,7 +674,7 @@ def main() -> None:
             "exceptions": sum(1 for v in verses if v["s"] == r["id"] and "p" in v),
         })
     write_json(OUT / "surahs.json", surahs)
-    print(f"surahs.json: {len(surahs)} surahs")
+    step(f"surahs.json: {len(surahs)} surahs")
 
     # --- editions index (exported text editions only, no audio) ---
     edition_rows = db.execute(
@@ -557,7 +711,7 @@ def main() -> None:
     write_json(OUT / "editions.json", {
         "default": DEFAULT_TRANSLATION, "editions": editions,
     })
-    print(f"editions.json: {len(editions)} editions")
+    step(f"editions.json: {len(editions)} editions")
 
     # --- per-edition translation files (ayah-id indexed, position 0 unused) ---
     for e in editions:
@@ -573,7 +727,7 @@ def main() -> None:
         for ar in rows:
             arr[ar["ayah_id"]] = ar["data"]
         write_json(TRANS_OUT / f"{ident}.json", arr)
-    print(f"translations/: {len(editions)} files")
+    step(f"translations/: {len(editions)} files")
 
     # --- tajweed (pre-annotated Arabic, lazy-loaded for the reader overlay) ---
     # The `quran-tajweed` edition is type='quran' (outside EXPORT_TYPES) and
@@ -592,12 +746,12 @@ def main() -> None:
         ).fetchall()
         tarr = [None] * ARR_LEN
         for r in rows:
-            data = r["data"]
+            data = flatten_tajweed(dagger_alif(r["data"]))
             if r["number_in_surah"] == 1 and r["surah_id"] not in (1, 9):
                 data = strip_leading_basmala(data)
             tarr[r["ayah_id"]] = data
         write_json(OUT / "tajweed.json", tarr)
-        print(f"tajweed.json: {sum(1 for x in tarr if x)} ayahs")
+        step(f"tajweed.json: {sum(1 for x in tarr if x)} ayahs")
 
     # --- word-by-word (lazy-loaded for the reader overlay) ---
     # `quran-wordbyword` stores each word as "arabic|gloss|n|n|idx" joined by '$'
@@ -622,10 +776,10 @@ def main() -> None:
                     continue
                 parts = tok.split("|")
                 if len(parts) >= 2:
-                    words.append([parts[0], parts[1]])
+                    words.append([dagger_alif(parts[0]), parts[1]])
             warr[r["ayah_id"]] = words
         write_json(OUT / "wordbyword.json", warr)
-        print(f"wordbyword.json: {sum(1 for x in warr if x)} ayahs")
+        step(f"wordbyword.json: {sum(1 for x in warr if x)} ayahs")
 
     # --- morphology aggregate (from the Quranic Arabic Corpus edition) ---
     # `quran-corpus-qd` tags each segment "translit⚓gloss⚓POS|...|ROOT:xxx|..."
@@ -687,7 +841,7 @@ def main() -> None:
             "roots": top_roots,
             "pos": pos_out,
         })
-        print(f"morphology.json: {len(roots)} roots, {len(pos)} POS tags, "
+        step(f"morphology.json: {len(roots)} roots, {len(pos)} POS tags, "
               f"{total} segments")
         # Every root with the ayah id of each occurrence, for the root explorer
         # (lazy-loaded). Per-surah counts are derived client-side.
@@ -696,7 +850,7 @@ def main() -> None:
              "v": root_ayahs[bw]}
             for bw, _ in roots.most_common()
         ])
-        print(f"roots.json: {len(roots)} roots, "
+        step(f"roots.json: {len(roots)} roots, "
               f"{sum(len(v) for v in root_ayahs.values())} occurrences")
 
     # --- similar ayahs (QUL similar-ayah/74): undirected [a, b, score, words] ---
@@ -704,7 +858,7 @@ def main() -> None:
         "source": "Quranic Universal Library (QUL), similar-ayah resource 74",
         "pairs": qul["similar"],
     })
-    print(f"similar.json: {len(qul['similar'])} pairs")
+    step(f"similar.json: {len(qul['similar'])} pairs")
 
     # --- meta (juz/hizb ranges, pages, classification, provenance) ---
     juzs = [dict(r) for r in db.execute(
@@ -741,7 +895,7 @@ def main() -> None:
                        "stripping diacritics",
     }
     write_json(OUT / "meta.json", meta)
-    print(f"meta.json: {meta['totals']}")
+    step(f"meta.json: {meta['totals']}")
 
     # --- sanity checks: fail loudly if the source DB drifted unexpectedly ---
     assert len(verses) == max_ayah_id, (
@@ -767,6 +921,22 @@ def main() -> None:
 
     db.close()
     print("Done.")
+
+
+# Progress lines for the background-task band: "n/total · (pct%) · what · eta m:ss".
+ETL_STEPS = 19  # step() calls in a full run (tajweed/wordbyword/morphology count)
+_etl_start = datetime.now(timezone.utc)
+_etl_done = 0
+
+
+def step(message: str) -> None:
+    """Report one finished output, with the share done and a time estimate."""
+    global _etl_done
+    _etl_done = min(_etl_done + 1, ETL_STEPS)
+    spent = (datetime.now(timezone.utc) - _etl_start).total_seconds()
+    left = round(spent / _etl_done * (ETL_STEPS - _etl_done))
+    print(f"{_etl_done}/{ETL_STEPS} · ({_etl_done / ETL_STEPS:.0%}) · {message} · "
+          f"eta {left // 60}:{left % 60:02d}", flush=True)
 
 
 def write_json(path: Path, data) -> None:

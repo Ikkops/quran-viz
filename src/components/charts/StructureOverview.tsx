@@ -14,12 +14,10 @@ function Stat({
 }) {
   return (
     <Card className="p-3">
-      <div className="text-2xl font-bold tabular-nums text-slate-800 dark:text-slate-100">
-        {value}
-      </div>
-      <div className="text-xs text-slate-500 dark:text-slate-400">{label}</div>
+      <div className="text-2xl font-bold tabular-nums text-ink">{value}</div>
+      <div className="text-xs text-ink-muted dark:text-ink-subtle">{label}</div>
       {sub && (
-        <div className="mt-0.5 text-[11px] tabular-nums text-slate-400 dark:text-slate-500">
+        <div className="mt-0.5 text-xs tabular-nums text-ink-subtle dark:text-ink-muted">
           {sub}
         </div>
       )}
@@ -75,7 +73,7 @@ export function StructureOverview({ surahs, meta }: { surahs: Surah[]; meta: Met
           <Stat label={tr.structure.hijra} value={hijra} sub="22:52–55, 28:85, 47:13" />
         )}
       </div>
-      <p className="text-[11px] text-slate-400">
+      <p className="text-xs text-ink-subtle">
         {tr.structure.overviewNote} {tr.placeCaveat}
       </p>
     </div>

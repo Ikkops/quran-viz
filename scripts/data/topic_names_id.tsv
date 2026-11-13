@@ -1,0 +1,1880 @@
+# Indonesian names of topic clusters (scripts/topics.py). QUL topic id <TAB>
+# Indonesian name [<TAB> English name override]. Any member id of a cluster
+# works; one line per cluster. Ordered as the tree reads (topic_taxonomy.json).
+# --- Aqidah: Allah
+1268	Asmaul Husna (Nama-Nama Allah)	Beautiful Names
+1901	Sifat-Sifat Allah	Divine Qualities
+1903	Satu-satunya yang berhak disembah	Only god worthy of worship
+1907	Nikmat-Nya yang tak terhitung bagi manusia	Countless favours upon humanity
+1924	Mencipta dengan firman "Kun!"	Creates with the word "Be!"
+1922	Kekuasaan-Nya yang tak terbatas	His infinite power
+1923	Menciptakan langit dan bumi dalam enam masa tanpa letih
+1910	Melapangkan dan menyempitkan rezeki
+1912	Maha Pengasih di antara para pengasih
+1913	Maha Mencintai (Al-Wadud)
+1914	Maha Pengampun dan keras siksa-Nya
+1915	Yang Awal, Yang Akhir, Yang Zahir, dan Yang Batin
+1916	Segala kemuliaan dan kekuatan milik-Nya
+1918	Paling mengetahui isi hati
+1919	Mengetahui yang telah dan akan terjadi
+1920	Mencatat segalanya dalam Kitab (Lauh Mahfuz)
+73	Arasy Allah	Allah's Throne
+1906	Kursi Allah	His Seat (Kursi)
+1578	Rabb (Tuhan)	Lord
+1597	Rahmat Allah	Mercy
+1316	Nikmat	Blessing
+1451	Menyebut-nyebut pemberian / merasa berjasa (al-mann)	Reminding others of favours (mann)
+1507	Pertolongan	Help
+1488	Anugerah	Granting
+1495	Al-Wakil (Pelindung, tempat berserah)	Guardian
+1559	Ar-Ra'uf (Maha Penyantun)	Kind
+1601	Keperkasaan (Al-'Izzah)	Might
+1736	Istigna: Allah Mahakaya, manusia merasa serba cukup	Self-sufficient
+1677	Perwalian dan perlindungan (wilayah)	Protection
+1384	Perbendaharaan Allah	Depositories
+1284	Naik ke langit / naik kepada-Nya	Ascension
+335	Mengetahui yang gaib dan yang nyata
+312	Mahakuasa atas segala sesuatu
+342	Berlindung kepada-Nya dari kejahatan
+347	Tidak menghendaki kezaliman atas makhluk-Nya
+321	Klaim palsu tentang "putri-putri Allah"
+327	Pejuang yang bersungguh-sungguh diberi pahala lebih
+324	Meninggalkan segalanya demi Dia
+326	Memberi hidup dan mati
+331	Ada di mana-mana (pengetahuan-Nya meliputi)
+337	Tidak menetapkan hukum atas yang tidak Dia firmankan
+343	Mengingat-Nya sambil berdiri, duduk, dan berbaring
+316	Dapat melenyapkan manusia dan mendatangkan makhluk lain
+329	Tidak beranak
+314	Tak terjangkau definisi
+340	Tidak ada manusia yang bersifat ketuhanan
+313	Hakim yang paling adil
+317	Membuat tertawa dan menangis
+318	Menidurkan seseorang selama seratus tahun
+319	Musuh bagi orang yang mengingkari kebenaran
+320	Bertasbih kepada-Nya pagi dan petang
+323	Memberi manusia kehendak bebas
+325	Baik dan buruk berasal dari-Nya
+328	Tidak beristri
+330	Tidak meninggalkanmu di masa sulit
+336	Mencintai orang yang berlaku adil
+338	Rahmat bagi tawanan perang yang berhati baik
+344	Membentuk rupa di dalam rahim
+345	Arasy-Nya di atas air
+346	Mencipta apa yang tidak kamu ketahui
+309	Satu hari di sisi-Nya
+310	Seperti seribu tahun manusia
+311	Lima puluh ribu tahun
+332	Dia adalah
+# --- Aqidah: Tauhid
+1271	Yang Maha Esa (Al-Wahid)	The One
+1577	Kebersamaan dan kedekatan Allah (ma'iyyah)	Allah's nearness and companionship (ma'iyyah)
+1752	Hanif (lurus, bertauhid)	Upright in faith (hanif)
+544	Tuhan-tuhan	Deities
+545	Tiada tuhan selain Allah
+1482	Tagut	Taghut (false objects of worship)
+# --- Aqidah: Malaikat
+42	Harut dan Marut	Harut and Marut
+356	Sembilan belas penjaga neraka
+2147	Bertanya tentang penciptaan Adam
+355	Malaikat penjaga
+38	Jibril	Gabriel
+2151	Dua malaikat pencatat amal
+200	Malaikat maut	Angel of Death
+354	Klaim palsu bahwa malaikat itu perempuan
+357	Tidak diturunkan untuk memenuhi keinginan manusia
+2148	Tidak pernah mendurhakai Allah
+39	Mikail	Michael
+210	Malik (penjaga neraka)	Malik
+353	Delapan malaikat pemikul Arasy pada hari kiamat
+358	Diutus membawa wahyu
+2149	Bukan anak-anak perempuan Allah
+# --- Aqidah: Kitab
+80	Taurat	Torah
+1017	Pengikutnya
+1197	Hukum kisas dalam Taurat
+1198	Memaafkan lebih baik
+100	Zabur dan zubur (kitab-kitab terdahulu)	Psalms (Zabur) and earlier scriptures (zubur)
+1081	Diberikan kepada Dawud
+81	Injil	Gospel
+436	Kitab suci terdahulu (Alkitab)	Bible
+1323	Kitab	Book
+1401	Al-Furqan (pembeda)	Criterion (Furqan)
+# --- Aqidah: Al-Qur'an
+292	Nasikh dan mansukh	Abrogation
+1338	Tantangan Al-Qur'an	Challenge
+1344	Penjelasan yang nyata	Clear
+1544	Takwil (makna firman dan tafsir mimpi)	Meaning
+1097	Diturunkan dalam bahasa Arab
+2178	Mengabarkan peristiwa masa depan
+1083	Diturunkan pada malam yang diberkahi
+2176	Terpelihara di Lauh Mahfuz
+2171	Bukan rekaan
+2172	Bukan jiplakan Alkitab
+2173	Tidak diturunkan oleh setan
+2174	Tak seorang pun mampu membuat yang serupa
+1086	Disampaikan dengan jelas
+1095	Bukan syair
+1100	Penawar (syifa)
+2160	Wahyu dari Allah
+2161	Peringatan bagi seluruh alam
+2165	Diturunkan berangsur-angsur
+2167	Membenarkan wahyu sebelumnya
+1084	Ketentuan yang jelas
+1088	Jangan tergesa-gesa membacanya
+1089	Mudah dipahami
+1090	Penuh hikmah
+1091	Petunjuk bagi manusia
+1092	Dinding tak terlihat saat dibacakan
+1093	Bukan ucapan Muhammad
+1096	Bacalah yang mudah darinya
+1098	Diturunkan bertahap
+1099	Ayat muhkam dan mutasyabih
+2162	Menunjukkan jalan yang paling lurus
+2163	Mulai diturunkan pada bulan Ramadan
+2166	Mudah diingat
+2168	Batu uji bagi kitab-kitab terdahulu
+2169	Tiada keraguan padanya
+2170	Tiada pertentangan di dalamnya
+2175	Terjaga dari perubahan
+2177	Tak dapat dibuktikan salah
+2179	Membuat orang beriman menangis
+2180	Menyentuh hati
+2181	Cahaya yang terang
+# --- Aqidah: Kenabian & Wahyu
+1135	Wahyu dan penglihatan	Revelation and vision
+1139	Cara wahyu disampaikan
+1136	Setiap zaman punya wahyunya
+1137	Dari balik tabir
+1138	Wahyu yang menyebut perang
+1540	Ilham	Inspiration
+1583	Tuduhan gila terhadap para nabi	Madman
+1073	Tujuan diutusnya nabi
+1070	Nabi hanyalah manusia
+1072	Diutus dengan bahasa kaumnya
+1075	Sebagian nabi lebih utama
+1062	Terimalah nabi yang membenarkan wahyu sebelumnya
+1063	Sedekah sebelum berbicara empat mata dengan Nabi
+1064	Tawanan perang sebelum musuh dilumpuhkan	Taking captives before subduing the enemy
+1067	Paling berhak atas kesetiaan orang beriman
+1068	Bangun malam dua pertiga, separuh, atau sepertiga malam
+1069	Sebagian nabi tidak disebutkan
+1076	Nabi terdahulu beristri dan beranak
+2158	Utusan dari kalangan malaikat dan manusia
+2159	Ulul azmi (Ibrahim, Nuh, Musa, Isa, Muhammad)
+1077	Istri-istri Nabi
+1078	Pahala dan hukuman bagi mereka
+1079	Boleh dilepas jika menghendaki
+# --- Aqidah: Nabi Muhammad
+1005	Penutup para nabi	Seal of the prophets	خاتم النبيين
+1836	Ummi (buta huruf; kaum tanpa kitab)	Unlettered
+978	Teguran Allah kepada Nabi
+988	Bukan orang gila
+989	Hanya seorang nabi
+995	Nabi yang ummi
+979	Hakim bagi umatnya
+980	Tidak berani mengubah Al-Qur'an
+982	Kekhususan dalam hukum pernikahan
+990	Dilarang memohonkan ampun bagi pamannya yang musyrik
+991	Mengharamkan sesuatu yang halal
+993	Panggilannya
+994	Minta izin meninggalkan majelisnya
+996	Menggilir istri-istri
+997	Janda Nabi tidak boleh dinikahi
+984	Pernikahan
+985	Kerabat yang halal dinikahi
+986	Batasannya
+2012	Sifat-sifat Nabi	Qualities
+2020	Menunjukkan jalan yang lurus
+2013	Menyampaikan kebenaran
+2015	Akhlak yang agung
+2017	Karunia bagi orang beriman
+2018	Rahmat bagi seluruh alam
+2019	Rasul untuk seluruh manusia
+2021	Peduli kepada umat
+2022	Saksi pada hari kiamat
+2023	Dinubuatkan dalam Taurat dan Injil
+2024	Dikabarkan oleh Isa
+2025	Tantangan dakwah Nabi
+2031	Diperintah mencari ketenangan dalam salat
+2026	Tuntutan kaum musyrik yang tidak masuk akal
+2027	Tuduhan palsu
+2028	Upaya pembunuhan
+2029	Ancaman bagi yang menyakiti atau menentangnya
+2030	Diperintah bersabar menghadapi pengingkaran
+2032	Dihibur oleh Allah
+2043	Kemuliaan yang dianugerahkan kepada Nabi	Honours bestowed on the Prophet
+2046	Mikraj ke langit
+2053	Adab berbicara kepada Nabi
+2050	Keluarganya disucikan
+2044	Allah dan malaikat bersalawat kepadanya
+2045	Isra dari Makkah ke Yerusalem
+2047	Dimuliakan di dunia dan akhirat
+2048	Taat kepadanya berarti taat kepada Allah
+2049	Pahala taat kepada Allah dan Rasul
+2052	Orang beriman diperintah menaatinya
+2054	Adab bertamu ke rumah Nabi
+2055	Adab terhadap istri-istri Nabi
+2056	Allah rida kepadanya dan para sahabatnya
+2057	Keutamaan umatnya
+# --- Aqidah: Qada & Qadar
+1380	Meminta fatwa	Asking for a ruling (fatwa)	الاستفتاء
+1261	Urusan (amr)	Affair
+1339	Perubahan	Change
+1342	Pilihan	Choice
+1429	Kehormatan dan nama baik	Esteem and good reputation
+1653	Sunnatullah	Divine pattern (sunnah)
+2185	Kebebasan memilih
+# --- Aqidah: Gaib
+122	Jin	Jinn
+818	Diciptakan dari api
+2403	Sebagian beriman kepada Al-Qur'an
+2404	Jin dan manusia diciptakan untuk beribadah
+6	Iblis dan Setan	Satan
+2411	Golongannya
+2407	Menggoda Adam hingga jatuh
+2408	Tidak berkuasa atas orang beriman
+2409	Tujuannya
+2414	Orang beriman berlindung kepada Allah darinya
+2406	Termasuk golongan jin
+2412	Perbuatannya
+2405	Kesombongannya
+2410	Musuh yang nyata bagi manusia
+2413	Menghalangi kebaikan
+2415	Tipu dayanya lemah
+2416	Meninggalkan pengikutnya
+2417	Berbicara kepada pengikutnya di neraka
+2418	Setan-setan	Devils
+2420	Langit dijaga dari setan
+2419	Setan dari kalangan manusia dan jin
+1772	Ruh	Spirit
+1181	Sihir	Magic
+1182	Sihir itu jahat
+1766	Dukun	Soothsayer
+506	Mencuri dengar berita langit	Eavesdropping on the heavens
+507	Mencuri dengar majelis tertinggi
+652	Masa depan	Future
+653	Larangan meramal
+1835	Yang gaib	The Unseen (al-ghayb)
+1408	Mimpi dan takwilnya	Dreams
+2264	Yusuf
+1398	Yang ditampakkan dan disembunyikan	What is shown or concealed
+448	Penyelam dan tukang bangunan (jin Sulaiman)	Divers and builders
+# --- Aqidah: Iman
+47	Islam
+435	Orang-orang beriman	Believers
+1612	Muslim	Muslims
+2106	Saling melindungi
+1496	Hidayah	Guidance
+1286	Kesesatan	Astray
+1337	Keyakinan	Certainty
+1406	Keraguan	Doubt
+1823	Kebenaran (al-haqq)	Truth
+1447	Kebatilan	Falsehood
+1650	Jalan (shirath)	Path
+1541	Fitrah	Instinct (fitrah)
+434	Beriman kepada semua wahyu
+1887	Satu-satunya jalan yang diterima Allah
+1890	Para nabi Islam
+1886	Agama telah disempurnakan
+1888	Tidak ada paksaan dalam agama
+1889	Satu agama, syariat berbeda-beda
+1891	Beriman dan beramal saleh
+1892	Maqasid syariah: menjaga agama
+1893	Maqasid syariah: menjaga jiwa
+1894	Maqasid syariah: menjaga harta
+1895	Maqasid syariah: menjaga kehormatan
+1896	Maqasid syariah: menjaga akal
+# --- Aqidah: Kufur
+546	Orang-orang kafir	Disbelievers
+547	Menantang Nabi mendatangkan azab
+550	Perjanjian dengan mereka
+523	Pelanggarannya
+558	Bersungguh-sungguh menghadapi mereka
+551	Allah menggagalkan tipu daya mereka
+548	Bergaul dengan baik
+552	Lindungi jika mereka meminta
+556	Tidak berhak memakmurkan masjid
+557	Berbicara dengan lembut
+559	Adil kepada yang tidak memerangi
+560	Hanya bersekutu dengan sesama kafir
+553	Hukuman bagi mereka
+554	Dalam perang
+555	Di akhirat
+886	Kekufuran (kufr)	Disbelief (kufr)
+740	Orang-orang munafik	Hypocrites
+741	Mendoakan mereka tidak berguna
+1649	Sekutu bagi Allah (syirik)	Partners with Allah
+255	Sesembahan palsu	False deities
+113	Berhala	Idols
+207	Ba'l
+216	Lata
+217	Uzza
+218	Manat
+228	Wadd
+229	Suwa'
+230	Yaghuts
+231	Ya'uq
+232	Nasr
+743	Penyembahan berhala	Idolatry
+659	Sesembahan pra-Islam	Pre-Islamic deities
+339	Hakikatnya
+1779	Patung	Statues
+2125	Objek-objek sesembahan	Objects of worship
+2130	Berhala kaum Ibrahim
+2131	Lata, Uzza, dan Manat (musyrik Arab)
+2136	Hawa nafsu
+2137	Bantahan atas banyak tuhan
+2126	Malaikat (sebagian musyrik Arab)
+2127	Aikah (kaum Syu'aib)
+2129	Isa (dalam agama Nasrani)
+2132	Wadd, Suwa', Yaghuts, Ya'uq, dan Nasr (kaum Nuh)
+2133	Matahari (kaum Saba)
+2134	Bintang Syi'ra (sebagian musyrik Arab)
+2135	Firaun (Mesir kuno)
+2114	Tradisi jahiliah yang dihapus	Pagan practices outlawed
+2123	Tawaf telanjang di Ka'bah
+2115	Mengubur anak perempuan hidup-hidup
+2121	Ila' (sumpah tidak menggauli istri lebih dari empat bulan)
+2116	Membunuh anak karena takut miskin
+2117	Bersiul dan bertepuk di sekitar Ka'bah
+2118	Mempersembahkan unta untuk berhala
+2119	Menyembelih atas nama berhala
+2120	Zihar
+2122	Mengundi nasib dengan anak panah
+2124	Masuk rumah dari belakang sepulang haji
+364	Murtad	Apostasy
+367	Hukumannya di akhirat
+365	Jangan meminta azab disegerakan bagi orang kafir
+366	Hanya Allah yang menghukum mereka
+368	Ditolak oleh orang lain
+371	Karena dipaksa
+1391	Orang fasik	Transgressors (fasiq)
+1635	Menghalangi dari jalan Allah	Obstruction
+1861	Orang durhaka (fujjar)	Wicked
+# --- Aqidah: Agama
+2145	Gelar keagamaan	Religious titles
+2146	Pendeta, rahib, dan rabi
+1203	Trinitas	Trinity
+957	Kerahiban	Monasticism
+958	Sebagian bentuknya dikecam
+959	Rahib dan rabi	Monks and rabbis
+960	Sebagian memakan harta orang
+962	Dijadikan tuhan oleh sebagian orang
+1103	Sebagian dari mereka
+1673	Pendeta (qissis)	Priest
+1128	Sekte-sekte	Sects
+1443	Golongan (hizb)	Factions
+1393	Perselisihan	Difference
+1352	Paksaan	Compulsion
+1538	Mengada-adakan kebohongan terhadap Allah (iftira)	Fabricating lies against Allah (iftira')
+29	Yahudi	Jews
+810	Membunuh para nabi
+788	Yahudi dan Nasrani
+789	Rasul datang kepada mereka
+790	Permusuhan dan kebencian di antara mereka
+791	Pertikaian di antara mereka
+793	Tidak berhak mengklaim karunia Allah sendirian
+794	Surga bukan hanya milik mereka
+795	Mengaku "anak-anak Allah"
+806	Perintah agama bagi mereka
+495	Yang saleh di antara mereka diberi pahala
+811	Sebagian mengubah makna wahyu
+812	Maafkanlah mereka
+493	Kebanyakan melupakan peringatan
+797	Mengaku paling dekat dengan Allah
+809	Berkata "hati kami tertutup"
+796	Hanya sedikit yang beriman
+798	Diharamkan sebagian yang baik
+799	Sebabnya
+800	Makanan yang diharamkan atas mereka
+801	Kebaikan nenek moyang tidak menolong
+802	Menzalimi diri dengan takwil yang salah
+803	Keliru hanya beriman pada kitab sendiri
+804	Paling keras permusuhannya terhadap orang beriman
+805	Saling menebus tawanan di masa Nabi
+808	Berkata "Uzair putra Allah"
+813	Peringatan kepada mereka
+30	Nasrani	Christians
+494	Telah datang kepadamu seorang rasul
+491	Diminta tidak menuhankan Isa
+492	Paling dekat persahabatannya dengan orang beriman
+496	Berkata "Isa putra Allah"
+31	Shabi'in	Sabians
+1141	Yang saleh diberi pahala
+1119	Agama bukan permainan dan senda gurau
+1117	Mengikuti dugaan orang lain
+1125	Menggunakan akal dalam beragama
+2113	Ateis
+179	Majusi	Magians
+1115	Tetap bersatu dalam agama
+1116	Mengada-adakan halal dan haram
+1118	Taklid pada tradisi nenek moyang
+1122	Agama tidak memberatkan
+1123	Sama seperti umat sebelum kamu
+1124	Mendalami makna agama
+2107	Ahli Kitab (Yahudi dan Nasrani)
+2108	Sembelihan Ahli Kitab dan menikahi perempuan mereka
+2111	Kaum musyrik penyembah berhala
+# --- Akhirat: Kematian
+1377	Orang mati	The dead
+670	Kubur	Grave
+450	Pemakaman	Burial
+541	Negeri yang belum diberi peringatan tidak dibinasakan
+542	Yang gugur di jalan Allah itu hidup
+2421	Ajal tidak dapat dimajukan atau ditunda	death cannot be hastened or delayed
+539	Lari dari medan perang tidak menunda ajal	fleeing battle does not delay death
+543	Mati saat berhijrah kepada Allah	dying while emigrating for Allah's sake
+2422	Tidur, saudara kembar kematian	sleep, the twin brother of death
+2423	Orang beriman dan kafir saat sakaratul maut
+2424	Azab kubur
+# --- Akhirat: Kiamat
+2	Hari Kiamat	Day of Resurrection
+388	Bintang-bintang
+389	Langit dunia dihiasi bintang	nearest heaven adorned with stars
+390	Malaikat yang dijadikan sumpah	Angels Allah swears by
+391	Bintang yang beredar
+860	Bintang dihapuskan
+861	Bintang berjatuhan
+834	Siapkah orang kafir menghadapinya?
+835	Tobat saat itu terlambat
+833	Para rasul dikumpulkan
+836	Anak-anak beruban	children's hair turns grey
+843	Nyala api dan asap
+844	Bulan terbelah
+851	Lautan meluap
+837	Bumi
+838	Bumi dan gunung diangkat lalu dihancurkan
+839	Bumi diratakan
+840	Bumi terbelah
+841	Bumi diguncang dahsyat
+842	Bumi bergoncang, gunung menjadi pasir beterbangan
+845	Gunung-gunung
+846	Seperti bulu yang dihambur
+847	Hancur menjadi debu
+848	Dihancurkan
+849	Lenyap
+850	Berjalan
+852	Langit
+857	Langit terbelah
+853	Langit pecah mengeluarkan awan
+854	Langit dibuka
+855	Seperti cairan tembaga
+856	Merah seperti minyak mendidih
+858	Langit digulung
+859	Langit mendatangkan kabut asap
+4	Hari Akhir	Last Day
+250	Al-Waqi'ah (peristiwa besar)	The Event
+1278	Mendekati (larangan mendekati)	Approaching / drawing near
+173	Ya'juj dan Ma'juj	Gog and Magog
+194	Binatang melata dari bumi	Beast of the Earth
+1762	Asap (dukhan)	Smoke
+2426	Tanda-tanda kiamat
+2427	Nama-nama hari kiamat
+2428	Waktunya hanya diketahui Allah
+2429	Kian mendekat
+2430	Datang tiba-tiba
+2431	Sangkakala ditiup
+# --- Akhirat: Kebangkitan & Hisab
+862	Tiga golongan manusia	Three types of soul to judge
+864	Golongan kiri (celaka)
+863	Golongan yang didekatkan kepada Allah
+865	Golongan kanan
+1109	Catatan amal	Record of deeds
+2193	Orang kafir menerima catatan dengan tangan kiri
+2192	Orang beriman menerima catatan dengan tangan kanan
+2196	Kesaksian anggota tubuh
+2194	Tidak ada yang tersembunyi dari Allah
+2195	Penimbangan amal
+2197	Balasan amal baik dan buruk
+1296	Mizan (timbangan)	Balance
+1543	Syafaat	Intercession
+1521	Pandangan yang tertunduk	Humbled eyes
+1569	Kiri (sisi kiri)	Left (side)
+1589	Tanda di wajah	Mark
+1770	Sekecil apa pun (zarah)	Speck
+1400	Tempat yang jauh	Distant place
+2467	Penyesalan di akhirat	Regrets
+2471	Mengingkari ayat-ayat Allah
+2469	Berharap menjadi tanah
+2470	Mengambil teman yang buruk
+2472	Tidak beramal untuk akhirat
+2468	Tidak mengikuti Rasul
+564	Kebangkitan manusia	resurrection of humans
+2189	Orang saleh dan orang durhaka pada hari itu
+2434	Peringatan bagi pengingkar kebangkitan
+1133	Kebangkitan jiwa	resurrection of the soul
+2188	Kengerian hari kiamat
+1131	Pengikut Isa di atas orang kafir
+1132	Bulan menjadi gelap
+1134	Matahari dan bulan dikumpulkan	sun and moon brought together
+2187	Tidak ada kezaliman
+2432	Pelajaran dari kisah Uzair
+2433	Ibrahim bertanya tentang kebangkitan	Abraham asks how the dead are revived
+2198	Golongan manusia di akhirat	Types of people
+2202	Penghuni A'raf
+2199	Orang-orang beriman
+2203	Penghuni surga
+2206	Penghuni neraka
+# --- Akhirat: Balasan
+1700	Balasan (jaza')	Repayment
+1688	Pahala	Reward
+1675	Janji	Promise
+1787	Keberuntungan	Success
+1579	Kerugian	Loss
+1430	Kekekalan	Eternal
+1389	Tempat kembali	Destination
+1656	Siksaan	Penalty
+1370	Laknat	Curse
+1314	Suara keras yang membinasakan (shaihah)	Blast
+1248	Kehinaan	Abasement
+1354	Akibat buruk	Consequence
+1440	Tersingkapnya yang tersembunyi	Exposure
+1874	Orang celaka	Wretched
+# --- Akhirat: Surga
+144	Surga Adn	Gardens of 'Adn (Eternity)
+1382	Kenikmatan	Delight
+737	Bidadari	Houris
+1360	Dipan-dipan	Couches
+1369	Gelas	Cup
+1325	Gelang	Bracelets
+1326	Sutra tebal	Brocade
+662	Gelang emas (ejekan Firaun kepada Musa)	Golden armlets
+1250	Al-Kautsar	Abundance
+2438	Balasan bagi orang beriman
+703	Tujuh langit berlapis-lapis	seven heavens
+2448	Nampan dan gelas emas
+205	Pohon bidara (sidr)	Lote Tree
+2443	Tidak akan dikeluarkan dari surga	never expelled from Paradise
+2446	Semua keinginan terpenuhi
+2449	Bejana perak dan buah yang mudah dipetik
+174	Firdaus	Firdaus
+700	Anak-anak muda yang kekal	immortal youths in Paradise
+701	Orang tua berkumpul dengan keturunannya
+702	Pasangan yang disucikan	pure spouses in Paradise
+2440	Doa dan salam
+2441	Disambut dengan salam
+2447	Gelang emas dan pakaian sutra halus
+2451	Orang beriman melihat Tuhannya
+235	Salsabil	Salsabil
+699	Langit dijaga ketat dan panah api
+2436	Seluas langit dan bumi
+2437	Air mengalir, naungan, hidangan, dan pasangan suci
+2439	Sungai madu, susu, air, dan khamar
+2442	Kekal dalam kenikmatan
+2444	Cahaya di depan dan di kanan mereka
+2445	Tidak panas dan tidak dingin
+# --- Akhirat: Neraka
+1315	Sa'ir (api yang menyala-nyala)	Blaze
+206	Pohon Zaqqum	Tree of Zaqqum
+221	Saqar	Saqar
+227	Lazha	Laza
+236	Sijjin	Sijjin
+1372	Penjaga neraka dan surga	Keepers of Hell and Paradise
+1334	Bunga api	Sparks
+2473	Permohonan putus asa penghuni neraka	Desperate pleas
+2480	Meminta mati
+2476	Meminta dikeluarkan dari neraka
+2477	Meminta makanan dan minuman
+2478	Mencari pemberi syafaat
+2474	Meminta dikembalikan ke dunia
+2456	Saling menyalahkan
+2452	Palu godam besi
+2453	Nanah
+2461	Belenggu dan pakaian dari ter
+2457	Meminta dibinasakan saja
+2458	Jeritan
+2459	Api yang bergemuruh
+2465	Tebusan tidak diterima
+706	Air mendidih dan air yang sangat dingin	scalding water and icy, foul fluid
+707	Rantai tujuh puluh hasta
+708	Tidak mati dan tidak hidup
+709	Tinggal dalam waktu lama	staying there for ages
+2460	Kulit hangus diganti kulit baru
+2463	Rantai
+2466	Syafaat ditolak
+1871	Dunia	This world
+# --- Ibadah: Thaharah
+287	Wudu	Ablution (wudu)
+288	Hal yang mewajibkan wudu
+696	Haid	Menstruation
+1533	Najis	Impurity
+1828	Najis (najas)	Unclean
+1454	Kekejian (rijs)	Filth
+2066	Mandi wajib
+2067	Tayamum
+# --- Ibadah: Salat
+1055	Waktu-waktu salat	Prayer times
+50	Kiblat	Qiblah
+1324	Rukuk	Bowing
+1676	Sujud	Prostration
+225	Hari Jumat	Friday
+1043	Doa Ibrahim	Supplications of Abraham
+1050	Sujud dalam salat	Prostration in prayer
+1040	Lafaz-lafaz doa	Wording of supplications
+1045	Doa Musa	Supplication of Moses
+1046	Doa Nuh	Supplications of Noah
+1042	Salat dengan niat yang benar	Praying for the right reasons
+1056	Salat dalam keadaan bahaya	Prayer in danger
+1048	Doa Zakaria	Supplications of Zechariah
+1054	Tata cara salat	Manner of prayer
+1039	Berhias untuk salat	Adorning oneself for prayer
+1044	Doa Yusuf	Supplication of Joseph
+1047	Doa Sulaiman	Supplication of Solomon
+1049	Jangan salat dalam keadaan mabuk	No prayer while intoxicated
+1051	Mencegah dari perbuatan keji	Prayer restrains from indecency
+1052	Kewajiban yang terikat waktu	Prayer as a time-bound duty
+1053	Berdiri dalam salat	Standing in prayer
+2063	Ancaman bagi yang melalaikan salat
+2064	Salat orang munafik
+2083	Ayat-ayat sajdah
+# --- Ibadah: Zakat
+1771	Infak	Spending
+466	Kikir
+429	Infak kepada hamba sahaya	Spending on slaves
+464	Sedekah sebelum menghadap Nabi	Charity before consulting the Prophet
+468	Mendahulukan infak	Priorities in spending
+471	Yang tidak puas dengan pembagian zakat	Those displeased with zakat distribution
+467	Bukan balasan atas jasa	Charity not as repayment of favors
+470	Larangan berinfak karena riya
+2085	Kewajiban zakat	Zakat as an obligation
+2086	Salah satu sifat orang beriman
+2087	Golongan penerima zakat	Recipients of zakat
+2088	Sedekah
+2089	Ancaman bagi yang menahan zakat	Warning to those who withhold zakat
+# --- Ibadah: Puasa
+60	Ramadan	Ramadan
+1108	Menggauli istri pada malam Ramadan
+2090	Puasa Ramadan	Fasting in Ramadan
+465	Sedekah (fidyah) saat haji	Charity during the Hajj
+621	Waktu puasa	Hours of fasting
+2093	Puasa ketika berhaji
+# --- Ibadah: Haji
+56	Umrah	Umrah
+1714	Syiar-syiar Allah	Rites
+1746	Mencukur rambut	Shaving
+684	Larangan berburu saat ihram	Hunting forbidden in ihram
+685	Buruan laut dihalalkan
+686	Jangan mengulangi pelanggaran
+687	Denda pelanggaran pertama
+680	Larangan berbantah saat haji	No quarreling during Hajj
+681	Kewajiban berhaji ke Makkah
+682	Keringanan dalam haji	Exemptions in Hajj
+688	Ketentuan haji	Rules of Hajj
+2095	Manasik dan hukumnya
+2100	Sa'i antara Safa dan Marwah	Sa'i between Safa and Marwah
+# --- Ibadah: Doa & Zikir
+1698	Zikir kepada Allah	Remembrance of Allah	ذكر الله
+1435	Tasbih	Glorification (tasbih)
+1668	Pujian (hamdalah)	Praise
+1311	Basmalah	Basmalah
+754	Insya Allah	In sha' Allah
+1618	Kedekatan dengan Allah	Nearness
+1964	Doa para malaikat	Supplications of angels
+2075	Doa ibu Maryam	Supplication of Mary's mother
+2079	Doa orang beriman dari Bani Israil	Supplication of the believers among the Children of Israel
+2081	Doa orang-orang saleh	Supplication of the righteous
+2069	Doa Adam dan Hawa	Supplication of Adam and Eve
+2070	Doa Nabi Muhammad	Supplication of Prophet Muhammad ﷺ
+2073	Doa Nabi Syu'aib	Supplication of Shu'aib
+2076	Doa istri Firaun	Supplication of Pharaoh's wife
+2077	Doa para penyihir Firaun	Supplication of Pharaoh's magicians
+2078	Doa Thalut dan pasukannya	Supplication of Talut (Saul) and his army
+2082	Doa orang-orang tertindas	Supplication of the oppressed
+# --- Ibadah: Kurban
+1142	Hewan kurban (hadyu)	Sacrificial offering
+1757	Penyembelihan dan pembantaian	Slaughter and killing
+# --- Ibadah: Masjid
+1512	Tanah suci	Holy
+63	Masjid	Mosque
+52	Masjidil Haram	Masjid al-Haram
+45	Ka'bah	Kaaba
+869	Memasukinya dengan bercukur atau memendekkan rambut
+167	Masjidil Aqsa	Masjid al-Aqsa
+974	Orang musyrik tidak berhak memakmurkan masjid
+975	Masjid dirar di dekat Quba
+181	Biara	Monastery
+182	Gereja	Church
+183	Sinagoge	Synagogue
+2143	Mihrab
+# --- Ibadah: Waktu Mulia
+241	Lailatul Qadar	Night of Decree
+1722	Bulan-bulan haram	Sacred months
+# --- Akhlak: Terpuji
+1034	Takwa	Piety
+1712	Orang saleh dan kesalehan	Righteousness
+1423	Sabar	Patience
+1491	Syukur	Gratitude
+1821	Amanah dan tepercaya	Trust
+1520	Rendah hati (tawaduk)	Humility
+1465	Ampunan dan tobat	Forgiveness and repentance
+2512	Keburukan diganti kebaikan
+2511	Pintu ampunan terbuka lebar
+472	Menjaga kesucian diri	Chastity
+1252	Yang makruf (patut)	What is right (ma'ruf)
+1631	Taat	Obedience
+1542	Niat	Intention
+1685	Berlomba-lomba	Race
+2483	Menunaikan hak Allah dan hak makhluk
+# --- Akhlak: Tercela
+1875	Orang zalim	Wrongdoers
+1572	Dusta dan mendustakan kebenaran	Lying and denial of the truth
+1282	Sombong	Arrogance
+1780	Kikir	Stinginess
+939	Tamak	Greed
+942	Ketamakan membawa kehancuran
+941	Larangan iri
+940	Istri-istri Nabi dan kemewahan dunia
+943	Larangan merugikan orang lain
+1427	Dengki (hasad)	Envy
+1748	Riya	Showing off
+1294	Gibah dan mengolok dengan gelar	Backbiting
+1756	Fitnah (buhtan)	Slander
+956	Olok-olok	Mockery
+505	Tinggalkan majelis yang memperolok ayat Allah
+1663	Tipu daya	Plot
+1379	Penipuan	Deceit
+1199	Pengkhianatan	Treachery
+1437	Berlebih-lebihan (israf)	Excess
+1830	Kufur nikmat	Ingratitude
+1539	Sikap melampaui batas (thughyan)	Insolence
+1826	Sewenang-wenang (jabbar)	Tyrant
+1634	Keras kepala	Obstinate
+1363	Pengecut	Cowardice
+1313	Celaan	Blame
+1680	Pertengkaran	Quarrel
+1404	Kelalaian dan senda gurau	Diversion
+1432	Keburukan	Evil
+515	Kerusakan	Corruption
+2486	Kikir (sifat manusia)
+2487	Tergesa-gesa
+2488	Ingat Allah hanya saat susah
+2489	Tidak sabar
+2490	Suka membantah
+# --- Akhlak: Adab
+398	Perilaku	Behaviour
+412	Setiap umat diberi syariat dan jalan
+415	Allah bisa saja menjadikan mereka satu umat
+416	Satu umat di bawah Allah
+413	Dan seorang nabi
+414	Dan cara beribadah
+427	Terhadap sesama
+399	Berdebat dengan Ahli Kitab secara baik
+405	Larangan membanggakan diri
+418	Memaafkan orang kafir
+400	Jangan mengikuti yang tidak kamu ketahui
+401	Jangan menganggap diri suci
+402	Jangan saling memata-matai
+403	Adil dalam berpendapat
+406	Jangan menghardik peminta
+409	Jangan menyebarkan keburukan
+417	Memaafkan Yahudi yang mengubah wahyu	forgive the Jews who distort scripture
+419	Mudah memaafkan
+420	Menyakiti orang beriman adalah dosa
+422	Juru damai diberi pahala
+424	Berkata baik kepada yang meminta
+426	Terhadap sesama muslim
+428	Terhadap orang tua
+430	Adil kepada nonmuslim yang tidak memerangi
+2277	Adab sosial	Social etiquette
+2279	Menghormati semua orang
+2278	Memeriksa kebenaran berita (tabayun)
+2280	Adab di majelis
+2281	Pembicaraan rahasia
+2273	Meminta izin	Permission
+2274	Izin masuk
+2275	Memasuki rumah orang
+2276	Memasuki tempat umum
+2241	Kesopanan	Decency
+2243	Menundukkan pandangan
+672	Salam	Greeting
+1253	Jamuan (nuzul)	Reception / entertainment (nuzul)
+1059	Privasi	Privacy
+469	Berbagi makanan
+1061	Rumah tangga Nabi
+1619	Tetangga	Neighbours
+1689	Mendamaikan (ishlah)	Reconciliation
+372	Menghadapi serangan dan bantahan	Arguments and attacks
+373	Membalas setimpal
+374	Bersabar jauh lebih baik
+# --- Akhlak: Dosa
+1163	Kesalahan dan dosa (khathi'ah)	Sin (khati'ah)
+1164	Menjauhinya
+1165	Menimpakan kesalahan kepada orang lain
+744	Perbuatan keji	Immorality
+745	Perempuan yang berbuat keji
+746	Tobat menggugurkan hukuman
+747	Tobat menjelang mati tidak diterima
+749	Empat saksi untuk membuktikan
+712	Homoseksual	Homosexuality
+1603	Kesalahan	Mistake
+1790	Bunuh diri	Suicide
+2494	Meninggalkan salat wajib
+2495	Tidak membayar zakat
+2503	Menuduh zina tanpa bukti
+2492	Syirik
+2493	Durhaka kepada orang tua
+2496	Membunuh
+2498	Mencuri
+2499	Curang
+2500	Berdusta
+2501	Berdusta atas nama Allah
+2502	Hubungan seksual terlarang
+2504	Murtad (dosa besar)
+2505	Makan babi dan makanan haram lainnya
+2508	Kesaksian palsu
+2509	Sihir (dosa besar)
+# --- Jiwa: Hati
+3	Hati (qalb)	Heart
+1735	Jiwa dan nafsu	Self (nafs)
+1506	Lalai	Heedlessness
+1383	Terpedaya (ghurur)	Delusion
+1285	Prasangka	Assumption
+1288	Dijadikan indah (tazyin)	Made attractive
+1362	Hati dan penglihatan yang tertutup	Covered hearts and eyes
+1777	Hati yang dikunci	Sealed hearts
+1731	Rahasia	Secret
+647	Lupa	Forgetting
+# --- Jiwa: Perasaan
+1452	Takut	Fear
+1513	Angan-angan	Vain hopes
+1639	Optimisme	Optimism
+1581	Cinta	Love
+1552	Gembira	Joy
+1441	Bersuka cita	Exultation
+1499	Bahagia	Happiness
+1565	Tertawa	Laughter
+1761	Tersenyum	Smile
+1857	Menangis	Weeping
+1695	Menyesal	Regret
+1743	Aib dan kehinaan	Disgrace
+1388	Putus asa	Despair
+359	Marah	Anger
+360	Menahan amarah
+1503	Kebencian	Hatred
+1275	Cemas	Anxiety
+1808	Ketenangan (sakinah)	Tranquillity
+1725	Rasa aman	Safety
+1262	Kasih sayang (mawaddah)	Affection
+1387	Syahwat	Desire
+# --- Jiwa: Ujian
+301	Kesulitan hidup	Adversity
+303	Tidak menanggung dosa orang lain
+302	Tidak dibebani di luar kemampuan
+1330	Musibah	Calamity
+1501	Kesusahan	Hardship
+1394	Kesempitan	Distress
+1789	Penderitaan	Suffering
+1444	Tidak dapat luput dari azab Allah	Unable to escape Allah
+1854	Kelemahan	Weakness
+1526	Lapar	Hunger
+1800	Haus	Thirst
+1806	Letih	Tiredness
+# --- Keluarga: Pernikahan
+1183	Pasangan dan istri	Spouses
+1527	Suami	Husband
+1407	Mahar	Dowry
+1147	Laki-laki dan perempuan; hubungan suami istri	Sexes and intimacy
+1156	Kesetaraan laki-laki dan perempuan
+1152	Dengan budak (satu penafsiran)
+1151	Hubungan intim dengan pasangan
+619	Pada malam Ramadan
+1154	Diciptakan dari jiwa yang satu
+1149	Mempergauli istri dengan baik
+1155	Masing-masing berhak atas usahanya
+1158	Saling menjadi penolong
+1159	Laki-laki menafkahi perempuan
+914	Kesepakatan lain
+915	Istri boleh merelakannya
+918	Larangan berzina
+925	Bersandar bersama pasangan di surga
+2265	Perempuan yang halal dan haram dinikahi
+2266	Adab hubungan suami istri
+577	Jangan menahan istri secara paksa
+905	Perzinaan
+907	Hukuman penuduh palsu
+906	Wajib empat saksi
+909	Menikah setelahnya
+910	Hukumannya
+912	Pengaduan
+919	Jika belum mampu menikah
+921	Cinta dan kasih sayang
+922	Poligami
+923	Batasannya
+924	Peringatannya
+926	Pasangan adalah pakaian satu sama lain
+927	Boleh menikahi bekas istri anak angkat
+929	Dengan perempuan yang belum menikah
+2267	Kehamilan dan menyusui
+2268	Menikahi kembali bekas istri setelah talak tiga
+2269	Membantu yang lajang menikah
+930	Menikahi budak
+932	Perempuan budak bila perlu
+933	Lebih baik bersabar	patience is better (than marrying a slave woman)
+934	Meski bersuami sebelum ditawan
+931	Sesama budak
+# --- Keluarga: Talak
+1737	Perpisahan suami istri	Separation of spouses
+2237	Li'an
+2236	Khulu'
+574	Laki-laki (rajul)	A man (rajul)
+575	Jangan mengambil kembali mahar
+576	Jangan menyusahkan istri
+578	Empat bulan untuk berpikir ulang
+579	Menafkahi istri sepenuhnya
+580	Selama masa idah
+2246	Mahar dan masa idah
+572	Status mahar
+2245	Adab talak
+567	Setelah idah: berpisah atau rujuk
+568	Dua saksi
+569	Nafkah (mut'ah)
+570	Berlaku juga bagi ahli waris
+571	Talak yang dapat dirujuk dua kali
+573	Mencari ibu susuan bila perlu
+583	Ibu tidak boleh menderita karena anaknya
+584	Talak di masa jahiliah (zihar)	zihar (pre-Islamic divorce)
+585	Kafarat untuk rujuk
+586	Memberi makan enam puluh orang miskin
+588	Memerdekakan budak
+590	Tidak berdosa jika belum digauli
+591	Pengantin berhak setengah mahar
+2244	Hakam dan perdamaian
+2249	Nafkah istri selama hamil
+2250	Jika menyusui anak bekas suami
+592	Hak istri	Wife's rights
+594	Berhak atas nafkah
+593	Boleh menyimpan pemberian suami
+595	Hak istri seimbang dengan kewajibannya	rights balanced with obligations
+596	Khawatir diperlakukan buruk
+598	Tidak boleh diusir dari rumah
+600	Idah tiga bulan bagi yang tidak haid
+601	Kecuali belum digauli
+# --- Keluarga: Orang Tua & Anak
+1273	Ayah dan nenek moyang	Fathers and ancestors
+1610	Ibu	Mother
+473	Anak	Children
+486	Membunuh satu jiwa sama dengan membunuh semua manusia	decree on killing a soul (Israelites)
+475	Anak perempuan dianggap sial
+483	Anak-anak di surga
+477	Jangan membunuh anak karena takut miskin
+478	Anak perempuan yang dikubur hidup-hidup akan ditanya
+487	Tradisi jahiliah membunuh anak
+474	Anak angkat dinasabkan kepada ayahnya
+479	Karunia anak laki-laki
+481	Anak yang lemah
+482	Lahir tanpa mengetahui apa pun
+1765	Anak laki-laki	Sons
+1375	Anak perempuan	Daughters
+1292	Bayi	Baby
+1364	Hamparan dan buaian (mahd/mihad)	Cradle, bed, resting place (mahd)
+1629	Ibu susuan	Wet nurse
+1856	Menyapih	Weaning
+1057	Kehamilan	Pregnancy
+1058	Ruh ditiupkan ke dalam janin
+1298	Mandul	Barrenness
+1255	Anak angkat	Adoption
+# --- Keluarga: Kerabat
+1343	Kerabat dan kaum	Relatives
+617	Keluarga	Family
+1327	Saudara laki-laki dan persaudaraan	Brotherhood
+1753	Saudara perempuan	Sister
+1289	Bibi dan paman	Aunts and uncles
+1386	Keturunan	Descendants
+1487	Cucu	Grandchildren
+# --- Keluarga: Perempuan
+1453	Perempuan (jenis kelamin)	Female
+1229	Janda	Widows
+1230	Nafkah selama setahun
+1231	Setahun tinggal di rumah suami
+1232	Idah empat bulan sepuluh hari
+1233	Boleh berencana menikah lagi selama idah
+1587	Bidadari	Maidens of Paradise (houris)
+1844	Perawan	Virgin
+1245	Perempuan saleh menjaga kehormatan
+1240	Menerima perempuan yang lari dari suami kafir
+1241	Perbuatan keji
+369	Tobat
+370	Terlambat di hari kiamat
+1242	Istri yang nusyuz	wives' rebellion (nushuz)
+752	Azab atas kaum pendurhaka	punishment of transgressing peoples
+1243	Pakaian luar bagi perempuan tua
+1244	Baiat perempuan beriman
+# --- Keluarga: Yatim
+1023	Anak yatim	Orphans
+1024	Menyerahkan harta mereka
+673	Perwalian	Guardianship
+674	Cara mengelolanya
+675	Hukuman bagi wali yang buruk
+676	Kapan berakhir
+1665	Fakir miskin	The poor
+1385	Orang yang tidak berkecukupan (mahrum)	The deprived
+2257	Memberi makan	Feeding
+2258	Orang miskin, anak yatim, dan tawanan
+# --- Keluarga: Budak
+1172	Memerdekakan budak	Freeing slaves
+1173	Setelah perang usai
+1174	Kafarat sumpah
+1175	Kafarat pembunuhan tidak sengaja
+1176	Zakat untuk memerdekakan budak
+1177	Tanda orang yang bertakwa
+1178	Bagi yang meminta perjanjian kemerdekaan
+2261	Membantu mereka
+462	Tawanan	Captives
+1150	Jangan memaksa budak perempuan melacur
+1171	Diperoleh hanya melalui perang
+# --- Keluarga: Waris
+1234	Wasiat dan pesan	Bequests and injunctions
+2213	Wasiat sukarela kepada bukan ahli waris
+2214	Wasiat menjelang mati dalam perjalanan
+1235	Larangan mengubah wasiat
+1236	Dua saksi wasiat
+1237	Jika kedua saksi itu curang
+1509	Warisan	Heritage
+1745	Bagian	Share
+2223	Ancaman bagi pelanggar ketentuan waris
+761	Jangan menahan istri demi warisan
+762	Bagian laki-laki
+764	Ringkasan ketentuan waris
+2219	Pedoman pembagian
+2221	Suami istri dan saudara seibu
+2222	Saudara kandung
+756	Pembagian kepada
+757	Anak dan orang tua
+758	Kerabat lain, anak yatim, dan orang miskin
+# --- Keluarga: Masyarakat
+1349	Umat	Nation
+1817	Kabilah	Tribes
+1428	Kesetaraan dan ketidaksamaan	Equality and being unequal (not alike)
+2254	Kesetaraan manusia
+2256	Laki-laki punya satu tingkat tanggung jawab
+1350	Golongan, penghuni, dan kawan (ashab)	Companions, dwellers (ashab)
+1537	Penduduk	Inhabitants
+1588	Kebanyakan orang	Majority
+1600	Umat pertengahan & sikap moderat (wasath)	The middle way (wasat)
+1831	Persatuan	Unity
+529	Adat kebiasaan	Customs
+530	Tradisi yang bukan dalil
+999	Penduduk asli	Native peoples
+1000	Jangan mengusir mereka
+1001	Menolak yang mengusir
+1002	Terusir dari negerinya
+1438	Pengusiran	Expulsion
+1810	Bepergian	Travel
+1811	Musafir	Traveller
+# --- Muamalah: Harta
+1709	Orang kaya	The rich
+1263	Orang yang hidup mewah	The affluent
+1812	Harta simpanan	Treasure
+1425	Kesenangan dunia	Enjoyment
+1818	Upeti	Tribute
+# --- Muamalah: Dagang
+452	Jual beli dan perdagangan	Trade
+453	Jujur dalam bermuamalah
+509	Hukum akad	Contract law
+513	Saksi harus jujur
+1595	Takaran	Measure
+1484	Barang dagangan	Goods
+1590	Pasar	Markets
+1333	Kafilah	Caravan
+1494	Penjamin	Guarantor
+1654	Pembayaran	Payment
+1729	Juru tulis	Scribe
+# --- Muamalah: Riba
+2215	Utang	Debts
+2216	Memberi tangguh kepada yang kesulitan
+2217	Menulis dan mempersaksikan utang
+2218	Barang jaminan
+1576	Pinjaman (qardh)	Loan
+624	Hal-hal yang diharamkan	Forbidden things
+917	Kepada nonmuslim
+2225	Larangan dan ancaman
+1211	Menghapus utang
+1213	Yahudi memakan riba padahal dilarang
+2226	Riba tidak menambah
+# --- Muamalah: Makanan
+1497	Halal	Lawful
+644	Makanan	Food
+646	Makanan yang halal
+645	Nikmat makanan
+691	Aturan kesehatan	Health rules
+693	Makanan
+694	Hasil buruan hewan pemburu
+692	Anak
+476	Menyusui dua tahun
+1409	Minuman	Drink
+1411	Mabuk	Drunkenness
+1318	Darah	Blood
+1448	Lemak	Fat
+1593	Hidangan	Meal
+735	Berburu	Hunting
+736	Hewan pemburu yang terlatih
+77	Biji-bijian	Grain
+107	Khamar	Wine
+768	Pengharaman khamar	prohibition of
+767	Jangan salat dalam keadaan mabuk
+59	Babi	Pig
+215	Daging	Meat
+58	Bangkai	Carrion
+166	Madu	Honey
+164	Susu	Milk
+190	Garam	Salt
+156	Roti	Bread
+# --- Muamalah: Pakaian
+1256	Perhiasan dan berhias	Adornment
+1510	Hijab (tabir dan penghalang)	Hijab (screen, barrier)
+1547	Perhiasan	Jewellery
+1640	Hiasan	Ornament
+1747	Gamis	Shirt
+1728	Sandal	Sandals
+1627	Telanjang	Nudity
+501	Jilbab agar tidak diganggu
+499	Pakaian dari api
+500	Busana perempuan di luar rumah
+# --- Muamalah: Kerja
+1870	Perbuatan dan buatan (amal)	Deeds and handiwork
+1575	Mata pencaharian	Livelihood
+1848	Upah	Wage
+1755	Keahlian	Skill
+2210	Suap dan etika bisnis	Bribery and business ethics
+# --- Siyasah: Hukum
+1555	Hari Pembalasan (Hari Kiamat)	Day of Judgment
+502	Perintah-perintah agama	Commandments
+503	Perintah umum
+504	Berbuat baik kepada sesama
+887	Hukum dari Allah dan Rasul
+1566	Undang-undang	Law
+1348	Perintah dan ketetapan Allah (amr)	Command/decree of Allah (amr)
+1574	Batas-batas Allah	Limits
+1500	Haram	Forbidden
+1415	Kewajiban	Duty
+1003	Keadaan darurat	Necessity
+1004	Darurat membolehkan yang terlarang
+1439	Kafarat	Expiation
+# --- Siyasah: Adil
+1553	Hakim	Judge
+1865	Saksi dan kesaksian	Witness
+897	Pertengkaran dan persengketaan	Disputes and disputants
+1019	Kezaliman	Oppression
+1022	Lebih kejam daripada pembunuhan
+1020	Kesalahan ada pada orang zalim
+1021	Membela diri darinya
+2231	Adil kepada orang Yahudi
+830	Berlaku adil
+831	Kebencian jangan membuatmu tidak adil
+867	Periksa berita dan kabar burung
+2233	Adil kepada nonmuslim
+866	Gunakan akal
+2229	Menegakkan keadilan
+2230	Membela hak anak yatim dan perempuan
+2232	Adil kepada orang musyrik
+# --- Siyasah: Pidana
+1367	Dosa (itsm)	Sin
+870	Pembunuhan	Killing
+874	Larangan membunuh
+871	Membunuh orang beriman hanya mungkin karena keliru
+872	Diat
+876	Bayi perempuan yang dikubur hidup-hidup akan ditanya
+877	Munafik diancam diperangi di Madinah
+881	Kisas
+639	Bukan demi harta
+873	Membunuh orang beriman dengan sengaja
+875	Jangan menyerang yang menawarkan damai
+880	Hukuman pembunuh dan perusak di bumi
+1258	Zina	Adultery
+1184	Pencurian	Theft
+1185	Hukuman potong tangan
+1186	Ampunan sebelum tertangkap
+1187	Tetap salah meski lewat pengadilan
+2235	Melalui jalur hukum, boleh memaafkan
+2228	Hukum terhadap perusak (hirabah)	Anti-terrorism law
+1563	Hukuman cambuk	Lashing
+1674	Penjara	Prison
+1706	Pembalasan Allah (intiqam)	Divine retribution
+# --- Siyasah: Pemimpin
+1558	Khalifah (pengganti di bumi)	Vicegerents/successors (khalifah)
+67	Raja	King
+1568	Pemimpin	Leader
+1290	Hujah dan wewenang (sultan)	Warrant/proof (sultan)
+668	Musyawarah	Consultation
+423	Penguasa memutuskan setelah bermusyawarah
+669	Keputusan urusan umum
+1269	Baiat	Allegiance
+# --- Siyasah: Perang
+622	Perang (qital)	Fighting
+540	Di jalan Allah
+642	Ketika diwajibkan
+638	Hanya saat perang berlangsung
+620	Uzur perang
+630	Meminta izin dengan alasan yang salah
+631	Orang lemah
+632	Orang sakit
+633	Berhenti jika musuh berhenti
+641	Tobat bekas musuh
+626	Berani
+627	Antara dua kelompok orang beriman
+628	Budak hanya dari perang
+629	Jangan meminta damai karena lemah
+634	Dilarang di bulan haram
+636	Bebaskan tawanan setelah perang
+637	Berangkat dengan rendah hati
+640	Bersiap dengan baik
+623	Agresi
+625	Dosanya
+814	Jihad	Jihad
+817	Bersungguh-sungguh di jalan Allah
+816	Berjihad melawan orang kafir
+815	Orang tua kafir yang mengajak syirik
+1850	Peperangan (harb)	War
+1300	Pertempuran	Battle
+1842	Kemenangan	Victory
+1381	Kekalahan	Defeat
+1591	Syahid	Martyr
+444	Rampasan perang	Booty
+445	Nikmati yang halal dan baik
+446	Jangan hanya beredar di antara orang kaya
+447	Seperlima untuk kepentingan umum
+1687	Tebusan	Ransom
+1764	Tentara	Soldiers
+1819	Tuduhan terkena sihir	Bewitched (accusation)
+1424	Musuh	Enemy
+1399	Permusuhan dan perpecahan	Hostility
+1027	Orang yang dianiaya	The persecuted
+1030	Pelindung mereka
+1028	Orang-orang tertindas
+1029	Lindungi kecuali di negeri yang terikat perjanjian
+1655	Perdamaian	Peace
+531	Bahaya	Danger
+1670	Kewaspadaan	Precaution
+1783	Kekuatan	Strength
+# --- Siyasah: Perjanjian
+520	Perjanjian (mitsaq)	Covenant
+522	Dengan orang kafir
+521	Pelanggarannya
+1813	Traktat	Treaty
+1013	Sumpah	Oaths
+1014	Kafarat sumpah
+1015	Memberi makan atau pakaian sepuluh orang, memerdekakan budak, puasa tiga hari
+1794	Bersumpah (qasam)	Swearing (qasam)
+1847	Nazar	Vows
+# --- Siyasah: Nonmuslim
+348	Wali dan sekutu	Allies
+650	Menjauhi orang kafir yang memusuhi
+351	Larangan berwali kepada munafik
+349	Yahudi dan Nasrani
+350	Larangan berwali kepada kerabat yang kafir
+651	Larangan berwali kepada yang memerangimu karena agama
+2240	Berbuat baik kepada nonmuslim	Kindness to non-Muslims
+1550	Jizyah	Jizya
+# --- Sejarah: Nabi
+13	Adam
+2297	Dimuliakan Allah, digoda setan
+298	Pohon terlarang	forbidden tree
+297	Malaikat diperintah bersujud kepadanya
+299	Dikeluarkan dari surga
+2298	Diampuni Allah
+176	Idris	Idris (Enoch)
+86	Nuh	Noah
+1008	Bahtera
+1009	Berlabuh di Bukit Judi
+1010	Banjir besar
+2349	Anaknya tenggelam
+2348	Dakwah kepada kaumnya hingga banjir	his mission to his people, ending in the Flood
+2347	Diolok-olok
+130	Hud
+132	Saleh	Salih
+44	Ibrahim	Abraham
+2295	Menghancurkan berhala dan diselamatkan dari api
+2290	Membantah penyembahan benda langit
+2294	Mengajak ayahnya kepada kebenaran
+2291	Kabar gembira kelahiran Ishaq
+2292	Doanya di Ka'bah
+2286	Meninggikan fondasi Ka'bah
+2293	Didatangi para malaikat
+290	Bukan Yahudi dan bukan Nasrani
+2287	Agama Ibrahim dan wasiatnya kepada anak-anaknya	his religion and his bequest to his sons
+291	Maqam Ibrahim di Bakkah
+2016	Teladan
+2288	Berdebat dengan raja yang sombong
+2289	Bertanya tentang kebangkitan
+2296	Menyeru manusia berhaji
+118	Luth	Lot
+46	Ismail	Ishmael
+2309	Meninggikan fondasi Ka'bah bersama ayahnya
+2310	Kisah penyembelihan
+49	Ishaq	Isaac
+48	Ya'qub	Jacob
+2312	Dalam kisah Yusuf
+2311	Sebagai nabi
+115	Yusuf	Joseph
+2329	Menahan saudaranya Bunyamin
+2319	Persekongkolan saudara-saudaranya
+2326	Mimpi raja
+2328	Saudara-saudaranya datang meminta bahan makanan
+2331	Membuka jati dirinya
+2322	Istri al-Aziz menggodanya
+2325	Dua teman sepenjara
+2330	Kesedihan ayahnya kembali
+2327	Menjadi bendahara negeri
+2317	Kisah terbaik
+2318	Mimpi Yusuf kecil
+2323	Jamuan para perempuan
+2324	Masuk penjara
+2320	Dijual sebagai budak
+2321	Dibesarkan di rumah al-Aziz
+2332	Mimpi lama menjadi nyata
+2333	Doa penutup
+98	Ayyub	Job
+134	Syu'aib	Shu'ayb
+2305	Para nabi dan kaumnya (Hud, Saleh, Luth, Syu'aib, Ilyas)	prophets and their peoples (Hud, Salih, Lot, Shu'ayb, Elias)
+20	Musa	Moses
+2336	Kisah bersama Firaun
+970	Adu sihir dengan para penyihir Firaun
+2335	Perjumpaan di dekat api (Thuwa)
+2344	Nikmat Allah kepada Bani Israil
+2341	Menerima lembaran-lembaran Taurat
+2345	Menegur kaumnya yang menyembah anak sapi
+2339	Tidak sengaja membunuh seorang Mesir
+972	Laut Merah terbelah	Parting of the Red Sea
+2340	Lari ke Madyan dan menikah
+2346	Bani Israil menolak memasuki Baitulmaqdis
+2337	Sembilan mukjizat untuk Firaun dan kaumnya
+2342	Meminta melihat Allah di bukit
+2334	Masa kecil
+968	Memancarkan air dari batu
+971	Empat puluh malam di Bukit Sinai
+286	Peninggalan keluarga Musa dan Harun	relics of the House of Moses and Aaron
+969	Perintah kepada kaumnya
+2343	Dibersihkan Allah dari tuduhan	cleared by Allah of slander
+70	Harun	Aaron
+2285	Bersama Musa diutus kepada Firaun dan kaumnya
+208	Zulkifli	Dhul-Kifl
+72	Dawud	David
+2303	Mengadili dua orang yang bersengketa	the two disputants
+2300	Menjatuhkan putusan
+2301	Dianugerahi ilmu dan kenabian
+537	Diberi Zabur
+2299	Membunuh Jalut
+2302	Gunung dan burung bertasbih bersamanya
+40	Sulaiman	Solomon
+2356	Kisah bersama Ratu Saba
+2355	Kisah burung hud-hud
+2353	Membantu ayahnya memberi putusan yang lebih adil
+2354	Kisah semut
+2358	Kecintaannya pada kuda yang baik
+1180	Kematiannya diketahui
+2357	Nikmat Allah kepadanya
+116	Ilyas	Elias
+117	Ilyasa'	Elisha
+99	Yunus	Jonah
+2316	Kaumnya beriman dan diselamatkan dari azab	his people believe and are spared punishment
+88	Zakaria	Zechariah
+2359	Berdoa memohon anak
+89	Yahya	John the Baptist
+2308	Kelahiran dan kenabiannya
+36	Isa	Jesus
+782	Hanya seorang rasul
+561	Kaum Hawariyyin	The Disciples
+777	Dikuatkan dengan Ruhul Qudus	strengthened with the Holy Spirit (Ruh al-Qudus)
+781	Bukan Allah
+785	Kebangkitannya dikabarkan
+771	Menjadi saksi pada hari kiamat
+772	Nasrani diminta tidak menuhankannya
+774	Perselisihan tentang dirinya
+775	Pengikutnya di atas yang lain hingga kiamat
+776	Menyembuhkan orang buta dan kusta, menghidupkan orang mati
+778	Penciptaannya seperti Adam
+779	Tanda datangnya kiamat	a sign of the Hour
+780	Yahudi membanggakan telah membunuhnya
+784	Diangkat kepada Allah	raised up to Allah
+# --- Sejarah: Umat
+129	Kaum 'Ad	'Ad
+131	Kaum Tsamud	Thamud
+1194	Unta betina Nabi Saleh
+1195	Pembunuhan unta itu
+1193	Rumah-rumah di gunung batu
+133	Madyan	Madyan
+193	Kaum Saba	Sheba
+1763	Sodom (kaum Luth)	Sodom
+214	Ashabur Rass	People of the Rass
+237	Ashabul Ukhdud	People of the Trench
+161	Ashabul Aikah	People of the Wood
+211	Kaum Tubba'	Tubba
+# --- Sejarah: Bani Israil
+32	Hari Sabat	Sabbath
+1140	Pelanggar hari Sabat
+21	Samiri dan anak sapi emas	The Golden Calf
+664	Diampuni setelah dihancurkan
+663	Disambar petir
+2367	Sapi betina Bani Israil
+903	Manna dan salwa	Manna
+1192	Sepuluh perintah	Ten Commandments
+1796	Lembaran-lembaran Taurat	Tablets
+1205	Dua belas suku	Twelve tribes
+1206	Dipecah menjadi suku-suku
+68	Thalut	Saul
+71	Jalut	Goliath
+177	Samiri	Samiri
+# --- Sejarah: Kisah Lain
+169	Ashabul Kahfi	People of the Cave
+172	Zulkarnain	Dhul-Qarnayn
+2363	Khidir dan Musa	Al-Khidr and Moses
+102	Habil dan Qabil	Abel and Cain
+199	Nasihat Luqman kepada anaknya	Luqman's advice to his son
+242	Pasukan bergajah	Army of the Elephant
+1795	Hidangan dari langit (al-Ma'idah)	The Table
+2365	Mukmin dari keluarga Firaun
+2368	Pemilik kebun
+2372	Pemilik dua kebun
+# --- Sejarah: Tokoh
+678	Hajar	Hagar
+679	Hajar dan Ismail
+1486	Al-Aziz (pembesar Mesir)	Governor (al-Aziz)
+19	Firaun	Pharaoh
+1032	Hukuman atasnya
+1033	Penindasannya dan penyelamatan darinya
+37	Maryam	Mary
+938	Bukan tuhan
+196	Qarun	Korah
+195	Haman	Haman
+87	Imran dan keluarganya	Imran
+142	Uzair	Ezra
+112	Azar	Azar
+# --- Sejarah: Sirah
+1113	Hijrah dan kaum Muhajirin	Hijra and the emigrants
+96	Perang Badar	Battle of Badr
+1208	Perang Uhud	Battle of Uhud
+1815	Perang Khandaq (Ahzab)	Battle of the Trench
+141	Perang Hunain	Battle of Hunayn
+1190	Perang Tabuk	Tabuk
+1191	Tobat tiga orang yang tertinggal dari Perang Tabuk	the three who stayed behind from Tabuk
+244	Abu Lahab	Abu Lahab
+294	Istrinya (Ummu Jamil)
+243	Quraisy	Quraysh
+203	Zaid bin Haritsah
+145	Orang Arab Badui	Bedouins
+146	Kaum Ansar	Ansar
+198	Romawi	Byzantines
+2042	Perjanjian Hudaibiyah	Truce of Hudaybiyyah
+2040	Bani Nadhir	Banu al-Nadir
+2041	Hamra'ul Asad	Hamra al-Asad
+105	Zaman jahiliah	Al-Jahiliyyah
+# --- Sejarah: Tempat
+822	Tanah Suci (Baitulmaqdis)	The Holy Land	الأرض المقدسة
+824	Memasukinya
+823	Masuk dengan merendahkan diri
+825	Bani Israil dan tanah itu
+460	Kan'an	Canaan
+1824	Lembah Thuwa	Tuwa
+1694	Wilayah	Region
+276	Kota	City
+213	Makkah	Makkah
+947	Menghadap ke arahnya dalam salat
+948	Allah ada di mana pun kamu menghadap
+946	Kewajiban berhaji ke Makkah
+949	Lembah Makkah
+147	Madinah	Madinah
+239	Iram	Iram
+41	Babilonia	Babylon
+95	Bakkah	Bakkah
+395	Rumah ibadah pertama
+657	Safa dan Marwah
+277	Negeri-negeri bersejarah	Historic lands
+149	Mesir	Egypt
+212	Al-Ahqaf	Al-Ahqaf
+278	Gunung dan bukit	Mountains
+185	Bukit Sinai (Thur)	Mount Sinai
+53	Bukit Safa	Al-Safa
+54	Bukit Marwah	Al-Marwah
+65	Padang Arafah	Mount Arafat
+150	Bukit Judi	Al-Judi
+# --- Sejarah: Amtsal
+2201	Perumpamaan orang munafik
+2390	Kalimat yang baik
+2392	Hati yang keras
+2393	Orang berilmu yang tersesat
+2400	Amal baik yang sia-sia
+1997	Laba-laba
+2381	Sedekah yang diterima
+2382	Allah dan sesembahan palsu
+2383	Menyekutukan Allah
+2384	Orang beriman dan orang kafir
+2385	Hati orang beriman
+2386	Orang beriman dalam Taurat dan Injil
+2387	Sedekah dan biji yang tumbuh
+2388	Amal orang kafir
+2389	Kalimat yang buruk
+2391	Dunia yang fana
+2394	Ahli tauhid dan orang musyrik
+2395	Kebangkitan
+2396	Penggembala dan ternak
+2397	Kebenaran dan kebatilan
+2398	Ilmu yang tidak bermanfaat
+2399	Sedekah yang sia-sia
+# --- Ilmu: Akal
+1864	Hikmah	Wisdom
+1829	Pemahaman (fiqh)	Understanding
+1357	Tafakur dan perenungan	Reflection
+1419	Pendidikan	Education
+1785	Belajar	Studying
+710	Sejarah	History
+711	Mempelajarinya
+1681	Bertanya dan meminta	Questions and requests
+884	Mempelajari alam untuk memperoleh ilmu
+883	Baca tulis	Literacy
+885	Bepergian untuk belajar
+# --- Ilmu: Dakwah
+1699	Peringatan & mengambil pelajaran	Reminder and taking heed	التذكر
+1851	Pemberi peringatan	Warner
+1621	Berita dan kabar	News
+1626	Penyampaian (balagh)	Conveying the message
+1545	Seruan (dakwah)	Invitation
+1254	Nasihat (mau'izhah)	Admonition
+1259	Nasihat (nashihah)	Advice
+1571	Ibrah (pelajaran)	Lesson
+2253	Amar makruf nahi mungkar	Enjoining good and forbidding evil
+# --- Ilmu: Bahasa
+159	Bahasa	Language
+152	Bahasa Arab	Arabic
+728	Keragaman bahasa	diversity of languages
+1614	Nama	Name
+1869	Kata-kata	Words
+1036	Penyair	Poets
+# --- Alam: Penciptaan
+524	Penciptaan segala sesuatu	Creation of everything
+526	Berpasang-pasangan
+525	Dengan ukuran yang tepat
+1926	Perintah merenungi ciptaan-Nya
+1927	Tanda-tanda dalam ciptaan
+1928	Segala sesuatu diciptakan dengan tujuan
+1929	Alam semesta yang sempurna
+1933	Karunia anak
+1939	Guruh dan kilat
+1930	Memasukkan siang ke dalam malam
+1934	Planet dan orbitnya
+1936	Tanah longsor
+1937	Badai
+1938	Hujan lebat dan gerimis	Heavy rain and drizzle
+1750	Ayat-ayat Allah	Signs
+1832	Alam semesta	Universe
+1833	Penciptaan alam semesta	Creation of the universe
+888	Kehidupan	Life
+894	Yang baik-baik dihalalkan
+895	Jalan menuju kepuasan dimudahkan
+889	Daya tarik dunia
+892	Kehidupan di luar bumi
+893	Kehormatan nyawa manusia
+527	Makhluk	Creatures
+563	Keragaman	Diversity
+565	Keragaman makhluk hidup
+1617	Alam	Nature
+1573	Cahaya	Light
+1374	Kegelapan	Darkness
+721	Dari tanah liat
+722	Dicampur air
+724	Dari debu
+607	Dalam enam masa
+723	Dari lumpur hitam
+608	Dalam dua masa
+609	Sisanya dalam empat masa
+725	Dari tanah
+726	Dari air mani
+727	Dari laki-laki dan perempuan
+# --- Alam: Langit
+377	Astronomi	Astronomy
+384	Gerak benda di alam semesta
+382	Navigasi dengan bintang
+385	Benda yang jatuh ke bumi
+378	Mekanika langit	Celestial mechanics
+380	Orbit matahari dan bulan
+114	Bintang	Stars
+386	Bintang (kawakib)	Stars (kawakib)
+1598	Meteor	Meteors
+209	Ufuk	Horizon
+1347	Tiang	Pillars
+1717	Atap	Roof
+74	Matahari	Sun
+64	Bulan	Moon
+160	Gugusan bintang (buruj)	Constellations
+220	Bintang Syi'ra	Sirius
+1169	Langit masih berupa asap
+# --- Alam: Bumi
+5	Bumi	Earth
+611	Rotasi bumi
+610	Kemiringan sumbu bumi
+605	Bumi diganti dengan bumi yang lain
+976	Gunung	Mountains
+1145	Laut	Sea
+1146	Kegelapan di kedalaman laut
+1715	Sungai	Rivers
+1774	Mata air	Springs
+1838	Lembah	Valley
+1511	Dataran tinggi	Hill
+1335	Gua	Cave
+202	Gurun	Desert
+612	Gempa bumi	Earthquake
+1417	Timur dan barat	East and West
+1299	Dinding pemisah	Barrier
+1853	Ombak	Waves
+1704	Tempat tidur (mihad) di neraka	Resting place (Hell)
+1738	Tempat menetap	Settlement
+1776	Pasak (autad)	Stakes
+1858	Sumur	Well
+# --- Alam: Cuaca
+1214	Air	Water
+1215	Dua laut
+1346	Dingin	Cold
+11	Hujan	Rain
+1224	Hujan saat berperang	Rain during battle
+1227	Angin	Wind
+22	Awan	Clouds
+1218	Pola awan
+8	Kilat	Lightning
+1222	Petir menyambar
+7	Guruh	Thunder
+1220	Angin mengangkat awan
+1225	Badai	Storms
+1219	Hujan es
+# --- Alam: Tumbuhan
+1368	Tanaman ladang	Crops
+1502	Tanaman dan panen	Harvest
+1734	Biji	Seed
+1769	Mayang kurma	Spathe
+1820	Batang pohon	Trunk
+295	Pohon talh (akasia/pisang)	Talh tree (acacia/banana)
+16	Pohon	Trees
+1201	Pohon di neraka
+1200	Pohon di Hudaibiyah (Baiat Ridwan)
+78	Kurma	Date palm
+79	Anggur	Grapes
+111	Daun	Leaves
+24	Sayur-mayur	Herbs
+120	Zaitun	Olive
+121	Delima	Pomegranate
+234	Jahe	Ginger
+25	Mentimun	Cucumber
+26	Bawang putih	Garlic
+27	Kacang adas	Lentils
+28	Bawang merah	Onion
+240	Tin	Fig
+2010	Labu	Squash
+# --- Alam: Hewan
+461	Hewan ternak	Livestock
+396	Binatang melata	Beasts
+1711	Tunggangan	Riding animals
+1872	Rayap dan cacing	Worms
+260	Hewan	Animals
+125	Unta	Camel
+85	Kuda	Horses
+34	Sapi	Cow
+123	Domba	Sheep
+135	Ular	Snake
+233	Singa	Lion
+153	Serigala	Wolf
+33	Kera	Apes
+363	Kera yang hina
+140	Anjing	Dog
+124	Kambing	Goat
+138	Katak	Frogs
+163	Bagal	Mules
+76	Burung	Birds
+192	Burung hud-hud	Hoopoe
+23	Burung salwa	Quails
+104	Burung gagak	Crow
+1988	Hewan laut	Sea animals
+1990	Ikan paus	Whale
+139	Ikan	Fish
+603	Keledai	Donkeys
+1968	Hewan hidup berkelompok seperti manusia
+1998	Makhluk yang tidak kita ketahui
+261	Serangga	Insects
+136	Belalang	Locusts
+12	Nyamuk	Mosquito
+137	Kutu	Lice
+165	Lebah	Bees
+184	Lalat	Fly
+191	Semut	Ants
+197	Laba-laba	Spider
+# --- Alam: Manusia
+1965	Manusia sebagai khalifah di bumi
+127	Bani Adam	Children of Adam
+178	'Alaq (segumpal darah)	Alaq
+219	Janin	Embryo
+1410	Nutfah (setetes mani)	Drop (nutfah)
+1867	Rahim	Womb
+263	Anggota tubuh	Body parts
+82	Mata	Eye
+94	Lidah	Tongue
+75	Tulang	Bone
+238	Tulang dada
+10	Telinga	Ear
+109	Sayap	Wing
+51	Berbalik ke belakang	Turning back on one's heels
+9	Jari	Finger
+151	Ubun-ubun	Forelock
+187	Bibir	Lip
+126	Usus	Intestines
+143	Dahi	Forehead
+226	Hidung (belalai)	Snout
+264	Penyakit	Disease
+93	Kusta	Leprosy
+1504	Kesembuhan	Healing
+697	Pendengaran	Hearing
+1162	Penglihatan	Sight
+1317	Buta	Blind
+1378	Tuli	Deaf
+1413	Bisu	Mute
+1561	Pincang	Lame
+1442	Wajah	Face
+1498	Tangan	Hand
+1293	Punggung	Back
+1340	Dada	Chest
+1802	Kerongkongan	Throat
+1841	Urat leher	Jugular vein
+1625	Hidung	Nose
+1167	Kulit	Skin
+1301	Janggut	Beard
+1321	Jasad	Body
+1744	Rupa	Form
+1846	Suara	Voice
+1760	Tidur	Sleep
+1445	Pingsan	Fainting
+306	Merawat orang tua yang lanjut usia
+1592	Kedewasaan	Maturity
+1636	Tua	Old age
+732	Pasangan dari jenismu sendiri
+719	Diciptakan berpasangan
+734	Seburuk-buruk makhluk yang tidak berakal
+717	Diciptakan berkeluh kesah
+718	Diciptakan dalam bentuk terbaik
+730	Tumbuh dari tanah
+731	Kecil dibanding alam semesta
+733	Sifat kikir dalam jiwa
+# --- Alam: Waktu & Bilangan
+1006	Malam	Night
+1609	Pagi	Morning
+1264	Petang	Evening
+1624	Tengah hari	Noon
+963	Bulan (penanggalan)	Months
+964	Empat bulan haram
+635	Kecuali jika diserang
+1877	Tahun	Year
+456	Kalender	Calendar
+457	Kalender bulan
+458	Ketepatannya
+459	Mengundurkan bulan haram (nasi')
+1628	Bilangan	Number
+1638	Satu	One
+1825	Dua	Two
+1801	Tiga	Three
+1456	Lima	Five
+1754	Enam	Six
+1739	Tujuh	Seven
+1740	Tujuh puluh	Seventy
+1420	Delapan puluh	Eighty
+1525	Seratus	Hundred
+62	Fajar	Dawn
+# --- Alam: Benda
+279	Sifat fisik	Physical attributes
+35	Warna	Colour
+119	Hijau
+1312	Hitam	Black
+1319	Biru	Blue
+1660	Merah mawar	Rose red
+1860	Putih	White
+1878	Kuning	Yellow
+643	Api	Fire
+528	Kristal	Crystal
+394	Zarah	Atom
+715	Bulu domba dan tempat tinggal	Wool and dwellings
+1876	Benang pintalan	Yarn
+1716	Batu besar	Rock
+1781	Batu	Stones
+1455	Kayu bakar	Firewood
+57	Kapal dan bahtera	Ships
+1332	Tongkat	Staff
+1518	Rumah	House
+1329	Bangunan	Building
+1416	Tempat tinggal	Dwellings
+1849	Dinding	Wall
+1303	Tempat tidur	Bed
+1371	Bantal	Cushion
+1683	Selimut	Quilt
+1719	Permadani	Rug
+157	Debu	Dust
+92	Tanah liat kering	Clay
+188	Pelita	Lamp
+168	Tanah	Soil
+180	Mutiara	Pearl
+171	Sutra	Silk
+110	Kunci	Key
+128	Bahtera Nuh	Noah's Ark
+90	Pena	Pen
+186	Minyak	Oil
+108	Tangga	Ladder
+154	Uang dirham	Coins
+189	Kaca	Glass
+69	Tabut	Ark of the Covenant
+175	Tinta	Ink
+222	Marjan	Coral
+248	Senjata	Weapons
+101	Anak panah undian (azlam)	Divining arrows (azlam)
+204	Baju besi	Coat of mail
+155	Pisau	Knife
+281	Logam	Metals
+83	Emas	Gold
+84	Perak	Silver
+170	Tembaga	Brass
+158	Besi	Iron
+282	Batu mulia	Minerals
+223	Yakut	Ruby
+# --- Alam: Sains
+519	Dentuman besar	The Big Bang
+1805	Relativitas waktu	Time relativity
+438	Biologi	Biology
+439	Makhluk hidup dari air
+442	Botani	Botany
+443	Tumbuhan berpasangan
+516	Kosmologi	Cosmology
+518	Alam semesta mengembang
+517	Usia alam semesta
+614	Embriologi	Embryology
+615	Tahap-tahap penciptaan	Stages of creation
+738	Hidrologi	Hydrology
+739	Buih
+951	Metalurgi	Metallurgy
+953	Tembaga cair
+954	Terak logam
+955	Mineralogi	Mineralogy
+1011	Fisika atom	Nuclear physics
+1012	Yang lebih kecil dari zarah	Things smaller than an atom
+508	Pelestarian alam	Conservation
+1035	Pencemaran	Pollution
+1960	Semut berkomunikasi
+1962	Jasad Fir'aun diselamatkan
+1948	Lubang hitam
+1949	Air payau
+1951	Sidik jari
+1941	Manusia dari gamet laki-laki dan perempuan
+1942	Tahap perkembangan janin
+1943	Janin dalam tiga kegelapan
+1946	Bumi yang bulat
+1950	Penyerbukan oleh angin
+1952	Tekanan udara
+1953	Gunung sebagai pasak
+1954	Besi diturunkan
+1955	Reseptor rasa sakit
+1956	Matahari bersinar, bulan memantulkan cahaya
+1958	Langit sebagai atap yang terpelihara
+1959	Semua makhluk hidup dari air
+1961	Gelombang di dalam laut
+2491	Dosa-dosa besar	Major sins
+9001	Al-Hakim (Mahabijaksana)
+9002	Hamba sahaya (mā malakat aymānukum)
+9003	Kanan: tangan dan sisi kanan
+9004	Kemenangan yang agung (al-fauz)
+9006	Neraca keadilan yang diturunkan
+9007	Ajal dan ketetapan yang tertulis
+9012	Penduduk negeri dan para utusan (Yasin)
+9008	Al-Qur'an sebagai peringatan (adz-Dzikr)
+9009	Mengingat nikmat Allah

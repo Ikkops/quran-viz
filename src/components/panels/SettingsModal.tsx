@@ -7,7 +7,8 @@ import { LANGS, MESSAGES, useI18n, type Lang } from "../../i18n/I18nContext";
 export interface ChartSettings {
   bucketSize: number;
   extremesCount: number;
-  /** Whole-interface zoom factor (CSS `zoom` on the app root). Default 1.5. */
+  /** Whole-interface zoom factor (CSS `zoom` on the app root). Default 1.5;
+   *  capped on narrow screens by `effectiveUiScale` (lib/uiScale.ts). */
   uiScale: number;
 }
 
@@ -16,11 +17,15 @@ export function SettingsModal({
   onClose,
   settings,
   onSettings,
+  onAbout,
+  onWelcome,
 }: {
   open: boolean;
   onClose: () => void;
   settings: ChartSettings;
   onSettings: (s: ChartSettings) => void;
+  onAbout: () => void;
+  onWelcome: () => void;
 }) {
   const theme = useTheme();
   const { t, lang, setLang } = useI18n();
@@ -32,9 +37,9 @@ export function SettingsModal({
       <ModalHeader title={t.settings.title} onClose={onClose} />
       <div className="space-y-5 px-5 py-4">
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <h3 className="mb-2 text-sm font-semibold text-ink-subtle">
             {t.settings.language}
-          </p>
+          </h3>
           <Select
             aria-label={t.settings.language}
             value={lang}
@@ -48,9 +53,9 @@ export function SettingsModal({
           </Select>
         </div>
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <h3 className="mb-2 text-sm font-semibold text-ink-subtle">
             {t.settings.appearance}
-          </p>
+          </h3>
           <div className="space-y-3">
             <Toggle
               checked={theme.dark}
@@ -68,30 +73,34 @@ export function SettingsModal({
               }
             />
             <div>
-              <span className="mb-1.5 block text-sm text-slate-600 dark:text-slate-300">
+              <span className="mb-1.5 block text-sm text-ink-muted">
                 {t.settings.palette}
               </span>
               <div className="flex gap-2">
                 {(Object.keys(PALETTES) as PaletteKey[]).map((k) => (
                   <button
                     key={k}
+                    type="button"
+                    aria-label={PALETTES[k].name}
+                    aria-pressed={theme.paletteKey === k && !theme.customPrimary}
                     onClick={() => {
                       theme.setPaletteKey(k);
                       theme.setCustomPrimary(null);
                     }}
                     title={PALETTES[k].name}
                     className={
-                      "h-8 w-8 rounded-full border-2 transition " +
+                      "h-10 w-10 rounded-full border-2 transition " +
                       (theme.paletteKey === k && !theme.customPrimary
-                        ? "border-slate-800 dark:border-white"
+                        ? "border-ink"
                         : "border-transparent")
                     }
                     style={{ backgroundColor: PALETTES[k].primary }}
                   />
                 ))}
-                <label className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-slate-300 dark:border-slate-600">
+                <label className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-line focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-illumination">
                   <input
                     type="color"
+                    aria-label={t.settings.customColor}
                     className="h-6 w-6 cursor-pointer opacity-0"
                     value={theme.primary}
                     onChange={(e) => theme.setCustomPrimary(e.target.value)}
@@ -107,9 +116,9 @@ export function SettingsModal({
         </div>
 
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <h3 className="mb-2 text-sm font-semibold text-ink-subtle">
             {t.settings.quranText}
-          </p>
+          </h3>
           <div className="space-y-3">
             <Select
               label={t.settings.arabicFont}
@@ -131,8 +140,9 @@ export function SettingsModal({
               onChange={(e) => theme.setArabicScale(Number(e.target.value))}
             />
             <p
+              lang="ar"
               dir="rtl"
-              className="quran-text rounded-lg bg-slate-50 px-3 py-2 text-slate-700 dark:bg-slate-800/60 dark:text-slate-200"
+              className="quran-text rounded-lg bg-surface-sunken px-3 py-2 text-ink"
             >
               بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ
             </p>
@@ -140,9 +150,9 @@ export function SettingsModal({
         </div>
 
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <h3 className="mb-2 text-sm font-semibold text-ink-subtle">
             {t.settings.charts}
-          </p>
+          </h3>
           <div className="space-y-4">
             <Slider
               label={t.settings.bucket}
@@ -166,18 +176,19 @@ export function SettingsModal({
         </div>
 
         <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <h3 className="mb-2 text-sm font-semibold text-ink-subtle">
             {t.settings.shareTheme}
-          </p>
+          </h3>
           <div className="space-y-2">
             <button
+              type="button"
               onClick={() => {
                 const code = theme.exportTheme();
                 setThemeCode(code);
                 navigator.clipboard?.writeText(code).catch(() => {});
                 setThemeMsg(t.settings.copied);
               }}
-              className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+              className="min-h-10 rounded-lg bg-surface-sunken px-3 text-sm font-medium text-ink hover:bg-line/60"
             >
               {t.settings.exportTheme}
             </button>
@@ -186,20 +197,40 @@ export function SettingsModal({
                 value={themeCode}
                 onChange={(e) => setThemeCode(e.target.value)}
                 placeholder={t.settings.pasteTheme}
-                className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs dark:border-slate-700 dark:bg-slate-800"
+                aria-label={t.settings.pasteTheme}
+                className="min-h-10 min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink"
               />
               <button
+                type="button"
                 onClick={() => {
                   const ok = theme.importTheme(themeCode);
                   setThemeMsg(ok ? t.settings.applied : t.settings.invalid);
                 }}
-                className="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                className="min-h-10 rounded-lg bg-surface-sunken px-3 text-sm font-medium text-ink hover:bg-line/60"
               >
                 {t.common.apply}
               </button>
             </div>
-            {themeMsg && <p className="text-xs text-emerald-500">{themeMsg}</p>}
+            <p aria-live="polite" className="text-sm text-ink-muted">
+              {themeMsg}
+            </p>
           </div>
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 border-t border-line pt-3">
+          <button
+            type="button"
+            onClick={onAbout}
+            className="min-h-10 text-sm font-medium text-illumination hover:underline"
+          >
+            {t.settings.about}
+          </button>
+          <button
+            type="button"
+            onClick={onWelcome}
+            className="min-h-10 text-sm text-ink-muted hover:text-ink hover:underline"
+          >
+            {t.settings.welcomeAgain}
+          </button>
         </div>
       </div>
     </Modal>

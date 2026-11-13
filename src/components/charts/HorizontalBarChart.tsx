@@ -8,7 +8,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { axisColor } from "./common";
+import { axisColor, CURSOR_FILL } from "./common";
 
 interface TickStyle {
   fontSize?: number;
@@ -48,7 +48,7 @@ export function HorizontalBarChart<T extends Record<string, unknown>>({
   const ac = axisColor(dark);
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <BarChart data={data} layout="vertical" margin={margin}>
+      <BarChart data={data} layout="vertical" margin={margin} accessibilityLayer>
         <XAxis type="number" tick={{ fontSize: 11, fill: ac }} />
         <YAxis
           type="category"
@@ -57,7 +57,7 @@ export function HorizontalBarChart<T extends Record<string, unknown>>({
           interval={0}
           tick={{ fontSize: 11, fill: ac, ...tickStyle }}
         />
-        <Tooltip content={tooltip} cursor={{ fill: "rgba(148,163,184,0.12)" }} />
+        <Tooltip content={tooltip} cursor={{ fill: CURSOR_FILL }} />
         <Bar
           dataKey={valueKey}
           radius={[0, 4, 4, 0]}

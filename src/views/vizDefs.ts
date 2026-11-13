@@ -195,7 +195,14 @@ export interface DashboardLinkState {
   metric: Metric;
   cloudLang: CloudLang;
   filter: FilterState;
+  /** Root (Buckwalter) shown by the root explorer. */
+  root?: string;
+  /** Topic key shown by the topic explorer. */
+  topic?: string;
 }
+
+/** A root's Buckwalter form or a topic key: short, no separators. */
+const LINK_KEY = /^[\w$*<>&'|{}~`^.-]{1,64}$/;
 
 const SORTS: SortKey[] = ["quran", "revelation", "verses", "words", "letters"];
 const PLACES: PlaceFilter[] = ["all", "Meccan", "Medinan"];
@@ -205,6 +212,8 @@ export function dashboardToParams(st: DashboardLinkState): Record<string, string
   const out: Record<string, string> = { v: st.viz };
   if (st.viz === "length") out.m = st.metric;
   if (st.viz === "cloud") out.c = st.cloudLang;
+  if (st.viz === "root-explorer" && st.root) out.root = st.root;
+  if (st.viz === "topic-explorer" && st.topic) out.topic = st.topic;
   const f = st.filter;
   if (f.sort !== "quran") out.s = f.sort;
   if (f.mode === "surah") out.r = `surah:${f.surahRange[0]}-${f.surahRange[1]}`;
@@ -222,6 +231,8 @@ export function paramsToDashboard(
   if (p.v && p.v in VIZ_BY_ID) out.viz = p.v as VizId;
   if (p.m && METRICS.some((m) => m.value === p.m)) out.metric = p.m as Metric;
   if (p.c === "ar" || p.c === "en") out.cloudLang = p.c;
+  if (p.root && LINK_KEY.test(p.root)) out.root = p.root;
+  if (p.topic && LINK_KEY.test(p.topic)) out.topic = p.topic;
   const filter: FilterState = { ...DEFAULT_FILTER, ...base };
   let touched = false;
   if (p.s && (SORTS as string[]).includes(p.s)) {
@@ -267,6 +278,8 @@ export function seedDashboardFromHash(hash: string): void {
     if (st.metric) set("qv.metric", st.metric);
     if (st.cloudLang) set("qv.cloudLang", st.cloudLang);
     if (st.filter) set("qv.filter", st.filter);
+    if (st.root) set("qv.root", st.root);
+    if (st.topic) set("qv.topicKey", st.topic);
   } catch {
     /* storage unavailable: the link is ignored */
   }

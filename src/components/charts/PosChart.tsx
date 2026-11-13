@@ -14,12 +14,10 @@ function PosTooltip({ active, payload }: TipProps) {
   const d = payload[0].payload;
   return (
     <TooltipShell>
-      <div className="mb-0.5 font-semibold text-slate-800 dark:text-slate-100">
-        {d.label} <span className="text-[11px] text-slate-400">({d.tag})</span>
+      <div className="mb-0.5 font-semibold text-ink">
+        {d.label} <span className="text-xs text-ink-subtle">({d.tag})</span>
       </div>
-      <div className="tabular-nums text-slate-600 dark:text-slate-300">
-        {t.charts.segments(n(d.count))}
-      </div>
+      <div className="tabular-nums text-ink-muted">{t.charts.segments(n(d.count))}</div>
     </TooltipShell>
   );
 }

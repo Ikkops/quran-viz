@@ -15,6 +15,7 @@ import {
   gridColor,
   surahColor,
   surahOpacity,
+  hitMark,
   type ChartContext,
 } from "./common";
 import { Cell } from "recharts";
@@ -30,7 +31,10 @@ export function CorrelationScatter({
   const { t } = useI18n();
   return (
     <ResponsiveContainer width="100%" height="100%">
-      <ScatterChart margin={{ top: 12, right: 16, bottom: 24, left: 8 }}>
+      <ScatterChart
+        margin={{ top: 12, right: 16, bottom: 24, left: 8 }}
+        accessibilityLayer
+      >
         <CartesianGrid stroke={gridColor(ctx.dark)} strokeDasharray="3 3" />
         <XAxis
           type="number"
@@ -67,7 +71,9 @@ export function CorrelationScatter({
         <Tooltip content={<SurahTooltip />} cursor={{ strokeDasharray: "3 3" }} />
         <Scatter
           data={data}
-          onClick={(d: unknown) => ctx.onSelectSurah?.((d as SurahDatum).id)}
+          onClick={(d: unknown) =>
+            hitMark(ctx, { scope: "surah", value: (d as SurahDatum).id })
+          }
         >
           {data.map((d) => (
             <Cell

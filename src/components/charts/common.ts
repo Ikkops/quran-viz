@@ -4,12 +4,9 @@ import type { SurahDatum } from "../../data/selectors";
 import { categorizeOpening } from "../../data/fawatih";
 import type { AyahPlace, Surah } from "../../types/quran";
 
-/** Colour for ayahs revealed en route during the Hijra (neutral slate). */
-export const HIJRA_COLOR = "#94a3b8";
-
-/** Colour for a revelation place under the palette. */
+/** Colour for a revelation place (fixed by DESIGN.md's Revelation Rule). */
 export function placeColor(place: AyahPlace, palette: Palette): string {
-  if (place === "Hijra") return HIJRA_COLOR;
+  if (place === "Hijra") return palette.hijra;
   return place === "Medinan" ? palette.pie[1] : palette.pie[0];
 }
 
@@ -75,6 +72,15 @@ export interface ChartContext {
   onOpen?: (target: ReaderTarget) => void;
   /** Convenience: open a surah at its top. Wraps `onOpen`. */
   onSelectSurah?: (id: number) => void;
+  /** A small mark (bar, point, box) was hit. The dashboard opens the reader
+   *  on a mouse click but only selects on a tap, so the readout can be read
+   *  first; without it, charts fall back to `onOpen`. */
+  onMark?: (target: ReaderTarget) => void;
+}
+
+/** Report a hit on a mark (see `ChartContext.onMark`). */
+export function hitMark(ctx: ChartContext, target: ReaderTarget): void {
+  (ctx.onMark ?? ctx.onOpen)?.(target);
 }
 
 /** The legend key a datum is coloured by under the current colour mode. */
@@ -94,6 +100,9 @@ export function surahOpacity(d: SurahDatum, ctx: ChartContext): number {
   if (!ctx.activeKeys || ctx.activeKeys.size === 0) return 1;
   return ctx.activeKeys.has(surahKey(d, ctx)) ? 1 : 0.18;
 }
+
+/** Recharts hover band behind the active bar (reads on light and dark). */
+export const CURSOR_FILL = "rgba(148,163,184,0.12)";
 
 export function axisColor(dark: boolean): string {
   return dark ? "#94a3b8" : "#64748b";

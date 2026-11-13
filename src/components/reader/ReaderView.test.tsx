@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { EditionsIndex, Surah, Verse } from "../../types/quran";
-import type { Palette } from "../../theme/palettes";
+import { resolvePalette, type Palette } from "../../theme/palettes";
 
 // jsdom has no layout, so @tanstack/react-virtual sees a 0-height scroll
 // container and renders zero items. Stub the hook to render every row.
@@ -18,10 +18,11 @@ vi.mock("@tanstack/react-virtual", () => ({
       })),
     scrollToIndex: () => {},
     measureElement: () => {},
+    measure: () => {},
   }),
 }));
 
-import { ReaderModal } from "./ReaderModal";
+import { ReaderView } from "./ReaderView";
 
 // Stub fetch: return empty arrays for any translation file so the hook
 // resolves without a real network. The reader also lazy-loads tajweed /
@@ -103,15 +104,11 @@ const editions: EditionsIndex = {
   ],
 };
 
-const palette: Palette = {
-  name: "Emerald",
-  primary: "#10b981",
-  pie: ["#10b981", "#8b5cf6"],
-};
+const palette: Palette = resolvePalette("lapis", false);
 
-function renderReader(overrides?: Partial<Parameters<typeof ReaderModal>[0]>) {
+function renderReader(overrides?: Partial<Parameters<typeof ReaderView>[0]>) {
   return render(
-    <ReaderModal
+    <ReaderView
       target={{ scope: "surah", value: 1 }}
       surahs={surahs}
       verses={verses}
@@ -131,7 +128,7 @@ function renderReader(overrides?: Partial<Parameters<typeof ReaderModal>[0]>) {
   );
 }
 
-describe("ReaderModal", () => {
+describe("ReaderView", () => {
   it("renders the surah title and verse badges", () => {
     renderReader();
     expect(screen.getByText(/Al-Fatiha/)).toBeInTheDocument();
@@ -147,6 +144,7 @@ describe("ReaderModal", () => {
   it("filters verses by Arabic search (diacritic-insensitive)", async () => {
     const user = userEvent.setup();
     renderReader();
+    await user.click(screen.getByRole("button", { name: /Search in this view/i }));
     const input = screen.getByPlaceholderText(/Search/i);
     await user.type(input, "الحمد");
     // 1:2 contains "ٱلْحَمْدُ" which normalizes to "الحمد"
@@ -157,8 +155,9 @@ describe("ReaderModal", () => {
   it("shows the empty state when no verses match", async () => {
     const user = userEvent.setup();
     renderReader();
+    await user.click(screen.getByRole("button", { name: /Search in this view/i }));
     await user.type(screen.getByPlaceholderText(/Search/i), "zzzzzz");
-    expect(screen.getByText(/No verses match/i)).toBeInTheDocument();
+    expect(screen.getByText(/No ayahs match/i)).toBeInTheDocument();
   });
 
   it("calls onNavigate with the next surah on Next", async () => {
@@ -206,15 +205,15 @@ describe("ReaderModal", () => {
     const user = userEvent.setup();
     const first = renderReader();
     await user.click(screen.getByRole("button", { name: /Reader settings/i }));
-    await user.click(screen.getByRole("button", { name: /Transliteration/i }));
+    await user.click(screen.getByRole("switch", { name: /Transliteration/i }));
     await user.click(screen.getByRole("button", { name: /About this surah/i }));
     await user.click(screen.getByRole("button", { name: "Indonesia" }));
     first.unmount();
 
     renderReader();
     await user.click(screen.getByRole("button", { name: /Reader settings/i }));
-    const translit = screen.getByRole("button", { name: /Transliteration/i });
-    expect(translit.querySelector(".bg-emerald-500")).not.toBeNull();
+    const translit = screen.getByRole("switch", { name: /Transliteration/i });
+    expect(translit).toHaveAttribute("aria-checked", "true");
     expect(localStorage.getItem("qv.reader.infoLang")).toBe('"id"');
     await user.click(screen.getByRole("button", { name: /About this surah/i }));
     expect(screen.getByRole("button", { name: "Indonesia" })).toHaveAttribute(
@@ -226,7 +225,7 @@ describe("ReaderModal", () => {
   it("bookmarks a verse through onBookmarks and shows bookmarked state", async () => {
     const onBookmarks = vi.fn();
     const { unmount } = renderReader({ onBookmarks });
-    await userEvent.click(screen.getAllByRole("button", { name: "Bookmark verse" })[0]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Bookmark ayah" })[0]);
     expect(onBookmarks).toHaveBeenCalledWith([
       expect.objectContaining({ id: 1, note: "" }),
     ]);
@@ -243,13 +242,15 @@ describe("ReaderModal", () => {
       configurable: true,
     });
     renderReader();
-    await userEvent.click(screen.getAllByRole("button", { name: "Copy verse text" })[0]);
+    await userEvent.click(screen.getAllByRole("button", { name: "More actions" })[0]);
+    await userEvent.click(screen.getByRole("button", { name: "Copy ayah text" }));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining(verses[0].ar));
     expect(writeText.mock.calls[0][0]).toMatch(/— Al-Fatiha 1:1$/);
     expect(await screen.findByText("Copied text")).toBeInTheDocument();
 
     writeText.mockRejectedValueOnce(new Error("denied"));
-    await userEvent.click(screen.getAllByRole("button", { name: "Copy verse text" })[1]);
+    await userEvent.click(screen.getAllByRole("button", { name: "More actions" })[1]);
+    await userEvent.click(screen.getByRole("button", { name: "Copy ayah text" }));
     expect(await screen.findByText("Copy failed")).toBeInTheDocument();
   });
 });
