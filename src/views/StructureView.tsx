@@ -91,7 +91,7 @@ export function StructureView({
                 <button
                   type="button"
                   onClick={similar.retry}
-                  className="rounded-lg border border-ink-subtle/50 px-3 py-1 text-xs font-medium text-ink-muted hover:bg-paper"
+                  className="rounded-lg border border-ink-subtle px-3 py-1 text-xs font-medium text-ink-muted hover:bg-paper"
                 >
                   {t.common.retry}
                 </button>

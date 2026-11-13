@@ -842,7 +842,7 @@ export function ReaderView({
             <button
               type="button"
               onClick={() => !picked.includes(adding) && setPicked([...picked, adding])}
-              className="inline-flex h-[2.125rem] items-center gap-1 rounded-lg bg-illumination px-3 text-sm font-medium text-white dark:text-paper"
+              className="inline-flex h-[2.125rem] touch:min-h-11 items-center gap-1 rounded-lg bg-illumination px-3 text-sm font-medium text-white dark:text-paper"
             >
               <Plus size={15} aria-hidden /> {t.compare.add}
             </button>
@@ -913,7 +913,7 @@ export function ReaderView({
                   <button
                     type="button"
                     onClick={() => onNavigate(nextTarget)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-illumination px-4 py-2.5 text-sm font-semibold text-white dark:text-paper"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-illumination px-4 py-2.5 text-sm font-semibold text-white touch:min-h-11 dark:text-paper"
                   >
                     {t.reader.continueTo(t.scope[target.scope], nextTarget.value)}
                     {target.scope === "surah" && surahMap.get(nextTarget.value)
@@ -926,7 +926,7 @@ export function ReaderView({
                   <button
                     type="button"
                     onClick={() => onNavigate({ scope: "surah", value: nextRevealed.id })}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-line px-4 py-2.5 text-sm text-ink-muted hover:bg-surface-sunken"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-line px-4 py-2.5 text-sm text-ink-muted touch:min-h-11 hover:bg-surface-sunken"
                   >
                     {t.reader.nextRevealed(nextRevealed.id, nextRevealed.nameEn)}
                   </button>

@@ -108,7 +108,7 @@ export function ReaderToolbar({
   onGo: (value: number) => void;
   mode: ReaderMode;
   onMode: (m: ReaderMode) => void;
-  /** Phone-width reader: icon-only layout switch, no "/ max". */
+  /** Phone-width reader: 44px pager, and the layout switch moves into settings. */
   narrow: boolean;
   searchOpen: boolean;
   onSearchOpen: (open: boolean) => void;
@@ -145,6 +145,40 @@ export function ReaderToolbar({
   useEffect(() => {
     if (searchOpen) searchRef.current?.focus();
   }, [searchOpen]);
+
+  // The layout switch: beside the pager on wide readers; on a phone it moves
+  // into the settings sheet (with its labels) so the head stays one short row.
+  const modeSwitch = (
+    <div
+      role="group"
+      aria-label={t.reader.modeLabel}
+      className={cx(
+        "rounded-lg border border-line bg-surface-sunken p-0.5 dark:bg-paper",
+        narrow ? "flex" : "ml-auto inline-flex dark:bg-surface",
+      )}
+    >
+      {(["ayah", "mushaf", "compare"] as const).map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => onMode(m)}
+          aria-pressed={mode === m}
+          aria-label={t.reader.modes[m]}
+          title={t.reader.modes[m]}
+          className={cx(
+            "inline-flex items-center justify-center gap-1.5 rounded-md text-sm font-medium transition-colors",
+            narrow ? "h-11 flex-1 px-2" : "h-8 px-2.5",
+            mode === m
+              ? "bg-surface text-ink shadow-sm dark:bg-line"
+              : "text-ink-muted hover:text-ink",
+          )}
+        >
+          {MODE_ICONS[m]}
+          {t.reader.modeShort[m]}
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <header className="shrink-0 border-b border-line bg-paper">
@@ -198,6 +232,14 @@ export function ReaderToolbar({
           onOpen={onSettingsOpen}
           width="w-72"
         >
+          {narrow && (
+            <div className="mb-3 flex flex-col gap-1.5">
+              <span className="text-xs font-medium text-ink-muted">
+                {t.reader.modeLabel}
+              </span>
+              {modeSwitch}
+            </div>
+          )}
           {settings}
         </Popover>
       </div>
@@ -209,7 +251,10 @@ export function ReaderToolbar({
             onChange={(e) => onScope(e.target.value as ReaderScope)}
             aria-label={t.reader.scopeLabel}
             disabled={mode === "mushaf" && scope === "page"}
-            className="h-9 rounded-lg border border-line bg-surface px-2 text-sm text-ink"
+            className={cx(
+              "rounded-lg border border-line bg-surface px-2 text-sm text-ink",
+              narrow ? "h-11" : "h-9",
+            )}
           >
             {READER_SCOPES.map((s) => (
               <option key={s} value={s}>
@@ -221,7 +266,7 @@ export function ReaderToolbar({
             label={t.reader.prev(scopeName)}
             onClick={() => onGo(value - 1)}
             disabled={value <= 1}
-            className="h-9 w-9"
+            className={narrow ? "h-11 w-11" : "h-9 w-9"}
           >
             <ChevronLeft size={18} />
           </QuietIconButton>
@@ -243,46 +288,24 @@ export function ReaderToolbar({
               }}
               inputMode="numeric"
               aria-label={t.reader.jump(scopeName)}
-              className="h-9 w-12 rounded-lg border border-line bg-surface text-center text-sm tabular-nums text-ink"
+              className={cx(
+                "w-12 rounded-lg border border-line bg-surface text-center text-sm tabular-nums text-ink",
+                narrow ? "h-11" : "h-9",
+              )}
             />
-            {!narrow && <span aria-hidden>/ {max}</span>}
+            <span aria-hidden>/ {max}</span>
           </span>
           <QuietIconButton
             label={t.reader.next(scopeName)}
             onClick={() => onGo(value + 1)}
             disabled={value >= max}
-            className="h-9 w-9"
+            className={narrow ? "h-11 w-11" : "h-9 w-9"}
           >
             <ChevronRight size={18} />
           </QuietIconButton>
         </div>
 
-        <div
-          role="group"
-          aria-label={t.reader.modeLabel}
-          className="ml-auto inline-flex rounded-lg border border-line bg-surface-sunken p-0.5 dark:bg-surface"
-        >
-          {(["ayah", "mushaf", "compare"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => onMode(m)}
-              aria-pressed={mode === m}
-              aria-label={t.reader.modes[m]}
-              title={t.reader.modes[m]}
-              className={cx(
-                "inline-flex h-8 items-center gap-1.5 rounded-md text-sm font-medium transition-colors",
-                narrow ? "w-9 justify-center" : "px-2.5",
-                mode === m
-                  ? "bg-surface text-ink shadow-sm dark:bg-paper"
-                  : "text-ink-muted hover:text-ink",
-              )}
-            >
-              {MODE_ICONS[m]}
-              {!narrow && t.reader.modeShort[m]}
-            </button>
-          ))}
-        </div>
+        {!narrow && modeSwitch}
       </div>
 
       {searchOpen && mode !== "mushaf" && (
@@ -305,7 +328,7 @@ export function ReaderToolbar({
               }}
               placeholder={t.reader.searchPh}
               aria-label={t.reader.searchAria}
-              className="h-10 w-full rounded-lg border border-line bg-surface pl-8 pr-3 text-base text-ink"
+              className="h-10 touch:min-h-11 w-full rounded-lg border border-line bg-surface pl-8 pr-3 text-base text-ink"
             />
           </div>
         </div>

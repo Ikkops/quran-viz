@@ -242,7 +242,7 @@ export function VerseRow({
             onClick={() => ctx.openContext(v.id)}
             aria-label={t.reader.openContext(ref)}
             title={exception ?? t.reader.openContext(ref)}
-            className="rounded-full"
+            className="inline-flex items-center justify-center rounded-full touch:min-h-11 touch:min-w-11"
           >
             <Badge color={ctx.verseColor(v)} className="tabular-nums">
               {ref}
@@ -257,7 +257,7 @@ export function VerseRow({
               type="button"
               onClick={() => ctx.inlineAsbab!.toggle(v.id)}
               aria-expanded={ctx.inlineAsbab.open.has(v.id)}
-              className="rounded px-1.5 py-0.5 text-xs font-medium text-illumination hover:bg-surface-sunken"
+              className="rounded px-1.5 py-0.5 text-xs font-medium text-illumination hover:bg-surface-sunken touch:min-h-11"
             >
               {t.reader.asbab} ({asbab.reduce((n, e) => n + e.texts.length, 0)})
             </button>

@@ -221,7 +221,7 @@ export function TopicExplorer({
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t2.charts.findTopic}
           aria-label={t2.charts.findTopicAria}
-          className="w-64 max-w-full rounded-lg min-h-10 border border-line bg-surface px-2.5 py-1.5 text-sm text-ink"
+          className="w-64 max-w-full rounded-lg min-h-10 touch:min-h-11 border border-line bg-surface px-2.5 py-1.5 text-sm text-ink"
         />
         {node && (
           <SegmentedControl<Measure>

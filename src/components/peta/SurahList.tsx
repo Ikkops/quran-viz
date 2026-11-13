@@ -47,7 +47,7 @@ function SortHeader({
         onClick={() => onSort(sort)}
         title={t.browse.sortedBy(label)}
         className={cx(
-          "inline-flex items-center gap-1 rounded hover:text-ink",
+          "inline-flex items-center gap-1 rounded hover:text-ink touch:min-h-11",
           on ? "text-ink" : "text-ink-subtle",
         )}
       >

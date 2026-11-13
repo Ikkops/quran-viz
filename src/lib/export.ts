@@ -1,4 +1,5 @@
 import { Capacitor } from "@capacitor/core";
+import { tokens } from "../theme/tokens";
 
 /** Renders a DOM element to a PNG and triggers a download (share sheet in the app). */
 export async function exportElementToPng(
@@ -8,7 +9,7 @@ export async function exportElementToPng(
 ): Promise<void> {
   const { default: html2canvas } = await import("html2canvas");
   const canvas = await html2canvas(el, {
-    backgroundColor: dark ? "#0f172a" : "#ffffff",
+    backgroundColor: tokens(dark).surface,
     scale: 2,
     useCORS: true,
     logging: false,

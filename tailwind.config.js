@@ -33,5 +33,9 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // `touch:` applies on touch screens (phone, tablet, the Android app), where
+    // controls need a 44px target; pointer layouts keep their compact sizes.
+    ({ addVariant }) => addVariant("touch", "@media (pointer: coarse)"),
+  ],
 };

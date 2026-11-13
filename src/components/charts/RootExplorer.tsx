@@ -180,7 +180,7 @@ export function RootExplorer({
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t.charts.findRoot}
               aria-label={t.charts.findRootAria}
-              className="w-44 rounded-lg min-h-10 border border-line bg-surface px-2.5 py-1.5 text-sm text-ink"
+              className="w-44 rounded-lg min-h-10 touch:min-h-11 border border-line bg-surface px-2.5 py-1.5 text-sm text-ink"
             />
             <SegmentedControl<Measure>
               value={measure}

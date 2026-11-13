@@ -364,7 +364,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="mt-3 min-h-10 rounded-lg border border-line px-4 text-sm font-medium text-ink hover:bg-surface-sunken"
+                className="mt-3 min-h-10 touch:min-h-11 rounded-lg border border-line px-4 text-sm font-medium text-ink hover:bg-surface-sunken"
               >
                 {t.common.retry}
               </button>

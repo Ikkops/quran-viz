@@ -29,7 +29,7 @@ export function Card({
   return (
     <div
       className={cx(
-        "rounded-2xl border border-line bg-white shadow-sm",
+        "rounded-2xl border border-line bg-surface shadow-sm",
         "dark:border-line dark:bg-surface/60",
         className,
       )}
@@ -94,7 +94,7 @@ export function Select({
       <select
         {...props}
         className={cx(
-          "min-h-10 w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink transition",
+          "min-h-10 touch:min-h-11 w-full rounded-lg border border-line bg-surface px-2.5 py-1.5 text-sm text-ink transition",
           "disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
@@ -144,7 +144,7 @@ export function Toggle({
       <span
         className={cx(
           "relative h-5 w-9 shrink-0 rounded-full transition motion-reduce:transition-none",
-          checked ? "bg-illumination" : "bg-ink-subtle/50",
+          checked ? "bg-illumination" : "bg-ink-subtle",
         )}
       >
         <span
@@ -167,9 +167,9 @@ export function IconButton({
     <button
       {...props}
       className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg border border-line bg-white px-3 py-1.5 text-sm font-medium text-ink transition",
+        "inline-flex items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition touch:min-h-11",
         "hover:bg-paper disabled:opacity-50",
-        "dark:border-ink-subtle/50 dark:bg-surface dark:text-ink dark:hover:bg-line",
+        "dark:border-ink-subtle/50 dark:hover:bg-line",
         className,
       )}
     >
@@ -203,9 +203,9 @@ export function SegmentedControl<T extends string>({
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
           className={cx(
-            "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition",
+            "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition touch:min-h-11",
             value === o.value
-              ? "bg-white text-ink shadow-sm dark:bg-ink-subtle/50 dark:text-white"
+              ? "bg-surface text-ink shadow-sm dark:bg-ink-subtle/50 dark:text-white"
               : "text-ink-muted hover:text-ink dark:text-ink-subtle",
           )}
         >
@@ -433,7 +433,7 @@ export function Modal({
           {/* The card; the resize handles sit outside it, beside its edges. */}
           <div
             className={cx(
-              "min-h-0 w-full overflow-y-auto rounded-2xl bg-white shadow-2xl dark:bg-paper",
+              "min-h-0 w-full overflow-y-auto rounded-2xl bg-surface shadow-2xl dark:bg-paper",
               fullHeight && "flex h-full flex-col",
             )}
           >
@@ -473,7 +473,7 @@ export function ModalHeader({
         type="button"
         onClick={onClose}
         aria-label={t.common.close}
-        className="-mr-2 -mt-1 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-subtle hover:bg-surface-sunken hover:text-ink"
+        className="-mr-2 -mt-1 inline-flex h-10 w-10 touch:min-h-11 touch:min-w-11 shrink-0 items-center justify-center rounded-lg text-ink-subtle hover:bg-surface-sunken hover:text-ink"
       >
         <X size={20} aria-hidden />
       </button>
@@ -588,7 +588,7 @@ export function QuietIconButton({
       aria-pressed={pressed}
       {...props}
       className={cx(
-        "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-30",
+        "inline-flex h-10 w-10 touch:min-h-11 touch:min-w-11 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-30",
         pressed
           ? "bg-surface-sunken text-illumination"
           : "text-ink-muted hover:bg-surface-sunken hover:text-ink",

@@ -223,6 +223,11 @@ capped by `effectiveUiScale` (`lib/uiScale.ts`) so the layout never drops below
 not `innerWidth`, which a phone inflates when content overflows. The root,
 top bar, rail and tab bar pad for `env(safe-area-inset-*)` (`viewport-fit=cover`).
 
+**Touch sizes.** `touch:` is a Tailwind variant for `@media (pointer: coarse)`
+(`tailwind.config.js`). Compact controls keep their pointer size and add
+`touch:min-h-11` (and `touch:min-w-11` for icon buttons) so every target is 44px
+on a phone, a tablet and in the Android app. New controls under 44px need it.
+
 **CSS zoom vs media queries.** The Interface scale zooms the app root, but media
 queries still read the unzoomed window (a 1440px window at 150% matches `xl:`
 with only 960px of layout). So layout choices that matter use available width:

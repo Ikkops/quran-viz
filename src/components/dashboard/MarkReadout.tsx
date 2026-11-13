@@ -46,7 +46,7 @@ export function MarkReadout({
                 key={e.label}
                 type="button"
                 onClick={() => onOpen(e.target)}
-                className="h-8 rounded-md border border-line bg-surface px-2 text-sm tabular-nums text-illumination hover:border-illumination/50"
+                className="h-8 touch:min-h-11 rounded-md border border-line bg-surface px-2 text-sm tabular-nums text-illumination hover:border-illumination/50"
               >
                 {e.label}
               </button>
@@ -58,7 +58,7 @@ export function MarkReadout({
         <button
           type="button"
           onClick={() => onOpen(pinned.target!)}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-illumination px-3 text-sm font-semibold text-white dark:text-paper"
+          className="inline-flex h-9 touch:min-h-11 items-center gap-1.5 rounded-lg bg-illumination px-3 text-sm font-semibold text-white dark:text-paper"
         >
           <BookOpen size={15} aria-hidden /> {t.dashboard.openInReader}
         </button>
@@ -67,7 +67,7 @@ export function MarkReadout({
         type="button"
         onClick={onClear}
         aria-label={t.dashboard.clearSelection}
-        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-muted hover:bg-surface hover:text-ink"
+        className="inline-flex h-9 w-9 touch:min-h-11 touch:min-w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-surface hover:text-ink"
       >
         <X size={16} aria-hidden />
       </button>

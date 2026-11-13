@@ -89,7 +89,7 @@ export function SettingsModal({
                     }}
                     title={PALETTES[k].name}
                     className={
-                      "h-10 w-10 rounded-full border-2 transition " +
+                      "h-10 w-10 touch:min-h-11 touch:min-w-11 rounded-full border-2 transition " +
                       (theme.paletteKey === k && !theme.customPrimary
                         ? "border-ink"
                         : "border-transparent")
@@ -97,7 +97,7 @@ export function SettingsModal({
                     style={{ backgroundColor: PALETTES[k].primary }}
                   />
                 ))}
-                <label className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-line focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-illumination">
+                <label className="flex h-10 w-10 touch:min-h-11 touch:min-w-11 cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-line focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-illumination">
                   <input
                     type="color"
                     aria-label={t.settings.customColor}
@@ -188,7 +188,7 @@ export function SettingsModal({
                 navigator.clipboard?.writeText(code).catch(() => {});
                 setThemeMsg(t.settings.copied);
               }}
-              className="min-h-10 rounded-lg bg-surface-sunken px-3 text-sm font-medium text-ink hover:bg-line/60"
+              className="min-h-10 touch:min-h-11 rounded-lg bg-surface-sunken px-3 text-sm font-medium text-ink hover:bg-line/60"
             >
               {t.settings.exportTheme}
             </button>
@@ -198,7 +198,7 @@ export function SettingsModal({
                 onChange={(e) => setThemeCode(e.target.value)}
                 placeholder={t.settings.pasteTheme}
                 aria-label={t.settings.pasteTheme}
-                className="min-h-10 min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink"
+                className="min-h-10 touch:min-h-11 min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-ink"
               />
               <button
                 type="button"
@@ -206,7 +206,7 @@ export function SettingsModal({
                   const ok = theme.importTheme(themeCode);
                   setThemeMsg(ok ? t.settings.applied : t.settings.invalid);
                 }}
-                className="min-h-10 rounded-lg bg-surface-sunken px-3 text-sm font-medium text-ink hover:bg-line/60"
+                className="min-h-10 touch:min-h-11 rounded-lg bg-surface-sunken px-3 text-sm font-medium text-ink hover:bg-line/60"
               >
                 {t.common.apply}
               </button>
@@ -220,14 +220,14 @@ export function SettingsModal({
           <button
             type="button"
             onClick={onAbout}
-            className="min-h-10 text-sm font-medium text-illumination hover:underline"
+            className="min-h-10 touch:min-h-11 text-sm font-medium text-illumination hover:underline"
           >
             {t.settings.about}
           </button>
           <button
             type="button"
             onClick={onWelcome}
-            className="min-h-10 text-sm text-ink-muted hover:text-ink hover:underline"
+            className="min-h-10 touch:min-h-11 text-sm text-ink-muted hover:text-ink hover:underline"
           >
             {t.settings.welcomeAgain}
           </button>

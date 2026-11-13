@@ -37,7 +37,7 @@ function Chip({
       aria-pressed={on}
       onClick={onClick}
       className={cx(
-        "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm transition-colors",
+        "inline-flex h-9 touch:min-h-11 items-center gap-2 rounded-lg border px-3 text-sm transition-colors",
         on
           ? "border-ink-subtle bg-surface text-ink"
           : "border-line text-ink-muted hover:text-ink",
@@ -174,6 +174,9 @@ export function PetaMushaf({
     else open(id);
   };
 
+  // Touch screens get the tap wording (there is nothing to point with).
+  const coarsePointer =
+    typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
   const shownId = hoverId ?? selectedId;
   const shown = shownId ? verses[shownId - 1] : undefined;
   const readout = shown
@@ -184,7 +187,9 @@ export function PetaMushaf({
         shown.juz,
         shown.page,
       )
-    : t.peta.hint;
+    : coarsePointer
+      ? t.peta.hintTouch
+      : t.peta.hint;
 
   const hits = root
     ? t.peta.rootHits(
@@ -254,7 +259,7 @@ export function PetaMushaf({
               onChange={(e) => setQuery(e.target.value)}
               placeholder={kind === "root" ? t.peta.rootPh : t.peta.topicPh}
               aria-label={kind === "root" ? t.peta.rootPh : t.peta.topicPh}
-              className="h-10 w-full rounded-lg border border-line bg-surface px-3 text-base text-ink"
+              className="h-10 touch:min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base text-ink"
             />
             {query.trim() && (
               <ul className="absolute inset-x-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-lg border border-line bg-surface p-1 shadow-float">
@@ -335,7 +340,7 @@ export function PetaMushaf({
           <button
             type="button"
             onClick={() => open(selectedId)}
-            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-illumination px-3 text-sm font-semibold text-white dark:text-paper"
+            className="inline-flex h-9 touch:min-h-11 items-center gap-1.5 rounded-lg bg-illumination px-3 text-sm font-semibold text-white dark:text-paper"
           >
             <BookOpen size={15} aria-hidden />
             {t.peta.read(`${verses[selectedId - 1].s}:${verses[selectedId - 1].a}`)}
@@ -383,7 +388,7 @@ export function PetaMushaf({
           type="button"
           onClick={() => setReveal({ ms: 6000 })}
           title={t.peta.revealNote}
-          className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-illumination hover:bg-surface-sunken"
+          className="ml-auto inline-flex min-h-9 touch:min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-illumination hover:bg-surface-sunken"
         >
           <Play size={14} aria-hidden /> {t.peta.replay}
         </button>

@@ -549,7 +549,9 @@ export const id: Messages = {
     explore: "Buka di penjelajah",
     readout: (ref, surah, place, juz, page) =>
       `${ref} · ${surah} · ${place} · juz ${juz} · halaman ${page}`,
-    hint: "Arahkan ke sebuah ayat untuk melihat letaknya; klik untuk membacanya. Di ponsel, ketuk untuk memilih, lalu buka.",
+    hint: "Arahkan ke sebuah ayat untuk melihat letaknya; klik untuk membacanya.",
+    hintTouch:
+      "Ketuk sebuah ayat untuk melihat letaknya, lalu ketuk Baca untuk membukanya.",
     read: (ref) => `Baca ${ref}`,
     noMatch: "Tidak ditemukan.",
     replay: "Putar urutan turun",
@@ -652,6 +654,9 @@ export const id: Messages = {
         "Busur menghubungkan ayat-ayat yang redaksinya mirip, di seluruh mushaf. Klik sebuah busur untuk membacanya",
     },
     traditional: (n) => `~${n} menurut hitungan klasik`,
+    groupText: "Teks",
+    groupDivisions: "Pembagiannya",
+    groupPlace: "Tempat turunnya",
     mushafPages: "Halaman mushaf",
     sajdaVerses: "Ayat sajdah",
     meccanAyahs: "Ayat Makkiyah",

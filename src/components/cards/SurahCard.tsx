@@ -75,7 +75,7 @@ export function SurahCard({
     <button
       type="button"
       onClick={onOpen}
-      className="group flex flex-col gap-2 rounded-xl border border-line bg-white p-3 text-left transition hover:-translate-y-0.5 hover:border-ink-subtle/50 hover:shadow-md focus-visible:outline focus-visible:outline-2 dark:bg-surface/60 dark:hover:border-ink-muted"
+      className="group flex flex-col gap-2 rounded-xl border border-line bg-surface p-3 text-left transition hover:-translate-y-0.5 hover:border-ink-subtle/50 hover:shadow-md focus-visible:outline focus-visible:outline-2 dark:bg-surface/60 dark:hover:border-ink-muted"
     >
       <div className="flex items-start gap-2.5">
         <span

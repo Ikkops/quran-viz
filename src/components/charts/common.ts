@@ -1,4 +1,5 @@
 import type { Palette } from "../../theme/palettes";
+import { tokens } from "../../theme/tokens";
 import { FAWATIH_COLORS } from "../../theme/palettes";
 import type { SurahDatum } from "../../data/selectors";
 import { categorizeOpening } from "../../data/fawatih";
@@ -105,9 +106,9 @@ export function surahOpacity(d: SurahDatum, ctx: ChartContext): number {
 export const CURSOR_FILL = "rgba(148,163,184,0.12)";
 
 export function axisColor(dark: boolean): string {
-  return dark ? "#94a3b8" : "#64748b";
+  return tokens(dark)["ink-subtle"];
 }
 
 export function gridColor(dark: boolean): string {
-  return dark ? "#334155" : "#e2e8f0";
+  return tokens(dark).line;
 }

@@ -890,7 +890,7 @@ function LoadState({ error, onRetry }: { error: string | null; onRetry?: () => v
         <button
           type="button"
           onClick={onRetry}
-          className="rounded-lg border border-ink-subtle/50 px-3 py-1 text-xs font-medium text-ink-muted hover:bg-paper dark:hover:bg-surface"
+          className="rounded-lg border border-ink-subtle px-3 py-1 text-xs font-medium text-ink-muted hover:bg-paper dark:hover:bg-surface"
         >
           {t.common.retry}
         </button>

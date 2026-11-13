@@ -179,7 +179,7 @@ export function Welcome({
         <button
           type="button"
           onClick={onAbout}
-          className="mx-auto mt-4 block min-h-10 px-2 text-sm text-illumination underline-offset-4 hover:underline"
+          className="mx-auto mt-4 block min-h-10 touch:min-h-11 px-2 text-sm text-illumination underline-offset-4 hover:underline"
         >
           {w.about}
         </button>

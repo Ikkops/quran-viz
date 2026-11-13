@@ -25,7 +25,7 @@ export function SajdaMarkers({
           <button
             key={v.id}
             onClick={() => ctx.onOpen?.({ scope: "surah", value: v.s, anchor: v.id })}
-            className="rounded-xl border border-line bg-white p-3 text-right transition hover:shadow-md dark:bg-surface/60"
+            className="rounded-xl border border-line bg-surface p-3 text-right transition hover:shadow-md dark:bg-surface/60"
           >
             <div className="mb-1.5 flex items-center justify-between" dir="ltr">
               <span className="text-sm font-semibold text-ink">

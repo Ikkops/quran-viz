@@ -35,7 +35,7 @@ function Chip({
     <div ref={wrap} className="relative">
       <div
         className={cx(
-          "inline-flex h-9 items-center rounded-full border text-sm transition-colors",
+          "inline-flex h-9 touch:min-h-11 items-center rounded-full border text-sm transition-colors",
           active
             ? "border-illumination/50 bg-illumination/10 text-ink"
             : "border-line text-ink-muted hover:text-ink",
@@ -93,7 +93,7 @@ function Options<T extends string>({
           aria-pressed={o.value === value}
           onClick={() => onPick(o.value)}
           className={cx(
-            "flex h-10 items-center gap-2 rounded-lg px-2 text-left text-sm",
+            "flex h-10 touch:min-h-11 items-center gap-2 rounded-lg px-2 text-left text-sm",
             o.value === value
               ? "bg-surface-sunken font-medium text-ink dark:bg-paper"
               : "text-ink-muted hover:bg-surface-sunken/60 hover:text-ink",
@@ -350,7 +350,7 @@ export function FilterBar({
         <button
           type="button"
           onClick={onReset}
-          className="inline-flex h-9 items-center gap-1.5 rounded-full px-2.5 text-sm text-ink-muted hover:text-ink"
+          className="inline-flex h-9 touch:min-h-11 items-center gap-1.5 rounded-full px-2.5 text-sm text-ink-muted hover:text-ink"
         >
           <RotateCcw size={14} aria-hidden /> {t.controls.reset}
         </button>

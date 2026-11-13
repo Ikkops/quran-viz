@@ -174,7 +174,7 @@ export function BrowseView({
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={t.browse.filterPh}
                   aria-label={t.browse.filterAria}
-                  className="w-60 rounded-lg min-h-10 border border-line bg-surface py-1.5 pl-8 pr-2.5 text-sm text-ink"
+                  className="w-60 rounded-lg min-h-10 touch:min-h-11 border border-line bg-surface py-1.5 pl-8 pr-2.5 text-sm text-ink"
                 />
               </label>
               <div className="w-44">
@@ -232,7 +232,7 @@ export function BrowseView({
                     <button
                       type="button"
                       onClick={chronoState.retry}
-                      className="rounded-lg border border-ink-subtle/50 px-3 py-1 text-xs font-medium text-ink-muted hover:bg-paper dark:hover:bg-surface"
+                      className="rounded-lg border border-ink-subtle px-3 py-1 text-xs font-medium text-ink-muted hover:bg-paper dark:hover:bg-surface"
                     >
                       {t.common.retry}
                     </button>
@@ -454,7 +454,7 @@ function DivisionCardView({
     <button
       type="button"
       onClick={onOpen}
-      className="flex flex-col gap-2 rounded-xl border border-line bg-white p-3 text-left transition hover:-translate-y-0.5 hover:border-ink-subtle/50 hover:shadow-md focus-visible:outline focus-visible:outline-2 dark:bg-surface/60 dark:hover:border-ink-muted"
+      className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-3 text-left transition hover:-translate-y-0.5 hover:border-ink-subtle/50 hover:shadow-md focus-visible:outline focus-visible:outline-2 dark:bg-surface/60 dark:hover:border-ink-muted"
     >
       <div className="flex items-start justify-between gap-2">
         <div>

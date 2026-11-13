@@ -93,7 +93,7 @@ body {
 }
 ::-webkit-scrollbar-thumb {
   background: rgb(var(--ink-subtle) / 0.4);
-  border-radius: 9999px;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: rgb(var(--ink-subtle) / 0.7);

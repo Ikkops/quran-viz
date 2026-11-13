@@ -222,7 +222,7 @@ export const en = {
     tapAgain: "Tap again, or use the button, to read it.",
     surahDetail: (place: string, ayahs: string, words: string) =>
       `${place} · ${ayahs} ayahs · ${words} words`,
-    ayahDetail: (words: string) => `${words} words`,
+    ayahDetail: (words: string) => `${words} ${words === "1" ? "word" : "words"}`,
     bucket: (range: string, n: string, share: string) =>
       `${range} words: ${n} ayahs (${share})`,
     bucketFirst: "The first ones in mushaf order:",
@@ -361,7 +361,7 @@ export const en = {
     closeList: "Close surah list",
     listAria: (c: string) => `${c} surahs`,
     clickBar: "Click a bar to see the surahs in it.",
-    nWords: (n: number) => `${n} words`,
+    nWords: (n: number) => `${n} ${n === 1 ? "word" : "words"}`,
     longest: "Longest ayahs",
     shortest: "Shortest ayahs",
     clickSearch: "click to search",
@@ -459,7 +459,8 @@ export const en = {
     explore: "Open in the explorer",
     readout: (ref: string, surah: string, place: string, juz: number, page: number) =>
       `${ref} · ${surah} · ${place} · juz ${juz} · page ${page}`,
-    hint: "Point at an ayah to see where it is; click to read it. On a phone, tap to select, then open.",
+    hint: "Point at an ayah to see where it is; click to read it.",
+    hintTouch: "Tap an ayah to see where it is, then tap Read to open it.",
     read: (ref: string) => `Read ${ref}`,
     noMatch: "No match.",
     replay: "Play revelation order",
@@ -563,6 +564,9 @@ export const en = {
         "Arcs join ayahs with overlapping wording, across the whole mushaf. Click an arc to read it",
     },
     traditional: (n: string) => `~${n} traditional`,
+    groupText: "The text",
+    groupDivisions: "How it is divided",
+    groupPlace: "Where it was revealed",
     mushafPages: "Mushaf pages",
     sajdaVerses: "Sajda ayahs",
     meccanAyahs: "Meccan ayahs",
