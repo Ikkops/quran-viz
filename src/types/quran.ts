@@ -163,13 +163,17 @@ export interface SimilarData {
  *  theme], in mushaf order. */
 export type ThemesData = [number, number, string][];
 
-/** topics.json: QUL topics with the ayah ids they tag, most-tagged first. */
-export interface Topic {
-  id: number;
-  name: string;
-  ar: string; // Arabic name; may be empty
-  desc: string; // short description; may be empty
-  v: number[];
+/** topics.json: the curated topic tree as a flat list, parents before
+ *  children. Category nodes have keys like "sejarah.nabi"; topic nodes are
+ *  "t<QUL id>" (QUL duplicates merged). Built by scripts/topics.py. */
+export interface TopicNode {
+  k: string;
+  en: string; // English name
+  id: string; // Indonesian name
+  p: number; // parent index, -1 for a top category
+  ar?: string; // Arabic name
+  desc?: string; // short English description
+  v?: number[]; // ayah ids the node tags itself (descendants not included)
 }
 
 /** surah-info-<lang>.json: plain-text introduction per surah (index = surah

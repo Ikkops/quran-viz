@@ -9,3 +9,6 @@ dist
 # Python
 __pycache__/
 .pytest_cache/
+
+# Recitation audio (scripts/fetch_audio.py) — local only, never committed or bundled
+/audio/

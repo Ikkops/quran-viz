@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Search } from "lucide-react";
+import { LayoutGrid, List, Search } from "lucide-react";
 import type { ChronologyData, QuranData, RevelationType, Surah } from "../types/quran";
 import { exceptionsBySurah, surahMapOf } from "../data/selectors";
 import { divisionCards, type DivisionCard } from "../data/sections";
@@ -15,17 +15,32 @@ import { useI18n } from "../i18n/I18nContext";
 import { Card, SectionTitle, SegmentedControl, Select, cx } from "../components/ui";
 import { SurahCard } from "../components/cards/SurahCard";
 import { placeColor, type ReaderTarget } from "../components/charts/common";
+import { PetaMushaf } from "../components/peta/PetaMushaf";
+import { DivisionList, SurahList, type SurahSort } from "../components/peta/SurahList";
+import type { ExploreTarget } from "../components/reader/VerseContextPanel";
 
 type Kind = "surah" | "juz" | "manzil";
-type SurahSort = "mushaf" | "revelation" | "timeline" | "ayahs" | "words";
+type Layout = "list" | "cards";
 type TypeFilter = "all" | RevelationType;
 
+/**
+ * The Peta view: the Peta Mushaf on top, then the index of surahs, juz and
+ * manzils as a dense list (or cards).
+ */
 export function BrowseView({
   data,
   onOpen,
+  lastRead,
+  bookmarks,
+  onExplore,
 }: {
   data: QuranData;
   onOpen: (t: ReaderTarget) => void;
+  /** Ayah id of the last-read position. */
+  lastRead?: number;
+  /** Bookmarked ayah ids. */
+  bookmarks: number[];
+  onExplore: (t: ExploreTarget) => void;
 }) {
   const { palette } = useTheme();
   const i18n = useI18n();
@@ -47,6 +62,11 @@ export function BrowseView({
     persisted.oneOf(["all", "Meccan", "Medinan"] as const),
   );
 
+  const [layout, setLayout] = usePersistentState<Layout>(
+    "qv.browse.layout",
+    "list",
+    persisted.oneOf(["list", "cards"] as const),
+  );
   const surahMap = useMemo(() => surahMapOf(data.surahs), [data.surahs]);
   const exceptions = useMemo(() => exceptionsBySurah(data.verses), [data.verses]);
   const juzCards = useMemo(() => divisionCards(data.verses, "juz"), [data.verses]);
@@ -95,141 +115,189 @@ export function BrowseView({
         : t.browse.manzilSub;
 
   return (
-    <Card className="p-4">
-      <SectionTitle
-        title={t.browse.title}
-        subtitle={subtitle}
-        right={
-          <SegmentedControl<Kind>
-            value={kind}
-            onChange={setKind}
-            ariaLabel={t.browse.browseBy}
-            options={[
-              { value: "surah", label: t.scope.surah },
-              { value: "juz", label: t.scope.juz },
-              { value: "manzil", label: t.scope.manzil },
-            ]}
-          />
-        }
+    <div className="flex flex-col gap-4">
+      <PetaMushaf
+        verses={data.verses}
+        surahMap={surahMap}
+        lastRead={lastRead}
+        bookmarks={bookmarks}
+        onOpen={onOpen}
+        onExplore={onExplore}
       />
-
-      {kind === "surah" && (
-        <>
-          <div className="mb-3 flex flex-wrap items-end gap-3">
-            <label className="relative">
-              <Search
-                size={14}
-                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+      <Card className="p-4">
+        <SectionTitle
+          title={t.browse.title}
+          subtitle={subtitle}
+          right={
+            <div className="flex flex-wrap items-center gap-2">
+              <SegmentedControl<Kind>
+                value={kind}
+                onChange={setKind}
+                ariaLabel={t.browse.browseBy}
+                options={[
+                  { value: "surah", label: t.scope.surah },
+                  { value: "juz", label: t.scope.juz },
+                  { value: "manzil", label: t.scope.manzil },
+                ]}
               />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t.browse.filterPh}
-                aria-label={t.browse.filterAria}
-                className="w-60 rounded-lg border border-slate-300 bg-white py-1.5 pl-8 pr-2.5 text-sm outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+              <SegmentedControl<Layout>
+                value={layout}
+                onChange={setLayout}
+                ariaLabel={t.browse.layoutAria}
+                options={[
+                  {
+                    value: "list",
+                    label: t.browse.layoutList,
+                    icon: <List size={15} aria-hidden />,
+                  },
+                  {
+                    value: "cards",
+                    label: t.browse.layoutCards,
+                    icon: <LayoutGrid size={15} aria-hidden />,
+                  },
+                ]}
               />
-            </label>
-            <div className="w-44">
-              <Select
-                label={t.browse.sort}
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SurahSort)}
-              >
-                <option value="mushaf">{t.browse.mushaf}</option>
-                <option value="revelation">{t.browse.revelation}</option>
-                <option value="timeline">{t.browse.timeline}</option>
-                <option value="ayahs">{t.browse.mostAyahs}</option>
-                <option value="words">{t.browse.mostWords}</option>
-              </Select>
             </div>
-            <SegmentedControl<TypeFilter>
-              value={type}
-              onChange={setType}
-              ariaLabel={t.browse.placeAria}
-              options={[
-                { value: "all", label: t.common.all },
-                { value: "Meccan", label: t.place.Meccan },
-                { value: "Medinan", label: t.place.Medinan },
-              ]}
-            />
-          </div>
-          {surahs.length === 0 ? (
-            <p className="py-10 text-center text-sm text-slate-400">
-              {t.browse.noMatch(query)}
-            </p>
-          ) : timeline ? (
-            chronoState.data ? (
-              <Timeline
+          }
+        />
+
+        {kind === "surah" && (
+          <>
+            <div className="mb-3 flex flex-wrap items-end gap-3">
+              <label className="relative">
+                <Search
+                  size={14}
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-subtle"
+                />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={t.browse.filterPh}
+                  aria-label={t.browse.filterAria}
+                  className="w-60 rounded-lg min-h-10 touch:min-h-11 border border-line bg-surface py-1.5 pl-8 pr-2.5 text-sm text-ink"
+                />
+              </label>
+              <div className="w-44">
+                <Select
+                  label={t.browse.sort}
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SurahSort)}
+                >
+                  <option value="mushaf">{t.browse.mushaf}</option>
+                  <option value="revelation">{t.browse.revelation}</option>
+                  <option value="timeline">{t.browse.timeline}</option>
+                  <option value="ayahs">{t.browse.mostAyahs}</option>
+                  <option value="words">{t.browse.mostWords}</option>
+                </Select>
+              </div>
+              <SegmentedControl<TypeFilter>
+                value={type}
+                onChange={setType}
+                ariaLabel={t.browse.placeAria}
+                options={[
+                  { value: "all", label: t.common.all },
+                  { value: "Meccan", label: t.place.Meccan },
+                  { value: "Medinan", label: t.place.Medinan },
+                ]}
+              />
+            </div>
+            {surahs.length === 0 ? (
+              <p className="py-10 text-center text-sm text-ink-subtle">
+                {t.browse.noMatch(query)}
+              </p>
+            ) : timeline ? (
+              chronoState.data ? (
+                <Timeline
+                  surahs={surahs}
+                  chrono={chronoState.data}
+                  keepEmpty={!query.trim() && type === "all"}
+                  exceptions={exceptions}
+                  asbabCounts={asbabCounts}
+                  palette={palette}
+                  onOpen={(id) => onOpen({ scope: "surah", value: id })}
+                />
+              ) : (
+                <div
+                  className={
+                    chronoState.error
+                      ? "flex flex-col items-center gap-2 py-10 text-sm text-rose-500"
+                      : "py-10 text-center text-sm text-ink-subtle"
+                  }
+                  role={chronoState.error ? "alert" : "status"}
+                >
+                  {chronoState.error
+                    ? t.common.failedToLoad(chronoState.error)
+                    : t.browse.timelineLoading}
+                  {chronoState.error && (
+                    <button
+                      type="button"
+                      onClick={chronoState.retry}
+                      className="rounded-lg border border-ink-subtle px-3 py-1 text-xs font-medium text-ink-muted hover:bg-paper dark:hover:bg-surface"
+                    >
+                      {t.common.retry}
+                    </button>
+                  )}
+                </div>
+              )
+            ) : layout === "list" ? (
+              <SurahList
                 surahs={surahs}
-                chrono={chronoState.data}
-                keepEmpty={!query.trim() && type === "all"}
                 exceptions={exceptions}
-                asbabCounts={asbabCounts}
                 palette={palette}
+                sort={sort}
+                onSort={setSort}
                 onOpen={(id) => onOpen({ scope: "surah", value: id })}
               />
             ) : (
-              <div
-                className={
-                  chronoState.error
-                    ? "flex flex-col items-center gap-2 py-10 text-sm text-rose-500"
-                    : "py-10 text-center text-sm text-slate-400"
-                }
-                role={chronoState.error ? "alert" : "status"}
-              >
-                {chronoState.error
-                  ? t.common.failedToLoad(chronoState.error)
-                  : t.browse.timelineLoading}
-                {chronoState.error && (
-                  <button
-                    type="button"
-                    onClick={chronoState.retry}
-                    className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
-                  >
-                    {t.common.retry}
-                  </button>
-                )}
+              <div className="grid gap-2.5 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
+                {surahs.map((s) => (
+                  <SurahCard
+                    key={s.id}
+                    surah={s}
+                    exceptions={exceptions.get(s.id) ?? []}
+                    palette={palette}
+                    onOpen={() => onOpen({ scope: "surah", value: s.id })}
+                  />
+                ))}
               </div>
-            )
-          ) : (
-            <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {surahs.map((s) => (
-                <SurahCard
-                  key={s.id}
-                  surah={s}
-                  exceptions={exceptions.get(s.id) ?? []}
-                  palette={palette}
-                  onOpen={() => onOpen({ scope: "surah", value: s.id })}
-                />
-              ))}
-            </div>
-          )}
-        </>
-      )}
+            )}
+          </>
+        )}
 
-      {kind !== "surah" && (
-        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {(kind === "juz" ? juzCards : manzilCards).map((c) => (
-            <DivisionCardView
-              key={c.n}
-              card={c}
-              kind={kind}
-              nameAr={kind === "juz" ? data.meta.juzs[c.n - 1]?.nameAr : undefined}
-              surahName={(s) => surahMap.get(s)?.nameEn ?? String(s)}
-              surahColor={(s) => placeColor(surahMap.get(s)?.type ?? "Meccan", palette)}
-              onOpen={() => onOpen({ scope: kind, value: c.n })}
-            />
-          ))}
-        </div>
-      )}
-      {kind === "manzil" && (
-        <p className="mt-3 text-[11px] text-slate-400">{t.browse.manzilNote}</p>
-      )}
-    </Card>
+        {kind !== "surah" && layout === "list" && (
+          <DivisionList
+            cards={kind === "juz" ? juzCards : manzilCards}
+            kind={kind}
+            juzNames={kind === "juz" ? (n) => data.meta.juzs[n - 1]?.nameAr : undefined}
+            surahName={(s) => surahMap.get(s)?.nameEn ?? String(s)}
+            surahColor={(s) => placeColor(surahMap.get(s)?.type ?? "Meccan", palette)}
+            onOpen={(n) => onOpen({ scope: kind, value: n })}
+          />
+        )}
+        {kind !== "surah" && layout === "cards" && (
+          <div className="grid gap-2.5 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
+            {(kind === "juz" ? juzCards : manzilCards).map((c) => (
+              <DivisionCardView
+                key={c.n}
+                card={c}
+                kind={kind}
+                nameAr={kind === "juz" ? data.meta.juzs[c.n - 1]?.nameAr : undefined}
+                surahName={(s) => surahMap.get(s)?.nameEn ?? String(s)}
+                surahColor={(s) => placeColor(surahMap.get(s)?.type ?? "Meccan", palette)}
+                onOpen={() => onOpen({ scope: kind, value: c.n })}
+              />
+            ))}
+          </div>
+        )}
+        {kind === "manzil" && (
+          <p className="mt-3 text-xs text-ink-subtle">{t.browse.manzilNote}</p>
+        )}
+      </Card>
+    </div>
   );
 }
 
-const GRID = "grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
+const GRID = "grid gap-2.5 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]";
 
 /** Surah cards grouped by phase → period → marker event (curated chronology). */
 function Timeline({
@@ -280,7 +348,7 @@ function Timeline({
   );
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+      <p className="text-xs leading-relaxed text-ink-muted dark:text-ink-subtle">
         {t.browse.timelineNote}
       </p>
       {phases.map(({ phase, periods }) => {
@@ -301,21 +369,19 @@ function Timeline({
                   style={{ borderColor: `${color}55` }}
                 >
                   <span
-                    className="absolute -left-[7px] top-1 h-3 w-3 rounded-full ring-2 ring-white dark:ring-slate-900"
+                    className="absolute -left-[7px] top-1 h-3 w-3 rounded-full ring-2 ring-white dark:ring-paper"
                     style={{ backgroundColor: color }}
                     aria-hidden
                   />
                   <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                    <h4 className="font-semibold text-slate-800 dark:text-slate-100">
-                      {period.label[lang]}
-                    </h4>
-                    <span className="text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                    <h4 className="font-semibold text-ink">{period.label[lang]}</h4>
+                    <span className="text-xs tabular-nums text-ink-muted dark:text-ink-subtle">
                       {period.phase === "Meccan" ? `${period.when[lang]} · ` : ""}
                       {t.browse.periodCe(period.ce)}
                     </span>
                   </div>
                   {groups.length === 0 && (
-                    <p className="mb-1.5 text-xs italic text-slate-400">
+                    <p className="mb-1.5 text-xs italic text-ink-subtle">
                       {t.browse.noSurahs}
                     </p>
                   )}
@@ -329,12 +395,12 @@ function Timeline({
                             className={cx(
                               "text-xs",
                               g
-                                ? "mb-1.5 font-medium text-slate-600 dark:text-slate-300"
-                                : "text-slate-500 dark:text-slate-400",
+                                ? "mb-1.5 font-medium text-ink-muted"
+                                : "text-ink-muted dark:text-ink-subtle",
                             )}
                           >
                             {ev.label[lang]}
-                            <span className="font-normal text-slate-400">
+                            <span className="font-normal text-ink-subtle">
                               {" "}
                               · {ev.when[lang]}
                             </span>
@@ -348,7 +414,7 @@ function Timeline({
                       .map((g) => (
                         <div key="none">
                           {period.events.length > 0 && (
-                            <p className="mb-1.5 text-xs text-slate-400">
+                            <p className="mb-1.5 text-xs text-ink-subtle">
                               {t.browse.noMarker}
                             </p>
                           )}
@@ -388,19 +454,19 @@ function DivisionCardView({
     <button
       type="button"
       onClick={onOpen}
-      className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline focus-visible:outline-2 dark:border-slate-700 dark:bg-slate-800/60 dark:hover:border-slate-500"
+      className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-3 text-left transition hover:-translate-y-0.5 hover:border-ink-subtle/50 hover:shadow-md focus-visible:outline focus-visible:outline-2 dark:bg-surface/60 dark:hover:border-ink-muted"
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="font-semibold text-slate-800 dark:text-slate-100">
+          <div className="font-semibold text-ink">
             {t.scope[kind]} {card.n}
           </div>
-          <div className="text-xs tabular-nums text-slate-500 dark:text-slate-400">
+          <div className="text-xs tabular-nums text-ink-muted dark:text-ink-subtle">
             {card.first.s}:{card.first.a} → {card.last.s}:{card.last.a}
           </div>
         </div>
         {nameAr && (
-          <span className="font-arabic text-base leading-tight text-slate-700 dark:text-slate-200">
+          <span lang="ar" className="font-arabic text-base leading-tight text-ink">
             {nameAr.replace(/^الجزء\s+/, "")}
           </span>
         )}
@@ -414,7 +480,7 @@ function DivisionCardView({
               width: `${(x.ayahs / card.ayahs) * 100}%`,
               backgroundColor: surahColor(x.s),
             }}
-            className="border-r border-white/60 last:border-r-0 dark:border-slate-800/60"
+            className="border-r border-white/60 last:border-r-0 dark:border-surface/60"
           />
         ))}
       </div>
@@ -422,18 +488,18 @@ function DivisionCardView({
         {shown.map((x) => (
           <span
             key={x.s}
-            className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+            className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-xs text-ink-muted dark:bg-line"
           >
             {x.s}. {surahName(x.s)}
           </span>
         ))}
         {card.surahs.length > shown.length && (
-          <span className="px-1 py-0.5 text-[11px] text-slate-400">
+          <span className="px-1 py-0.5 text-xs text-ink-subtle">
             {t.browse.more(card.surahs.length - shown.length)}
           </span>
         )}
       </div>
-      <div className="grid grid-cols-4 gap-1 text-center text-[11px] text-slate-500 dark:text-slate-400">
+      <div className="grid grid-cols-4 gap-1 text-center text-xs text-ink-muted dark:text-ink-subtle">
         <Stat value={card.ayahs} label={t.browse.ayahs} />
         <Stat value={n(card.words)} label={t.browse.words} />
         <Stat value={span(...card.pages)} label={t.browse.pages} />
@@ -450,9 +516,7 @@ function DivisionCardView({
 function Stat({ value, label }: { value: string | number; label: string }) {
   return (
     <div>
-      <div className="font-semibold tabular-nums text-slate-800 dark:text-slate-100">
-        {value}
-      </div>
+      <div className="font-semibold tabular-nums text-ink">{value}</div>
       {label}
     </div>
   );

@@ -1,4 +1,4 @@
-import type { RootEntry, Topic, Verse } from "../types/quran";
+import type { RootEntry, Verse } from "../types/quran";
 import { normalizeArabic } from "./arabic";
 
 /** Occurrences per surah of anything listing ayah ids in `v` (a root's
@@ -72,22 +72,6 @@ export function searchRoots(
       r.gloss.toLowerCase().includes(lower)
     ) {
       out.push(r);
-      if (out.length >= limit) break;
-    }
-  }
-  return out;
-}
-
-/** Topics matching a query on English or Arabic name (alef-normalised).
- *  `topics` is frequency-sorted, so matches keep that order. */
-export function searchTopics(topics: Topic[], query: string, limit: number): Topic[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return topics.slice(0, limit);
-  const ar = normalizeArabic(query.trim());
-  const out: Topic[] = [];
-  for (const t of topics) {
-    if (t.name.toLowerCase().includes(q) || (ar && normalizeArabic(t.ar).includes(ar))) {
-      out.push(t);
       if (out.length >= limit) break;
     }
   }

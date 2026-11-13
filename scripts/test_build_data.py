@@ -165,3 +165,172 @@ def test_chronology_type_note_allows_phase_mismatch():
     d = copy.deepcopy(data)
     d["surahs"]["1"].update(period="y3", typeNote="test")
     bd.check_chronology(d, surah_type, key_to_id, set(key_to_id.values()))
+
+
+def test_dagger_alif_replaces_wavy_hamza_alef():
+    assert bd.dagger_alif("ذَٲلِكَ") == "ذَٰلِكَ"
+    assert bd.dagger_alif("ٱلصَّلَوٲةَ") == "ٱلصَّلَوٰةَ"
+    assert bd.dagger_alif("أَإِ") == "أَإِ"  # other hamza seats untouched
+
+
+def test_fix_uthmani_marks_drops_non_iqlab_small_meem():
+    assert bd.fix_uthmani_marks("هُدًۭى لِّلْمُتَّقِينَ") == "هُدًى لِّلْمُتَّقِينَ"
+    assert bd.fix_uthmani_marks("مَثَلًۭا مَّا") == "مَثَلًا مَّا"
+    # iqlab (next letter ب), also across a pause mark or into the next ayah
+    assert bd.fix_uthmani_marks("أَلِيمٌۢ بِمَا") == "أَلِيمٌۢ بِمَا"
+    assert bd.fix_uthmani_marks("عَلِيمٌۢ ۚ بِ") == "عَلِيمٌۢ ۚ بِ"
+    assert bd.fix_uthmani_marks("عَلِيمٌۢ", "بِسْمِ") == "عَلِيمٌۢ"
+    assert bd.fix_uthmani_marks("عَلِيمٌۢ", "وَ") == "عَلِيمٌ"
+    # nun + small meem is always iqlab
+    assert bd.fix_uthmani_marks("مِنۢ بَعْدِ") == "مِنۢ بَعْدِ"
+
+
+def test_fix_uthmani_marks_joins_mid_word_small_yeh():
+    assert bd.fix_uthmani_marks("إِبْرَٰهِۦمَ") == "إِبْرَٰهِـۧمَ"
+    assert bd.fix_uthmani_marks("ٱلنَّبِيِّۦنَ") == "ٱلنَّبِيِّـۧنَ"
+    # word-final small yeh stays (nothing to join)
+    assert bd.fix_uthmani_marks("بِهِۦ وَ") == "بِهِۦ وَ"
+
+
+def test_flatten_tajweed():
+    ok = "بِسْمِ [h:1[ٱ]للَّهِ"
+    assert bd.flatten_tajweed(ok) == ok
+    assert bd.flatten_tajweed("تَعْتَد[o[ُوٓ[s[اْ]\u200cۚ] إِ") == (
+        "تَعْتَد[o[ُوٓ][s[اْ][o[\u200cۚ] إِ")
+    assert bd.flatten_tajweed("ٱفْتَرَ[ٮٰ]هُ") == "ٱفْتَرَٮٰهُ"
+    assert bd.flatten_tajweed("[u:2334[[g[مّ]ٍ ل]") == "[g[مّ][u:2334[ٍ ل]"
+
+
+# --- Topic tree (scripts/topics.py) -----------------------------------------
+import pytest  # noqa: E402
+import topics as tp  # noqa: E402
+
+
+def _t(i, name, ayahs=(), **kw):
+    return tp.RawTopic(id=i, name=name, ayahs=frozenset(ayahs), **kw)
+
+
+def test_cluster_topics_merges_duplicates_by_arabic_name_and_plural():
+    raw = [
+        _t(20, "Musa", [(2, 51)], ar="موسى", ontology=True),
+        _t(967, "Moses", [(2, 51), (20, 9)], ar="موسى", thematic=True),
+        _t(1608, "Moosa", [(7, 104)], ar="موسى"),
+        _t(140, "Dog", [(18, 18)]),
+        _t(602, "Dogs", [(7, 176)]),
+    ]
+    cl = tp.cluster_topics(raw)
+    assert sorted(cl) == [20, 140]
+    assert cl[20].name == "Moses"  # the thematic spelling wins
+    assert cl[20].ayahs == {(2, 51), (20, 9), (7, 104)}
+    assert cl[140].members == [140, 602]
+
+
+def test_cluster_topics_keeps_same_named_subentries_apart():
+    raw = [
+        _t(1, "Hud", [(11, 50)]),
+        _t(2, "Salih", [(11, 61)]),
+        _t(3, "with his people", [(11, 52)], tparent=1),
+        _t(4, "with his people", [(11, 62)], tparent=2),
+    ]
+    cl = tp.cluster_topics(raw)
+    assert cl[3].parent == 1 and cl[4].parent == 2
+
+
+def test_cluster_topics_keeps_empty_headings_of_subentries():
+    raw = [_t(832, "Day", [(1, 4)]), _t(837, "earth", parent=832),
+           _t(840, "riven asunder", [(99, 1)], parent=837)]
+    cl = tp.cluster_topics(raw)
+    assert cl[840].parent == 837 and cl[837].parent == 832
+    assert not cl[837].ayahs
+
+
+def test_build_tree_places_flattens_and_names():
+    raw = [
+        _t(1883, "Stories"),
+        _t(2284, "Prophets", tparent=1883),
+        _t(20, "Moses", [(2, 51)], tparent=2284),
+        _t(2334, "childhood", [(28, 7)], tparent=20),
+        _t(1038, "Prayer", [(2, 3)]),
+    ]
+    cl = tp.cluster_topics(raw)
+    tax = [{"k": "sejarah", "en": "Stories", "id": "Kisah", "t": [2284]},
+           {"k": "ibadah", "en": "Worship", "id": "Ibadah", "t": [1038]}]
+    names = {20: "Musa", 2334: "Masa kecil"}
+    nodes = tp.build_tree(cl, tax, names, flatten=[2284, 1038],
+                          names_en={2334: "Childhood"})
+    keys = [n["k"] for n in nodes]
+    assert keys == ["sejarah", "t20", "t2334", "ibadah"]
+    assert nodes[1]["p"] == 0 and nodes[2]["p"] == 1
+    assert nodes[2]["en"] == "Childhood" and nodes[2]["id"] == "Masa kecil"
+    # The flattened Prayer cluster hands its ayahs to its category.
+    assert nodes[3]["v"] == [(2, 3)]
+
+
+def test_build_tree_rejects_unplaced_and_unnamed_topics():
+    cl = tp.cluster_topics([_t(1, "Orphan", [(1, 1)]), _t(2, "Placed", [(1, 2)])])
+    tax = [{"k": "a", "en": "A", "id": "A", "t": [2]}]
+    with pytest.raises(tp.TaxonomyError, match="reach no category"):
+        tp.build_tree(cl, tax, {1: "x", 2: "y"})
+    tax[0]["t"] = [1, 2]
+    with pytest.raises(tp.TaxonomyError, match="lack an Indonesian name"):
+        tp.build_tree(cl, tax, {2: "y"})
+    with pytest.raises(tp.TaxonomyError, match="placed twice"):
+        tp.build_tree(cl, [{"k": "a", "en": "A", "id": "A", "t": [1, 2]},
+                           {"k": "b", "en": "B", "id": "B", "t": [2]}], {1: "x", 2: "y"})
+
+
+def test_load_topic_names(tmp_path):
+    f = tmp_path / "names.tsv"
+    f.write_text("# comment\n20\tMusa\tMoses\n1038\tSalat\n1380\tFatwa\t\tالفتوى\n",
+                 encoding="utf-8")
+    assert bd.load_topic_names(f) == (
+        {20: "Musa", 1038: "Salat", 1380: "Fatwa"}, {20: "Moses"}, {1380: "الفتوى"})
+
+
+def test_adjust_verses_fixes_mistags():
+    cl = tp.cluster_topics([_t(953, "molten copper", [(34, 2)])])
+    tp.adjust_verses(cl, {"remove": {"953": ["34:2"]}, "add": {"953": ["34:12"]}})
+    assert cl[953].ayahs == {(34, 12)}
+    with pytest.raises(tp.TaxonomyError, match="has no"):
+        tp.adjust_verses(cl, {"remove": {"953": ["1:1"]}})
+
+
+def test_split_carves_a_new_topic_or_moves_into_one():
+    cl = tp.cluster_topics([_t(1864, "Wisdom", [(2, 32), (2, 269), (76, 30)]),
+                            _t(5, "Names of Allah", [(1, 1)])])
+    tp.split_clusters(cl, [
+        {"from": 1864, "id": 9001, "en": "All-Wise", "ar": "الحكيم", "under": 5,
+         "verses": ["2:32"]},
+        {"from": 1864, "to": 5, "verses": ["76:30"]},
+    ])
+    assert cl[1864].ayahs == {(2, 269)}
+    assert cl[9001].ayahs == {(2, 32)} and cl[9001].parent == 5
+    assert cl[5].ayahs == {(1, 1), (76, 30)}
+    tree = tp.build_tree(cl, [{"k": "aqidah", "en": "Creed", "id": "Akidah",
+                               "t": [5, 1864]}],
+                         {5: "Asmaul Husna", 1864: "Hikmah", 9001: "Al-Hakim"})
+    assert [n["k"] for n in tree] == ["aqidah", "t5", "t9001", "t1864"]
+    with pytest.raises(tp.TaxonomyError, match="has no"):
+        tp.split_clusters(cl, [{"from": 1864, "to": 5, "verses": ["2:32"]}])
+    with pytest.raises(tp.TaxonomyError, match="fresh number"):
+        tp.split_clusters(cl, [{"from": 1864, "id": 7, "en": "x", "verses": ["2:269"]}])
+
+
+@pytest.mark.skipif(not bd.QUL_DB.exists(), reason="needs reference/quran-refs/qul.db")
+def test_curated_topic_tree_builds_from_qul():
+    import sqlite3
+    qul = sqlite3.connect(f"file:{bd.QUL_DB}?mode=ro", uri=True)
+    nodes = bd.build_topic_tree(qul)
+    tops = [n for n in nodes if n["p"] == -1]
+    assert len(tops) == 11
+    assert all(n["id"].strip() and n["en"].strip() for n in nodes)
+    assert all(n["p"] < i for i, n in enumerate(nodes))
+    # Moses / Musa / Moosa are one topic under Kisah Para Nabi.
+    moses = [n for n in nodes if n["en"] == "Moses"]
+    assert len(moses) == 1 and nodes[moses[0]["p"]]["k"] == "sejarah.nabi"
+    # Split topics: the name al-Hakim leaves "Wisdom"; 2:269 stays.
+    by_k = {n["k"]: n for n in nodes}
+    hakim, wisdom = by_k["t9001"], by_k["t1864"]
+    assert nodes[hakim["p"]]["k"] == "t1268"
+    assert (2, 32) in hakim["v"] and (2, 32) not in wisdom["v"]
+    assert (2, 269) in wisdom["v"]

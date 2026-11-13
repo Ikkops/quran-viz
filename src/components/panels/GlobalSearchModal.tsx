@@ -10,6 +10,7 @@ import type { Palette } from "../../theme/palettes";
 import { surahColorById, type ColorMode, type ReaderTarget } from "../charts/common";
 import { Badge, Modal, ModalHeader, Toggle } from "../ui";
 import { useI18n } from "../../i18n/I18nContext";
+import { isLatinQuery } from "../../data/searchEdition";
 
 const MAX_RESULTS = 200;
 const MARK = "rounded bg-amber-200/70 px-0.5 dark:bg-amber-500/30";
@@ -57,6 +58,7 @@ export function GlobalSearchModal({
   onOpenReader,
   initialQuery = "",
   editionId,
+  latinEditionId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -69,8 +71,10 @@ export function GlobalSearchModal({
   initialQuery?: string;
   /** Translation searched when "Also search translation" is on. */
   editionId?: string;
+  /** Translation a Latin-script query searches (data/searchEdition.ts). */
+  latinEditionId?: string;
 }) {
-  const { t, n } = useI18n();
+  const { t, n, meaning } = useI18n();
   const surahWord = t.common.surah;
   const [query, setQuery] = useState(initialQuery);
   const [withTranslation, setWithTranslation] = usePersistentState(
@@ -78,20 +82,26 @@ export function GlobalSearchModal({
     false,
   );
   const surahMap = useMemo(() => surahMapOf(surahs), [surahs]);
+  // A Latin-script query ("sabar", "Musa") can only match a translation, so it
+  // always searches one, in the UI language; the toggle adds the translation to
+  // Arabic queries.
+  const q = query.trim();
+  const ref = useMemo(() => parseVerseRef(q, surahMap), [q, surahMap]);
+  const latin = isLatinQuery(q) && !ref;
+  const trEditionId = latin ? (latinEditionId ?? editionId) : editionId;
+  const searchTr = withTranslation || latin;
   const translation = useTranslation(
-    open && withTranslation && editionId ? editionId : null,
+    open && searchTr && trEditionId ? trEditionId : null,
   );
   // Spelling-tolerant keys, computed once per verse list.
   const keys = useMemo(() => verses.map((v) => arabicKeyWithMap(v.ar).key), [verses]);
 
-  const q = query.trim();
   const qKey = searchKeyArabic(q);
-  const ref = useMemo(() => parseVerseRef(q, surahMap), [q, surahMap]);
   const refVerse = ref ? verses.find((v) => v.s === ref.s && v.a === ref.a) : undefined;
 
   const results = useMemo(() => {
     if (q.length < 2) return [];
-    const tr = withTranslation ? translation.data : null;
+    const tr = searchTr ? translation.data : null;
     const lower = q.toLowerCase();
     const out: Result[] = [];
     for (let i = 0; i < verses.length && out.length < MAX_RESULTS; i++) {
@@ -103,12 +113,12 @@ export function GlobalSearchModal({
       const s = surahMap.get(v.s);
       out.push({
         verse: v,
-        surahName: s ? `${s.number}. ${s.nameEn}` : `${surahWord} ${v.s}`,
+        surahName: s ? `${s.number}. ${s.nameEn} · ${meaning(s)}` : `${surahWord} ${v.s}`,
         translation: inTranslation ? t : undefined,
       });
     }
     return out;
-  }, [q, qKey, keys, verses, surahMap, withTranslation, translation.data, surahWord]);
+  }, [q, qKey, keys, verses, surahMap, searchTr, translation.data, surahWord, meaning]);
 
   const openVerse = (v: Verse) => {
     onOpenReader({ scope: "surah", value: v.s, anchor: v.id });
@@ -122,9 +132,13 @@ export function GlobalSearchModal({
   return (
     <Modal open={open} onClose={onClose} className="max-w-2xl" ariaLabel={t.search.title}>
       <ModalHeader title={t.search.title} onClose={onClose} />
-      <div className="border-b border-slate-200 px-5 py-3 dark:border-slate-700">
+      <div className="border-b border-line px-5 py-3">
         <div className="relative">
-          <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
+          <Search
+            size={16}
+            aria-hidden
+            className="absolute left-3 top-3.5 text-ink-subtle"
+          />
           <input
             autoFocus
             value={query}
@@ -137,23 +151,23 @@ export function GlobalSearchModal({
             }}
             placeholder={t.search.placeholder}
             aria-label={t.search.queryAria}
-            className="w-full rounded-lg border border-slate-200 py-2 pl-9 pr-9 text-sm dark:border-slate-700 dark:bg-slate-800"
+            className="w-full rounded-lg border border-line bg-surface py-2.5 pl-9 pr-10 text-base text-ink"
           />
           {query && (
             <button
               onClick={() => setQuery("")}
               aria-label={t.search.clear}
-              className="absolute right-2 top-2 rounded p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="absolute right-1 top-1 inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-subtle hover:bg-surface-sunken hover:text-ink"
             >
-              <X size={14} />
+              <X size={14} aria-hidden />
             </button>
           )}
         </div>
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <p className="text-xs text-slate-400">
+          <p aria-live="polite" className="text-sm text-ink-subtle">
             {q.length >= 2
               ? `${t.search.matches(`${n(results.length)}${results.length >= MAX_RESULTS ? "+" : ""}`)}${
-                  withTranslation && translation.loading ? t.search.loadingTr : ""
+                  searchTr && translation.loading ? t.search.loadingTr : ""
                 }`
               : t.search.hint}
           </p>
@@ -170,14 +184,14 @@ export function GlobalSearchModal({
         {refVerse && (
           <button
             onClick={() => openVerse(refVerse)}
-            className="mb-2 flex w-full items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            className="mb-2 flex w-full items-center gap-2 rounded-lg bg-surface-sunken px-3 py-2 text-left text-sm font-medium text-ink hover:bg-line dark:bg-surface"
           >
-            <ArrowRight size={15} />
+            <ArrowRight size={15} aria-hidden />
             {t.search.goTo(
               `${refVerse.s}:${refVerse.a}`,
               surahMap.get(refVerse.s)?.nameEn ?? "",
             )}
-            <span className="ml-auto text-xs text-slate-400">Enter</span>
+            <kbd className="ml-auto font-ui text-xs text-ink-subtle">Enter</kbd>
           </button>
         )}
         {results.map(({ verse, surahName, translation: t }) => {
@@ -186,30 +200,27 @@ export function GlobalSearchModal({
             <button
               key={verse.id}
               onClick={() => openVerse(verse)}
-              className="mb-1 flex w-full items-start gap-3 rounded-lg px-2 py-2 text-right hover:bg-slate-100 dark:hover:bg-slate-800"
+              className="mb-1 flex w-full items-start gap-3 rounded-lg px-2 py-2 text-right hover:bg-surface-sunken dark:hover:bg-surface"
             >
               <Badge color={color}>
                 {verse.s}:{verse.a}
               </Badge>
               <div className="min-w-0 flex-1">
-                <p
-                  dir="rtl"
-                  className="quran-text truncate text-slate-800 dark:text-slate-100"
-                >
+                <p dir="rtl" lang="ar" className="quran-text line-clamp-2 text-ink">
                   {highlightArabic(verse.ar, qKey)}
                 </p>
                 {t && (
-                  <p className="mt-0.5 line-clamp-2 text-left text-xs text-slate-600 dark:text-slate-300">
+                  <p className="mt-0.5 line-clamp-2 text-left text-xs text-ink-muted">
                     {highlightText(t, q)}
                   </p>
                 )}
-                <p className="mt-0.5 text-left text-[11px] text-slate-400">{surahName}</p>
+                <p className="mt-0.5 text-left text-xs text-ink-subtle">{surahName}</p>
               </div>
             </button>
           );
         })}
         {q.length >= 2 && results.length === 0 && !refVerse && (
-          <p className="py-8 text-center text-sm text-slate-400">{t.search.none}</p>
+          <p className="py-8 text-center text-sm text-ink-subtle">{t.search.none}</p>
         )}
       </div>
     </Modal>

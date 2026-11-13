@@ -20,10 +20,12 @@ export function BookmarkList({
 }) {
   const { t } = useI18n();
   if (!bookmarks.length)
-    return <p className="py-6 text-center text-sm text-slate-400">{t.bookmarks.empty}</p>;
+    return (
+      <p className="py-6 text-center text-sm text-ink-subtle">{t.bookmarks.empty}</p>
+    );
   const sorted = [...bookmarks].sort((a, b) => b.at - a.at);
   return (
-    <ul className="divide-y divide-slate-100 dark:divide-slate-700/60">
+    <ul className="divide-y divide-surface-sunken dark:divide-line/60">
       {sorted.map((b) => {
         const v = verses[b.id - 1];
         if (!v) return null;
@@ -33,19 +35,20 @@ export function BookmarkList({
             <button
               type="button"
               onClick={() => onOpen({ scope: "surah", value: v.s, anchor: v.id })}
-              className="min-w-0 flex-1 rounded-lg px-1 text-left hover:bg-slate-50 dark:hover:bg-slate-800"
+              className="min-w-0 flex-1 rounded-lg px-1 text-left hover:bg-paper dark:hover:bg-surface"
             >
-              <div className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              <div className="text-sm font-medium text-ink">
                 {v.s}:{v.a} · {s?.nameEn}
               </div>
               <p
+                lang="ar"
                 dir="rtl"
-                className="truncate font-arabic text-base text-slate-500 dark:text-slate-400"
+                className="truncate font-arabic text-base text-ink-muted dark:text-ink-subtle"
               >
                 {v.ar}
               </p>
               {b.note && (
-                <p className="mt-0.5 text-xs italic text-slate-500 dark:text-slate-400">
+                <p className="mt-0.5 text-xs italic text-ink-muted dark:text-ink-subtle">
                   {b.note}
                 </p>
               )}
@@ -54,7 +57,7 @@ export function BookmarkList({
               type="button"
               onClick={() => onRemove(b.id)}
               aria-label={t.bookmarks.remove(`${v.s}:${v.a}`)}
-              className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-rose-500 dark:hover:bg-slate-800"
+              className="rounded p-1 text-ink-subtle hover:bg-surface-sunken hover:text-rose-500 dark:hover:bg-surface"
             >
               <Trash2 size={14} />
             </button>

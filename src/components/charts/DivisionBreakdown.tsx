@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import type { Surah, Verse } from "../../types/quran";
 import { TooltipRow, TooltipShell } from "../tooltips";
-import { axisColor, type ChartContext } from "./common";
+import { axisColor, CURSOR_FILL, type ChartContext } from "./common";
 import { useI18n } from "../../i18n/I18nContext";
 
 export type Division = "manzil" | "ruku";
@@ -41,10 +41,10 @@ function DivisionTooltip({
   const to = surahMap.get(r.last.s)?.nameEn ?? r.last.s;
   return (
     <TooltipShell>
-      <div className="mb-1 font-semibold text-slate-800 dark:text-slate-100">
+      <div className="mb-1 font-semibold text-ink">
         {t.scope[division]} {r.n}
       </div>
-      <p className="mb-1.5 text-[11px] text-slate-400">
+      <p className="mb-1.5 text-xs text-ink-subtle">
         {from} {r.first.s}:{r.first.a} – {r.first.s === r.last.s ? "" : `${to} `}
         {r.last.s}:{r.last.a}
       </p>
@@ -107,7 +107,7 @@ export function DivisionBreakdown({
         <YAxis tick={{ fontSize: 11, fill: axisColor(ctx.dark) }} />
         <Tooltip
           content={<DivisionTooltip division={division} surahMap={surahMap} />}
-          cursor={{ fill: "rgba(148,163,184,0.12)" }}
+          cursor={{ fill: CURSOR_FILL }}
         />
         <Bar
           dataKey="words"

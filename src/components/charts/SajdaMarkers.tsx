@@ -25,10 +25,10 @@ export function SajdaMarkers({
           <button
             key={v.id}
             onClick={() => ctx.onOpen?.({ scope: "surah", value: v.s, anchor: v.id })}
-            className="rounded-xl border border-slate-200 bg-white p-3 text-right transition hover:shadow-md dark:border-slate-700 dark:bg-slate-800/60"
+            className="rounded-xl border border-line bg-surface p-3 text-right transition hover:shadow-md dark:bg-surface/60"
           >
             <div className="mb-1.5 flex items-center justify-between" dir="ltr">
-              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              <span className="text-sm font-semibold text-ink">
                 {s?.nameEn} · {v.s}:{v.a}
               </span>
               <div className="flex gap-1">
@@ -40,7 +40,7 @@ export function SajdaMarkers({
                 </Badge>
               </div>
             </div>
-            <p dir="rtl" className="quran-text text-slate-800 dark:text-slate-100">
+            <p lang="ar" dir="rtl" className="quran-text text-ink">
               {v.ar}
             </p>
           </button>

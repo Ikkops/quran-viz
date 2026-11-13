@@ -15,6 +15,8 @@ import {
   placeColor,
   surahColor,
   surahOpacity,
+  CURSOR_FILL,
+  hitMark,
   type ChartContext,
 } from "./common";
 
@@ -59,7 +61,7 @@ export function SurahBarChart({
   });
 
   const onClick = (d: unknown) =>
-    ctx.onSelectSurah?.((d as { payload: SurahDatum }).payload.id);
+    hitMark(ctx, { scope: "surah", value: (d as { payload: SurahDatum }).payload.id });
   const segments = stacked ? ([0, 1, 2] as const) : ([0] as const);
   const radius: [number, number, number, number] = horizontal
     ? [0, 4, 4, 0]
@@ -70,6 +72,7 @@ export function SurahBarChart({
       <BarChart
         data={rows}
         layout={horizontal ? "vertical" : "horizontal"}
+        accessibilityLayer
         margin={{ top: 8, right: 12, bottom: 8, left: 8 }}
       >
         {horizontal ? (
@@ -98,7 +101,7 @@ export function SurahBarChart({
         )}
         <Tooltip
           content={<SurahTooltip metric={stacked ? metric : undefined} />}
-          cursor={{ fill: "rgba(148,163,184,0.12)" }}
+          cursor={{ fill: CURSOR_FILL }}
         />
         {segments.map((i) => (
           <Bar
@@ -118,7 +121,7 @@ export function SurahBarChart({
                     : surahColor(d, ctx)
                 }
                 fillOpacity={surahOpacity(d, ctx)}
-                cursor={ctx.onSelectSurah ? "pointer" : "default"}
+                cursor={ctx.onMark || ctx.onOpen ? "pointer" : "default"}
               />
             ))}
           </Bar>

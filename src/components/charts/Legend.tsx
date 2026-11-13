@@ -1,7 +1,8 @@
 import { ALL_CATEGORIES } from "../../data/fawatih";
 import { FAWATIH_COLORS } from "../../theme/palettes";
 import { useI18n } from "../../i18n/I18nContext";
-import { HIJRA_COLOR, type ColorMode } from "./common";
+import { useTheme } from "../../theme/ThemeContext";
+import type { ColorMode } from "./common";
 
 function Item({
   color,
@@ -23,10 +24,8 @@ function Item({
       aria-label={t.legend.filterBy(label)}
       className={
         "inline-flex items-center gap-1.5 rounded-full px-1.5 py-0.5 text-xs transition " +
-        (active
-          ? "text-slate-600 dark:text-slate-300"
-          : "text-slate-300 line-through dark:text-slate-600") +
-        " hover:bg-slate-100 dark:hover:bg-slate-700/60"
+        (active ? "text-ink-muted" : "text-ink-subtle line-through") +
+        " hover:bg-surface-sunken dark:hover:bg-line/60"
       }
     >
       <span
@@ -58,6 +57,7 @@ export function Legend({
   ayahLevel?: boolean;
 }) {
   const { t, place, category } = useI18n();
+  const { palette } = useTheme();
   const isActive = (key: string) => activeKeys.size === 0 || activeKeys.has(key);
   const keys =
     colorMode === "type"
@@ -86,10 +86,13 @@ export function Legend({
       ))}
       {ayahLevel && colorMode === "type" && (
         <span
-          className="inline-flex items-center gap-1.5 px-1.5 py-0.5 text-xs text-slate-600 dark:text-slate-300"
+          className="inline-flex items-center gap-1.5 px-1.5 py-0.5 text-xs text-ink-muted"
           title={t.legend.hijraTitle}
         >
-          <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: HIJRA_COLOR }} />
+          <span
+            className="h-3 w-3 rounded-sm"
+            style={{ backgroundColor: palette.hijra }}
+          />
           {t.legend.hijra}
         </span>
       )}
@@ -98,13 +101,13 @@ export function Legend({
           type="button"
           onClick={() => activeKeys.forEach((k) => onToggle(k))}
           aria-label={t.legend.showAllAria}
-          className="ml-1 rounded-full px-1.5 py-0.5 text-xs text-slate-400 underline hover:text-slate-600 dark:hover:text-slate-200"
+          className="ml-1 rounded-full px-1.5 py-0.5 text-xs text-ink-subtle underline hover:text-ink-muted dark:hover:text-ink"
         >
           {t.common.showAll}
         </button>
       )}
       {ayahLevel && colorMode === "type" && (
-        <p className="w-full px-1.5 text-[11px] text-slate-400">
+        <p className="w-full px-1.5 text-xs text-ink-subtle">
           {t.legend.split} {t.placeCaveat}
         </p>
       )}

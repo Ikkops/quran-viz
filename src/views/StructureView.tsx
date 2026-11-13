@@ -7,7 +7,6 @@ import { useI18n } from "../i18n/I18nContext";
 import { Card, SectionTitle, SegmentedControl } from "../components/ui";
 import type { ChartContext, ReaderTarget } from "../components/charts/common";
 import { StructureOverview } from "../components/charts/StructureOverview";
-import { MushafPageMap } from "../components/charts/MushafPageMap";
 import { JuzBreakdown } from "../components/charts/JuzBreakdown";
 import { HizbBreakdown } from "../components/charts/HizbBreakdown";
 import { SajdaMarkers } from "../components/charts/SajdaMarkers";
@@ -15,26 +14,11 @@ import { DivisionBreakdown } from "../components/charts/DivisionBreakdown";
 import { SimilarArcs } from "../components/charts/SimilarArcs";
 import { useSimilar } from "../data/useSimilar";
 
-type Tab =
-  | "overview"
-  | "pages"
-  | "manzil"
-  | "juz"
-  | "hizb"
-  | "ruku"
-  | "sajda"
-  | "similar";
+type Tab = "overview" | "manzil" | "juz" | "hizb" | "ruku" | "sajda" | "similar";
 
-const TABS: Tab[] = [
-  "overview",
-  "pages",
-  "manzil",
-  "juz",
-  "hizb",
-  "ruku",
-  "sajda",
-  "similar",
-];
+// "pages" (the 604-page grid) gave way to the Peta Mushaf; a stored "pages"
+// falls back to the overview.
+const TABS: Tab[] = ["overview", "manzil", "juz", "hizb", "ruku", "sajda", "similar"];
 
 export function StructureView({
   data,
@@ -82,9 +66,6 @@ export function StructureView({
         {tab === "overview" && (
           <StructureOverview surahs={data.surahs} meta={data.meta} />
         )}
-        {tab === "pages" && (
-          <MushafPageMap verses={data.verses} surahMap={surahMap} ctx={ctx} />
-        )}
         {tab === "juz" && <JuzBreakdown verses={data.verses} ctx={ctx} />}
         {tab === "hizb" && <HizbBreakdown verses={data.verses} ctx={ctx} />}
         {(tab === "manzil" || tab === "ruku") && (
@@ -104,13 +85,13 @@ export function StructureView({
               ctx={ctx}
             />
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-slate-400">
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-ink-subtle">
               {similar.error ? t.common.failedToLoad(similar.error) : t.common.loading}
               {similar.error && (
                 <button
                   type="button"
                   onClick={similar.retry}
-                  className="rounded-lg border border-slate-300 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300"
+                  className="rounded-lg border border-ink-subtle px-3 py-1 text-xs font-medium text-ink-muted hover:bg-paper"
                 >
                   {t.common.retry}
                 </button>

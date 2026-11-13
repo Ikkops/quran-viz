@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import type { Verse } from "../../types/quran";
 import { GenericTooltip } from "../tooltips";
-import { axisColor, type ChartContext } from "./common";
+import { axisColor, CURSOR_FILL, type ChartContext } from "./common";
 import { useI18n } from "../../i18n/I18nContext";
 
 /** Words per hizb (1–60), coloured by parent juz. */
@@ -46,7 +46,7 @@ export function HizbBreakdown({ verses, ctx }: { verses: Verse[]; ctx: ChartCont
         <YAxis tick={{ fontSize: 11, fill: axisColor(ctx.dark) }} />
         <Tooltip
           content={<GenericTooltip unit={t.tooltip.units.words} />}
-          cursor={{ fill: "rgba(148,163,184,0.12)" }}
+          cursor={{ fill: CURSOR_FILL }}
         />
         <Bar
           dataKey="words"
@@ -62,7 +62,9 @@ export function HizbBreakdown({ verses, ctx }: { verses: Verse[]; ctx: ChartCont
           {rows.map((r) => (
             <Cell
               key={r.hizb}
-              fill={r.juz % 2 === 0 ? ctx.palette.pie[0] : ctx.palette.pie[1]}
+              fill={ctx.primary}
+              // Alternate juz in tone: Makki/Madani colours mean place only.
+              fillOpacity={r.juz % 2 === 0 ? 1 : 0.55}
             />
           ))}
         </Bar>

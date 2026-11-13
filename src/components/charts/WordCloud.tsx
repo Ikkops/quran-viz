@@ -28,6 +28,7 @@ export function WordCloud({
 
   return (
     <div
+      lang={arabic ? "ar" : undefined}
       dir={arabic ? "rtl" : "ltr"}
       className={cx(
         "flex h-full w-full flex-wrap content-center items-center justify-center gap-x-3 gap-y-1 overflow-y-auto p-2",

@@ -82,4 +82,16 @@ describe("dashboard link params", () => {
       surahRange: [2, 3],
     });
   });
+
+  it("carries the explorer's root or topic, and seeds it", () => {
+    const p = dashboardToParams({ ...state, viz: "root-explorer", root: "ktb" });
+    expect(p.root).toBe("ktb");
+    expect(dashboardToParams({ ...state, root: "ktb" }).root).toBeUndefined();
+    expect(paramsToDashboard({ topic: "aqidah.allah" }, DEFAULT_FILTER).topic).toBe(
+      "aqidah.allah",
+    );
+    expect(paramsToDashboard({ root: "a/b c" }, DEFAULT_FILTER).root).toBeUndefined();
+    seedDashboardFromHash("#dashboard?v=root-explorer&root=rHm");
+    expect(JSON.parse(localStorage.getItem("qv.root")!)).toBe("rHm");
+  });
 });

@@ -1,12 +1,6 @@
 import { describe, expect, it } from "vitest";
-import type { RootEntry, SimilarData, Topic, Verse } from "../types/quran";
-import {
-  rootSurahCounts,
-  searchRoots,
-  searchTopics,
-  topRootsForSurah,
-  topRootsInScope,
-} from "./roots";
+import type { RootEntry, SimilarData, Verse } from "../types/quran";
+import { rootSurahCounts, searchRoots, topRootsForSurah, topRootsInScope } from "./roots";
 import { filterSimilar } from "./similar";
 
 const verse = (id: number, s: number): Verse => ({
@@ -91,15 +85,5 @@ describe("filterSimilar", () => {
       [1, 3],
       [3, 4],
     ]);
-  });
-});
-
-describe("searchTopics", () => {
-  const moses: Topic = { id: 1, name: "Moses", ar: "موسى", desc: "", v: [1] };
-  const belief: Topic = { id: 2, name: "Belief", ar: "الإيمان", desc: "", v: [2] };
-  it("matches English case-insensitively and Arabic with alef variants", () => {
-    expect(searchTopics([belief, moses], "mos", 5)).toEqual([moses]);
-    expect(searchTopics([belief, moses], "الايمان", 5)).toEqual([belief]);
-    expect(searchTopics([belief, moses], " ", 1)).toEqual([belief]);
   });
 });

@@ -10,7 +10,7 @@ import {
 } from "recharts";
 import type { Verse } from "../../types/quran";
 import { GenericTooltip } from "../tooltips";
-import { axisColor, type ChartContext } from "./common";
+import { axisColor, CURSOR_FILL, type ChartContext } from "./common";
 import { useI18n } from "../../i18n/I18nContext";
 
 /** Words per juz (1–30); click a bar to read from the start of that juz. */
@@ -51,7 +51,7 @@ export function JuzBreakdown({ verses, ctx }: { verses: Verse[]; ctx: ChartConte
         <YAxis tick={{ fontSize: 11, fill: axisColor(ctx.dark) }} />
         <Tooltip
           content={<GenericTooltip unit={t.tooltip.units.words} />}
-          cursor={{ fill: "rgba(148,163,184,0.12)" }}
+          cursor={{ fill: CURSOR_FILL }}
         />
         <Bar
           dataKey="words"
@@ -67,7 +67,9 @@ export function JuzBreakdown({ verses, ctx }: { verses: Verse[]; ctx: ChartConte
           {rows.map((r) => (
             <Cell
               key={r.juz}
-              fill={r.juz % 2 === 0 ? ctx.palette.pie[0] : ctx.palette.pie[1]}
+              fill={ctx.primary}
+              // Alternate juz in tone: Makki/Madani colours mean place only.
+              fillOpacity={r.juz % 2 === 0 ? 1 : 0.55}
             />
           ))}
         </Bar>

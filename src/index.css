@@ -2,19 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Design tokens (DESIGN.md). Values mirror src/theme/tokens.ts as RGB channels so
+   Tailwind can apply opacity (`bg-makki/10`); tokens.test.ts keeps them in sync. */
 :root {
   color-scheme: light dark;
+  --paper: 247 248 245;
+  --surface: 255 255 255;
+  --surface-sunken: 237 239 234;
+  --line: 217 221 212;
+  --ink: 27 34 48;
+  --ink-muted: 75 85 102;
+  --ink-subtle: 95 104 120;
+  --makki: 152 93 22;
+  --madani: 14 122 95;
+  --hijra: 86 101 138;
+  --illumination: 31 79 160;
+  --rubric: 178 58 42;
+  --font-ui:
+    "Source Sans 3 Variable", "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+  --font-reading: "Literata Variable", "Literata", Georgia, serif;
+}
+
+.dark {
+  --paper: 14 19 32;
+  --surface: 22 28 44;
+  --surface-sunken: 10 14 24;
+  --line: 40 49 73;
+  --ink: 230 233 239;
+  --ink-muted: 174 182 197;
+  --ink-subtle: 143 152 171;
+  --makki: 217 160 90;
+  --madani: 70 185 150;
+  --hijra: 147 162 196;
+  --illumination: 134 169 238;
+  --rubric: 232 122 104;
 }
 
 body {
   margin: 0;
-  font-family:
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    "Segoe UI",
-    Roboto,
-    sans-serif;
+  font-family: var(--font-ui);
+  background: rgb(var(--paper));
+  caret-color: rgb(var(--illumination));
+}
+
+/* Browser surfaces carry the palette too (DESIGN.md). */
+::selection {
+  background: rgb(var(--illumination) / 0.22);
+}
+:focus-visible {
+  outline: 2px solid rgb(var(--illumination));
+  outline-offset: 2px;
+}
+/* Recharts' keyboard layer makes the chart focusable; a click focuses it too,
+   and the browser's default ring then frames the chart. Ring for keys only. */
+.recharts-surface:focus:not(:focus-visible),
+.recharts-wrapper:focus:not(:focus-visible) {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-zoom-in,
+  .animate-sheet-up,
+  .animate-sheet-in {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 .font-arabic {
@@ -37,11 +92,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.4);
-  border-radius: 9999px;
+  background: rgb(var(--ink-subtle) / 0.4);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.7);
+  background: rgb(var(--ink-subtle) / 0.7);
 }
 
 @keyframes fadeIn {
@@ -70,4 +125,45 @@ body {
 }
 .animate-zoom-in {
   animation: zoomIn 0.2s ease-out;
+}
+
+/* Sheets slide in from the edge they are docked to. */
+@keyframes sheetUp {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.animate-sheet-up {
+  animation: sheetUp 0.2s ease-out;
+}
+@keyframes sheetIn {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+.animate-sheet-in {
+  animation: sheetIn 0.2s ease-out;
+}
+
+/* The mushaf's red ink: rub' al-hizb and sajdah signs inside the text. */
+.quran-mark {
+  color: rgb(var(--rubric));
+}
+
+/* Scroll without a visible bar (segmented strips on phones). */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }

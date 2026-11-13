@@ -6,7 +6,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { PALETTES, type Palette, type PaletteKey } from "./palettes";
+import {
+  DEFAULT_PALETTE,
+  PALETTES,
+  resolvePalette,
+  type Palette,
+  type PaletteKey,
+} from "./palettes";
+import { hexToChannels, tokens } from "./tokens";
 
 interface ThemeState {
   paletteKey: PaletteKey;
@@ -34,14 +41,19 @@ const ThemeContext = createContext<ThemeState | null>(null);
 
 const STORAGE_KEY = "quranviz.theme";
 
+// Every font here must cover the Quranic marks (U+06D6–U+06ED). Markazi Text
+// was dropped: it lacks 22 of them (waqf signs, small meem/waw/yeh, sifr), so
+// the browser drew those from a fallback font, out of place.
 export const ARABIC_FONTS = [
   "Amiri Quran",
   "Amiri",
   "Scheherazade New",
   "Noto Naskh Arabic",
-  "Markazi Text",
   "Lateef",
 ];
+const DEFAULT_FONT = ARABIC_FONTS[0];
+const knownFont = (f: unknown): string | undefined =>
+  typeof f === "string" && ARABIC_FONTS.includes(f) ? f : undefined;
 
 interface Persisted {
   paletteKey: PaletteKey;
@@ -56,15 +68,23 @@ function load(): Persisted {
     typeof window !== "undefined" &&
     window.matchMedia?.("(prefers-color-scheme: dark)").matches;
   const defaults: Persisted = {
-    paletteKey: "emerald",
+    paletteKey: DEFAULT_PALETTE,
     customPrimary: null,
     dark: !!prefersDark,
-    arabicFont: "Amiri Quran",
+    arabicFont: DEFAULT_FONT,
     arabicScale: 1,
   };
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return { ...defaults, ...(JSON.parse(raw) as Partial<Persisted>) };
+    if (raw) {
+      const saved = { ...defaults, ...(JSON.parse(raw) as Partial<Persisted>) };
+      return {
+        ...saved,
+        // Palettes before the redesign (emerald, blue, sunset, purple) fall back to lapis.
+        paletteKey: saved.paletteKey in PALETTES ? saved.paletteKey : DEFAULT_PALETTE,
+        arabicFont: knownFont(saved.arabicFont) ?? DEFAULT_FONT,
+      };
+    }
   } catch {
     /* ignore */
   }
@@ -83,7 +103,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
+    // Browser/Android chrome colour follows the app's paper, not the OS scheme.
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", tokens(dark).paper);
   }, [dark]);
+
+  // The chosen accent drives the `illumination` token (links, focus, selection).
+  useEffect(() => {
+    const accent = customPrimary ?? resolvePalette(paletteKey, dark).primary;
+    if (/^#[0-9a-f]{6}$/i.test(accent))
+      document.documentElement.style.setProperty("--illumination", hexToChannels(accent));
+  }, [paletteKey, customPrimary, dark]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -99,7 +130,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [paletteKey, customPrimary, dark, arabicFont, arabicScale]);
 
   const value = useMemo<ThemeState>(() => {
-    const palette = PALETTES[paletteKey];
+    const palette = resolvePalette(paletteKey, dark);
     const exportTheme = (): string => {
       const payload: Persisted = {
         paletteKey,
@@ -119,7 +150,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           setPaletteKey(payload.paletteKey);
         if ("customPrimary" in payload) setCustomPrimary(payload.customPrimary ?? null);
         if (typeof payload.dark === "boolean") setDark(payload.dark);
-        if (payload.arabicFont) setArabicFont(payload.arabicFont);
+        const font = knownFont(payload.arabicFont);
+        if (font) setArabicFont(font);
         if (typeof payload.arabicScale === "number") setArabicScale(payload.arabicScale);
         return true;
       } catch {

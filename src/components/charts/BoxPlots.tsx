@@ -3,7 +3,7 @@ import type { Verse, Surah } from "../../types/quran";
 import { boxStats } from "../../data/stats";
 import { categorizeOpening } from "../../data/fawatih";
 import { FAWATIH_COLORS } from "../../theme/palettes";
-import type { ChartContext } from "./common";
+import { axisColor, hitMark, type ChartContext } from "./common";
 
 /**
  * Verse word-length distribution per surah, drawn as scrollable SVG box plots.
@@ -74,7 +74,7 @@ export function BoxPlots({
           return (
             <g
               key={b.id}
-              onClick={() => ctx.onSelectSurah?.(b.id)}
+              onClick={() => hitMark(ctx, { scope: "surah", value: b.id })}
               style={{ cursor: "pointer", opacity: op }}
             >
               {/* whisker */}
@@ -111,7 +111,7 @@ export function BoxPlots({
                 x={cx}
                 y={H - PAD_BOTTOM + 10}
                 fontSize={8}
-                fill={ctx.dark ? "#94a3b8" : "#64748b"}
+                fill={axisColor(ctx.dark)}
                 textAnchor="end"
                 transform={`rotate(-60 ${cx} ${H - PAD_BOTTOM + 10})`}
               >

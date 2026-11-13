@@ -104,7 +104,7 @@ export function SimilarArcs({
             ))}
           </Select>
         </div>
-        <p className="pb-1 text-sm text-slate-500 dark:text-slate-400">
+        <p className="pb-1 text-sm text-ink-muted dark:text-ink-subtle">
           {t.structure.pairs(n(pairs.length))}
         </p>
       </div>
@@ -165,7 +165,7 @@ export function SimilarArcs({
         </svg>
       </div>
 
-      <p className="min-h-[1.25rem] text-sm text-slate-600 dark:text-slate-300">
+      <p className="min-h-[1.25rem] text-sm text-ink-muted">
         {hover ? (
           <>
             <span className="font-medium">{label(hover.a)}</span> ↔{" "}
@@ -173,14 +173,14 @@ export function SimilarArcs({
             {t.structure.pairInfo(hover.score, hover.words)}
           </>
         ) : (
-          <span className="text-slate-400">
+          <span className="text-ink-subtle">
             {t.structure.arcHint} {data.source}.
           </span>
         )}
       </p>
 
       {focus !== null && pairs.length > 0 && (
-        <div className="max-h-32 overflow-y-auto rounded-lg border border-slate-200 p-2 text-sm dark:border-slate-700">
+        <div className="max-h-32 overflow-y-auto rounded-lg border border-line p-2 text-sm">
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             {pairs.slice(0, 200).map((p) => (
               <span key={`${p.a}-${p.b}`} className="tabular-nums">
@@ -191,7 +191,7 @@ export function SimilarArcs({
                 <button className="hover:underline" onClick={() => open(p.b)}>
                   {key(p.b)}
                 </button>
-                <span className="text-slate-400"> ({p.score})</span>
+                <span className="text-ink-subtle"> ({p.score})</span>
               </span>
             ))}
           </div>
