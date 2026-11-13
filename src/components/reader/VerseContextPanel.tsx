@@ -11,7 +11,9 @@ import { useSimilar } from "../../data/useSimilar";
 import { useRoots } from "../../data/useRoots";
 import { useTopics } from "../../data/useTopics";
 import { tafsirGroupLookup } from "../../data/sections";
-import { TAFSIR_EDITIONS, tafsirById } from "../../data/editions";
+import { tafsirById } from "../../data/editions";
+import { needsDownload, useTafsirDownloads } from "../../data/tafsirStore";
+import { TafsirDownloadOffer, TafsirSourceLine } from "./TafsirDownload";
 import { buildTopicTree, topicName, topicPath } from "../../data/topics";
 import {
   asbabCovering,
@@ -20,15 +22,13 @@ import {
   topicsForAyah,
 } from "../../data/ayahContext";
 import type { LazyJsonState } from "../../data/useLazyJson";
-import { Badge, SegmentedControl } from "../ui";
+import { Badge, SegmentedControl, Select } from "../ui";
 import { AyahText } from "./AyahText";
-import { CONTEXT_TABS, type ContextTab } from "./readerShared";
+import { CONTEXT_TABS, tafsirOptions, type ContextTab } from "./readerShared";
 
 export type ExploreTarget =
   | { kind: "root"; key: string }
   | { kind: "topic"; key: string };
-
-const selCls = "rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-ink";
 
 function Note({ children, error }: { children: ReactNode; error?: boolean }) {
   return (
@@ -110,12 +110,14 @@ export function VerseContextPanel({
 
   // Tafsir
   const ed = tafsirById(tafsirEdition);
-  const ayahTafsir = useTranslation(
-    tab === "tafsir" && ed.kind === "ayah" ? ed.id : null,
-  );
+  const tafsirDl = useTafsirDownloads();
+  // In the app, an edition not downloaded yet loads nothing until it is.
+  const tafsirPending = needsDownload(ed, tafsirDl);
+  const tafsirOn = tab === "tafsir" && !tafsirPending;
+  const ayahTafsir = useTranslation(tafsirOn && ed.kind === "ayah" ? ed.id : null);
   const surahIds = useMemo(() => [verse.s], [verse.s]);
   const grouped = useGroupedTafsir(
-    tab === "tafsir" && ed.kind === "grouped" ? ed.id : null,
+    tafsirOn && ed.kind === "grouped" ? ed.id : null,
     surahIds,
   );
   const group = useMemo(
@@ -148,21 +150,17 @@ export function VerseContextPanel({
     const text = ed.kind === "ayah" ? ayahTafsir.data?.[verse.id] : group?.text;
     body = (
       <>
-        <label className="mb-3 flex flex-col gap-1 text-sm text-ink-muted">
-          {t.reader.tafsirSource}
-          <select
-            className={selCls}
-            value={tafsirEdition}
-            onChange={(e) => onTafsirEdition(e.target.value)}
-          >
-            {TAFSIR_EDITIONS.map((x) => (
-              <option key={x.id} value={x.id}>
-                {x.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        {error ? (
+        <Select
+          size="sm"
+          className="mb-3"
+          label={t.reader.tafsirSource}
+          value={tafsirEdition}
+          onChange={onTafsirEdition}
+          options={tafsirOptions(lang, tafsirDl)}
+        />
+        {tafsirPending ? (
+          <TafsirDownloadOffer ed={ed} dl={tafsirDl} />
+        ) : error ? (
           <Note error>{t.common.failedToLoad(error)}</Note>
         ) : loading ? (
           <Note>{t.common.loading}</Note>
@@ -186,7 +184,7 @@ export function VerseContextPanel({
             >
               {text}
             </p>
-            <p className="mt-2 text-xs text-ink-subtle">{ed.source}.</p>
+            <TafsirSourceLine ed={ed} />
           </>
         )}
       </>
@@ -195,17 +193,17 @@ export function VerseContextPanel({
     const ws = words.data?.[verse.id];
     body = (
       <>
-        <label className="mb-3 flex flex-col gap-1 text-sm text-ink-muted">
-          {t.reader.glossLang}
-          <select
-            className={selCls}
-            value={glossLang}
-            onChange={(e) => onGlossLang(e.target.value as GlossLang)}
-          >
-            <option value="en">{t.reader.glossEn}</option>
-            <option value="id">{t.reader.glossId}</option>
-          </select>
-        </label>
+        <Select<GlossLang>
+          size="sm"
+          className="mb-3"
+          label={t.reader.glossLang}
+          value={glossLang}
+          onChange={onGlossLang}
+          options={[
+            { value: "en", label: t.reader.glossEn },
+            { value: "id", label: t.reader.glossId },
+          ]}
+        />
         {wordsNote ??
           (!ws ? (
             <Note>{t.reader.noWords}</Note>
@@ -294,7 +292,7 @@ export function VerseContextPanel({
                         {r}
                       </Badge>
                       <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                        {vs?.nameEn}
+                        {vs?.name}
                       </span>
                       <span className="shrink-0 text-xs tabular-nums text-ink-subtle">
                         {t.reader.similarScore(x.score, x.words)}
@@ -418,7 +416,7 @@ export function VerseContextPanel({
             <Badge color={verseColor(verse)} className="tabular-nums">
               {ref}
             </Badge>
-            <span className="truncate font-semibold text-ink">{s?.nameEn}</span>
+            <span className="truncate font-semibold text-ink">{s?.name}</span>
           </p>
           <p
             lang="ar"

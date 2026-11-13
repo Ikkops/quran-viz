@@ -54,7 +54,7 @@ export function MushafPage({
         <span className="tabular-nums">
           {t.scope.juz} {first.juz} · {t.scope.hizb} {first.hizb}
         </span>
-        <span className="truncate">{surahs.map((s) => s?.nameEn).join(" · ")}</span>
+        <span className="truncate">{surahs.map((s) => s?.name).join(" · ")}</span>
       </div>
       {bySurah(verses).map((run) => {
         const s = surahMap.get(run[0].s);
@@ -66,7 +66,7 @@ export function MushafPage({
                   {s.nameAr}
                 </span>
                 <span className="ml-2 text-sm text-ink-muted">
-                  {s.number}. {s.nameEn}
+                  {s.number}. {s.name}
                 </span>
               </div>
             )}

@@ -12,6 +12,8 @@ const surah = (number: number, nameEn: string, nameAr: string, ayahCount: number
     id: number,
     number,
     nameEn,
+    nameId: nameEn,
+    name: nameEn,
     nameAr,
     meaning: "",
     type: number === 2 ? "Medinan" : "Meccan",
@@ -90,7 +92,7 @@ describe("HomeView", () => {
     const entries = within(last).getAllByRole("button");
     expect(entries).toHaveLength(2);
     expect(entries[0]).toHaveTextContent("Al-Baqara 2:142");
-    expect(entries[0]).toHaveTextContent("today");
+    expect(entries[0]).toHaveTextContent(/today, \d{2}:\d{2}/);
     expect(entries[1]).toHaveTextContent("3 days ago");
     await userEvent.click(entries[0]);
     expect(onOpen).toHaveBeenCalledWith({ scope: "surah", value: 2, anchor: 2 });

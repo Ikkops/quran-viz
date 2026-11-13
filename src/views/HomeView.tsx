@@ -7,20 +7,26 @@ import type { ReadStretch } from "../lib/lastRead";
 import { useI18n } from "../i18n/I18nContext";
 import { cx } from "../components/ui";
 import { QuranIndex } from "../components/home/QuranIndex";
+import { preferredDivision, scopeField } from "../components/reader/readerShared";
 
-/** "today", "yesterday", "3 days ago" for a timestamp, by calendar day. */
-function useDayAgo() {
+/** When a stretch was last read: "today, 14:05", "yesterday, 21:30",
+ *  "3 days ago, 06:12", and past a week the date ("2 Nov, 06:12"). */
+function useWhen() {
   const { lang } = useI18n();
-  const fmt = new Intl.RelativeTimeFormat(lang === "id" ? "id" : "en", {
-    numeric: "auto",
-  });
+  const locale = lang === "id" ? "id" : "en";
+  const rel = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  const time = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" });
+  const date = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short" });
   const today = dayDate(dayKey(new Date())).getTime();
   return (at: number) => {
     if (!at) return "";
-    const days = Math.round(
-      (dayDate(dayKey(new Date(at))).getTime() - today) / 86_400_000,
+    const d = new Date(at);
+    const days = Math.min(
+      0,
+      Math.round((dayDate(dayKey(d)).getTime() - today) / 86_400_000),
     );
-    return fmt.format(Math.min(0, days), "day");
+    const day = days < -6 ? date.format(d) : rel.format(days, "day");
+    return `${day}, ${time.format(d)}`;
   };
 }
 
@@ -50,7 +56,15 @@ export function HomeView({
   const today = dayKey(new Date());
   const todaySec = log[today] ?? 0;
   const streak = currentStreak(log, today, goal * 60);
-  const ago = useDayAgo();
+  // Back where you were, in the division you last read by (juz, page…).
+  const lastReadTarget = (e: ReadStretch): ReaderTarget => {
+    const d = preferredDivision();
+    const v = data.verses[e.id - 1];
+    return d === "surah" || !v
+      ? { scope: "surah", value: e.s, anchor: e.id }
+      : { scope: d, value: scopeField(v, d), anchor: e.id };
+  };
+  const ago = useWhen();
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-5">
@@ -68,7 +82,7 @@ export function HomeView({
             <span>
               <span className="block text-base font-semibold">{t.app.startReading}</span>
               <span className="block text-sm opacity-90">
-                {h.startAt(data.surahs[0]?.nameEn ?? "")}
+                {h.startAt(data.surahs[0]?.name ?? "")}
               </span>
             </span>
           </button>
@@ -82,7 +96,7 @@ export function HomeView({
                 <button
                   key={e.s}
                   type="button"
-                  onClick={() => onOpen({ scope: "surah", value: e.s, anchor: e.id })}
+                  onClick={() => onOpen(lastReadTarget(e))}
                   className={cx(
                     "flex min-h-[3.25rem] flex-col justify-center rounded-xl border px-3 py-2 text-left transition-colors",
                     i === 0
@@ -91,7 +105,7 @@ export function HomeView({
                   )}
                 >
                   <span className="truncate text-base font-semibold text-ink">
-                    {s.nameEn}{" "}
+                    {s.name}{" "}
                     <span className="font-normal tabular-nums text-ink-muted">
                       {v.s}:{v.a}
                     </span>

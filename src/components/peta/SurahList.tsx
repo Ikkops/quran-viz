@@ -158,7 +158,7 @@ export function SurahList({
                       type="button"
                       className="min-w-0 truncate text-left font-semibold text-ink"
                     >
-                      {s.nameEn}
+                      {s.name}
                     </button>
                     <span
                       lang="ar"

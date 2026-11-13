@@ -61,7 +61,7 @@ export function SimilarArcs({
   };
   const label = (id: number) => {
     const v = byId.get(id);
-    return v ? `${surahMap.get(v.s)?.nameEn ?? v.s} ${v.s}:${v.a}` : String(id);
+    return v ? `${surahMap.get(v.s)?.name ?? v.s} ${v.s}:${v.a}` : String(id);
   };
   const open = (id: number) => {
     const v = byId.get(id);
@@ -91,18 +91,19 @@ export function SimilarArcs({
           />
         </div>
         <div className="w-64">
-          <Select
+          <Select<number>
             label={t.structure.focus}
-            value={focus ?? ""}
-            onChange={(e) => setFocus(e.target.value ? Number(e.target.value) : null)}
-          >
-            <option value="">{t.structure.allSurahs}</option>
-            {bands.map((b) => (
-              <option key={b.s} value={b.s}>
-                {b.s}. {surahMap.get(b.s)?.nameEn}
-              </option>
-            ))}
-          </Select>
+            value={focus ?? 0}
+            onChange={(v) => setFocus(v || null)}
+            searchable
+            options={[
+              { value: 0, label: t.structure.allSurahs },
+              ...bands.map((b) => ({
+                value: b.s,
+                label: `${b.s}. ${surahMap.get(b.s)?.name ?? ""}`,
+              })),
+            ]}
+          />
         </div>
         <p className="pb-1 text-sm text-ink-muted dark:text-ink-subtle">
           {t.structure.pairs(n(pairs.length))}
@@ -158,7 +159,7 @@ export function SimilarArcs({
               onClick={() => setFocus(focus === b.s ? null : b.s)}
             >
               <title>
-                {b.s}. {surahMap.get(b.s)?.nameEn} {t.structure.clickFocus}
+                {b.s}. {surahMap.get(b.s)?.name} {t.structure.clickFocus}
               </title>
             </rect>
           ))}

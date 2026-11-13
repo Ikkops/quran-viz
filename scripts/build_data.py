@@ -62,6 +62,19 @@ QUL_TAFSIRS = {
     "mukhtasar-id": "id.mukhtasar-qul",  # QUL tafsir/260, one note per ayah
     "saadi-id": "id.saadi-qul",          # QUL tafsir/503, one note per passage
 }
+# Indonesian tafsirs fetched by scripts/fetch_tafsir_id.py into checked-in
+# snapshots (scripts/data/tafsir/<name>.json.gz, 6,236 notes in mushaf order):
+# snapshot -> (identifier, kind). `ayah` is written like a translation
+# (translations/<ident>.json, not listed in editions.json); `grouped` collapses
+# runs of one note repeated over a passage into tafsir/<ident>/<surah>.json.
+TAFSIR_SNAPSHOTS = Path(__file__).resolve().parent / "data" / "tafsir"
+LOCAL_TAFSIRS = {
+    "jalalayn": ("id.jalalayn", "ayah"),            # api.alquran.cloud id.jalalayn
+    "tahlili": ("id.kemenag-tahlili", "grouped"),   # Kemenag, via equran.id
+    "wajiz": ("id.kemenag-wajiz", "grouped"),       # Kemenag, via gadingnst/quran-api
+}
+# Indonesian surah names (Kemenag transliteration), surah 1..114 in order.
+SURAH_NAMES_ID = Path(__file__).resolve().parent / "data" / "surah_names_id.json"
 # Footnote residue in a handful of QUL Indonesian verses (kfc-id 1:2, 2:194;
 # sabiq 32:5, 71:14, 77:3): "puji30993>1", "Tuhan3", "dihormati 119,",
 # "kepada-Nya(656)", "*". No clean verse contains a digit or '*', so these
@@ -304,6 +317,92 @@ def group_tafsir(rows) -> dict[int, list[list]]:
     return out
 
 
+def collapse_runs(texts: list[str], counts: list[int]) -> dict[int, list[list]]:
+    """Per-ayah notes in mushaf order (`counts[i]` ayahs in surah i + 1) ->
+    {surah: [[from_ayah, to_ayah, text], ...]}, one passage per run of
+    consecutive ayahs that repeat the same note. Runs never cross surahs."""
+    if len(texts) != sum(counts):
+        raise ValueError(f"{len(texts)} notes for {sum(counts)} ayahs")
+    out: dict[int, list[list]] = {}
+    i = 0
+    for surah, n in enumerate(counts, 1):
+        passages: list[list] = []
+        for ayah in range(1, n + 1):
+            text = texts[i]
+            i += 1
+            if passages and passages[-1][2] == text:
+                passages[-1][1] = ayah
+            else:
+                passages.append([ayah, ayah, text])
+        out[surah] = passages
+    return out
+
+
+# Residue in the scraped Kemenag texts. Wajiz (gadingnst/quran-api crawl): an
+# MS Word style sheet pasted before or after the note in 11 ayahs, escaped
+# quotes (Al-Qur\'an, \\"), a stray "\ " inside a word, empty "[]" footnote
+# markers, non-breaking and soft hyphens, mis-decoded transliterations.
+# Tahlili (equran.id): a few of the same, plus "¦" for an ellipsis.
+MOJIBAKE = [
+    (re.compile("a€li Imr ?a\xa0n"), "Ali 'Imran"),
+    (re.compile("'a€d"), "'Ad"),
+    (re.compile("(?<=[a-z]a)\xa0(?=n\\b)"), ""),  # Luqma n, ar-Rahma n
+    (re.compile("Â¸la"), "Ula"),          # Tahlili: 'Ad al-Ula
+    (re.compile("a¢€¦"), "…"),             # Tahlili: a mangled ellipsis
+    (re.compile("(?<=\\w)¸(?= )"), ","),  # Wajiz: "baik-baik¸ dan"
+]
+# UTF-8 read as cp1252 in the Tahlili text: "á¸¥" for ḥ, "Ä«" for ī, "Ä€" for Ā.
+CP1252_MOJIBAKE = re.compile("[\u00c2-\u00f4][\u0080-\u00bf\u0152-\u2122]{1,3}")
+
+
+def _unmojibake(m: re.Match) -> str:
+    try:
+        return m.group().encode("cp1252").decode("utf-8")
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return m.group()
+
+
+def clean_scraped(text: str) -> str:
+    """Strip crawl residue from a scraped tafsir note (see MOJIBAKE)."""
+    if "mso-" in text:  # the style sheet starts at its "Normal" line
+        start = text.find("Normal")
+        text = text[:start] + text[text.rindex("}") + 1:]
+    for pat, rep in MOJIBAKE:
+        text = pat.sub(rep, text)
+    text = CP1252_MOJIBAKE.sub(_unmojibake, text)
+    # Tahlili writes the ellipsis of a quoted ayah as "¦"; symbol-font
+    # glyphs land in the private use area.
+    text = re.sub("[\uf000-\uf0ff]", "", text.replace("¦", "…"))
+    text = re.sub(r"\\+([\"'])", r"\1", text)
+    text = text.replace("\\ ", "").replace("\xad", "").replace("\xa0", " ").replace("\t", " ")
+    text = re.sub(r"\s*\[\]", "", text)
+    text = re.sub(r"[ \t]+\n", "\n", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return re.sub(r"[ \t]{2,}", " ", text).strip()
+
+
+def load_snapshot(name: str) -> list[str]:
+    """A fetch_tafsir_id.py snapshot: 6,236 non-empty notes in mushaf order."""
+    path = TAFSIR_SNAPSHOTS / f"{name}.json.gz"
+    if not path.exists():
+        sys.exit(f"Missing {path}; run scripts/fetch_tafsir_id.py {name}")
+    texts = json.loads(gzip.decompress(path.read_bytes()).decode("utf-8"))
+    if (not isinstance(texts, list) or len(texts) != 6236
+            or not all(isinstance(t, str) and t.strip() for t in texts)):
+        sys.exit(f"{path.name}: expected 6236 non-empty notes")
+    return texts
+
+
+def load_surah_names_id(path: Path) -> list[str]:
+    """scripts/data/surah_names_id.json: exactly 114 unique non-empty names."""
+    names = json.loads(path.read_text(encoding="utf-8"))
+    if (not isinstance(names, list) or len(names) != 114
+            or not all(isinstance(n, str) and n.strip() for n in names)
+            or len({n.strip() for n in names}) != 114):
+        sys.exit(f"{path.name}: expected 114 unique non-empty surah names")
+    return [n.strip() for n in names]
+
+
 def pair_wbw(arabic: str, glosses: list[str]) -> list[list[str]]:
     """Pair an ayah's Arabic words with QUL word-by-word glosses. Pause marks
     are dropped; if the Arabic still has more tokens than glosses (37:130
@@ -455,6 +554,24 @@ def export_reference_extras(key_to_id: dict, surah_type: dict) -> list[dict]:
         step(f"tafsir/{ident}/: {sum(map(len, by_surah.values()))} passages")
     qul.close()
 
+    # Fetched Indonesian tafsirs (scripts/fetch_tafsir_id.py snapshots).
+    keys = sorted(key_to_id, key=key_to_id.get)
+    if [key_to_id[k] for k in keys] != list(range(1, len(keys) + 1)):
+        sys.exit("ayah ids are not 1..N in mushaf order")
+    counts = [sum(1 for s, _ in keys if s == n) for n in range(1, 115)]
+    for name, (ident, kind) in LOCAL_TAFSIRS.items():
+        texts = [clean_scraped(t) for t in load_snapshot(name)]
+        if kind == "ayah":
+            write_json(TRANS_OUT / f"{ident}.json", [None, *texts])
+            step(f"translations/{ident}.json: {len(texts)} ayahs (tafsir)")
+            continue
+        by_surah = collapse_runs(texts, counts)
+        out_dir = OUT / "tafsir" / ident
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for surah, passages in by_surah.items():
+            write_json(out_dir / f"{surah}.json", passages)
+        step(f"tafsir/{ident}/: {sum(map(len, by_surah.values()))} passages")
+
     # Verified asbab al-nuzul (Arabic only): [first id, last id, [narrations]].
     # The source numbers al-ʿAlaq's last verse 20 (a non-Kufan count); clamp
     # ranges to the surah's last ayah in our (Kufan, 6236-ayah) numbering.
@@ -587,10 +704,15 @@ def load_qul(key_to_id: dict) -> dict:
             best[k] = (score, words)
     revelation = dict(qul.execute("SELECT surah, revelation_order FROM chapters"))
     check_revelation_order(revelation)
+    # quran.com's standard transliteration ("Al-Fatihah", "Ali 'Imran"),
+    # cleaner than quran.db's alquran.cloud spellings ("Al-Faatiha").
+    names = dict(qul.execute("SELECT surah, name_simple FROM chapters"))
+    if sorted(names) != list(range(1, 115)) or not all(v and v.strip() for v in names.values()):
+        sys.exit("qul.db chapters.name_simple must name every surah 1..114")
     qul.close()
     pairs = sorted([a, b, sc, w] for (a, b), (sc, w) in best.items())
     return {"ruku": divisions["meta_ruku"], "manzil": divisions["meta_manzil"],
-            "similar": pairs, "revelation": revelation}
+            "similar": pairs, "revelation": revelation, "names": names}
 
 
 def main() -> None:
@@ -671,12 +793,14 @@ def main() -> None:
         "SELECT id, number, name_ar, name_en, name_en_translation, type "
         "FROM surahs ORDER BY id"
     ).fetchall()
+    names_id = load_surah_names_id(SURAH_NAMES_ID)
     surahs = []
     for r in surah_rows:
         a = agg[r["id"]]
         surahs.append({
             "id": r["id"], "number": r["number"],
-            "nameAr": r["name_ar"], "nameEn": r["name_en"],
+            "nameAr": r["name_ar"], "nameEn": qul["names"][r["id"]].strip(),
+            "nameId": names_id[r["id"] - 1],
             "meaning": r["name_en_translation"], "type": r["type"],
             "ayahCount": a["ayahCount"], "wordCount": a["wordCount"],
             "letterCount": a["letterCount"], "sajdaCount": a["sajdaCount"],
@@ -937,7 +1061,7 @@ def main() -> None:
 
 
 # Progress lines for the background-task band: "n/total · (pct%) · what · eta m:ss".
-ETL_STEPS = 19  # step() calls in a full run (tajweed/wordbyword/morphology count)
+ETL_STEPS = 23  # step() calls in a full run (tajweed/wordbyword/morphology count)
 _etl_start = datetime.now(timezone.utc)
 _etl_done = 0
 

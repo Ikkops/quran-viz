@@ -86,7 +86,7 @@ export function QuranStrip({
         className="block h-2 w-full cursor-pointer"
         onMouseMove={(e) => {
           const v = verses[idAt(e) - 1];
-          if (v) setTitle(`${v.s}:${v.a} · ${surahMap.get(v.s)?.nameEn ?? ""}`);
+          if (v) setTitle(`${v.s}:${v.a} · ${surahMap.get(v.s)?.name ?? ""}`);
         }}
         onClick={(e) => onPick(idAt(e))}
       />

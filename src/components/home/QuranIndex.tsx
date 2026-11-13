@@ -86,10 +86,12 @@ export function QuranIndex({
       if (!q) return true;
       if (/^\d+$/.test(q)) return String(s.id) === q;
       return (
-        s.nameEn
-          .toLowerCase()
-          .replace(/[-'\s]/g, "")
-          .includes(lower) ||
+        [s.nameEn, s.nameId].some((nm) =>
+          nm
+            .toLowerCase()
+            .replace(/[-'\s]/g, "")
+            .includes(lower),
+        ) ||
         s.meaning.toLowerCase().includes(q.toLowerCase()) ||
         i18n.meaning(s).toLowerCase().includes(q.toLowerCase()) ||
         normalizeArabic(s.nameAr).includes(qn)
@@ -170,17 +172,18 @@ export function QuranIndex({
           {kind === "surah" && (
             <>
               <div className="w-44">
-                <Select
+                <Select<SurahSort>
                   label={t.browse.sort}
                   value={sort}
-                  onChange={(e) => setSort(e.target.value as SurahSort)}
-                >
-                  <option value="mushaf">{t.browse.mushaf}</option>
-                  <option value="revelation">{t.browse.revelation}</option>
-                  <option value="timeline">{t.browse.timeline}</option>
-                  <option value="ayahs">{t.browse.mostAyahs}</option>
-                  <option value="words">{t.browse.mostWords}</option>
-                </Select>
+                  onChange={setSort}
+                  options={[
+                    { value: "mushaf", label: t.browse.mushaf },
+                    { value: "revelation", label: t.browse.revelation },
+                    { value: "timeline", label: t.browse.timeline },
+                    { value: "ayahs", label: t.browse.mostAyahs },
+                    { value: "words", label: t.browse.mostWords },
+                  ]}
+                />
               </div>
               <SegmentedControl<TypeFilter>
                 value={type}
@@ -293,7 +296,7 @@ export function QuranIndex({
           cards={kind === "juz" ? juzCards : manzilCards}
           kind={kind}
           juzNames={kind === "juz" ? (n) => data.meta.juzs[n - 1]?.nameAr : undefined}
-          surahName={(s) => surahMap.get(s)?.nameEn ?? String(s)}
+          surahName={(s) => surahMap.get(s)?.name ?? String(s)}
           surahColor={(s) => placeColor(surahMap.get(s)?.type ?? "Meccan", palette)}
           onOpen={(n) => onOpen({ scope: kind, value: n })}
         />
@@ -306,7 +309,7 @@ export function QuranIndex({
               card={c}
               kind={kind}
               nameAr={kind === "juz" ? data.meta.juzs[c.n - 1]?.nameAr : undefined}
-              surahName={(s) => surahMap.get(s)?.nameEn ?? String(s)}
+              surahName={(s) => surahMap.get(s)?.name ?? String(s)}
               surahColor={(s) => placeColor(surahMap.get(s)?.type ?? "Meccan", palette)}
               onOpen={() => onOpen({ scope: kind, value: c.n })}
             />

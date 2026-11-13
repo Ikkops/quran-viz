@@ -113,7 +113,7 @@ export function GlobalSearchModal({
       const s = surahMap.get(v.s);
       out.push({
         verse: v,
-        surahName: s ? `${s.number}. ${s.nameEn} · ${meaning(s)}` : `${surahWord} ${v.s}`,
+        surahName: s ? `${s.number}. ${s.name} · ${meaning(s)}` : `${surahWord} ${v.s}`,
         translation: inTranslation ? t : undefined,
       });
     }
@@ -189,7 +189,7 @@ export function GlobalSearchModal({
             <ArrowRight size={15} aria-hidden />
             {t.search.goTo(
               `${refVerse.s}:${refVerse.a}`,
-              surahMap.get(refVerse.s)?.nameEn ?? "",
+              surahMap.get(refVerse.s)?.name ?? "",
             )}
             <kbd className="ml-auto font-ui text-xs text-ink-subtle">Enter</kbd>
           </button>

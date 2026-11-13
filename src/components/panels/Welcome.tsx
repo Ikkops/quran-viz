@@ -140,14 +140,12 @@ export function Welcome({
             <Select
               label={w.translation}
               value={edition}
-              onChange={(e) => onEdition(e.target.value)}
-            >
-              {translations.map((e) => (
-                <option key={e.identifier} value={e.identifier}>
-                  {e.englishName}
-                </option>
-              ))}
-            </Select>
+              onChange={onEdition}
+              options={translations.map((e) => ({
+                value: e.identifier,
+                label: e.englishName,
+              }))}
+            />
             <p className="mt-1 text-xs text-ink-subtle">{w.translationHint}</p>
           </div>
         </div>

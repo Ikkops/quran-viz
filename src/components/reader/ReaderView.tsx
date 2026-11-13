@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { EditionsIndex, Surah, Verse } from "../../types/quran";
-import { SCOPE_MAX, surahColorById } from "../charts/common";
+import { SCOPE_MAX, surahColorById, type ReaderScope } from "../charts/common";
 import type { ColorMode, ReaderTarget } from "../charts/common";
 import { useTranslation } from "../../data/useTranslation";
 import { useTajweed } from "../../data/useTajweed";
@@ -19,12 +26,13 @@ import {
   themeIndexById,
 } from "../../data/sections";
 import { useGroupedTafsir } from "../../data/useGroupedTafsir";
+import { needsDownload, useTafsirDownloads } from "../../data/tafsirStore";
+import { TafsirDownloadOffer } from "./TafsirDownload";
 import { useElementWidth } from "../../lib/useElementWidth";
-import { TAJWEED_LEGEND, type TajweedSegment } from "../../data/tajweed";
+import type { TajweedSegment } from "../../data/tajweed";
 import {
   editionByIdentifier,
   isRtl,
-  TAFSIR_EDITIONS,
   tafsirById,
   TRANSLITERATION_EDITION,
 } from "../../data/editions";
@@ -44,6 +52,7 @@ import {
   estimateAudioBytes,
   estimateAyahSeconds,
   formatBytes,
+  outsideRange,
   type LoopRange,
   type RecitationOptions,
   type ReciterId,
@@ -64,11 +73,20 @@ import {
   type AudioStorage,
 } from "./Recitation";
 import { QuranStrip } from "../peta/QuranStrip";
+import { TajweedRules } from "./TajweedRules";
+import { nextHeadHidden } from "../../lib/hideOnScroll";
 import { ReaderToolbar } from "./ReaderToolbar";
 import { VerseRow, type RowContext, type RowTranslation } from "./VerseRow";
 import { MushafPage } from "./MushafPage";
 import { VerseContextPanel, type ExploreTarget } from "./VerseContextPanel";
-import { copyToClipboard, groupByPage, scopeField, useReaderPrefs } from "./readerShared";
+import {
+  copyToClipboard,
+  DIVISIONS,
+  groupByPage,
+  scopeField,
+  tafsirOptions,
+  useReaderPrefs,
+} from "./readerShared";
 
 /** Reader width (CSS px, after zoom) below which the tools go icon-only. */
 const NARROW_PX = 560;
@@ -131,7 +149,7 @@ export function ReaderView({
   dark = false,
 }: ReaderViewProps) {
   const i18n = useI18n();
-  const { t, n } = i18n;
+  const { t, n, lang } = i18n;
   const p = useReaderPrefs();
   const { mode } = p;
   const rootRef = useRef<HTMLElement>(null);
@@ -153,6 +171,18 @@ export function ReaderView({
   // The ayah at the top of the list: the strip's "you are here" mark.
   const [topId, setTopId] = useState<number | undefined>(undefined);
   const [showInfo, setShowInfo] = useState(false);
+  const [tajweedRules, setTajweedRules] = useState(false);
+  // The head (toolbar + strip) floats over the list and slides away while
+  // reading down; it comes back on a scroll up.
+  const headRef = useRef<HTMLDivElement>(null);
+  const [headH, setHeadH] = useState(0);
+  const [headHidden, setHeadHidden] = useState(false);
+  const headHiddenRef = useRef(false);
+  const headHRef = useRef(0);
+  const lastScrollY = useRef(0);
+  // Scrolls the reader makes itself (anchor jumps, following the recitation)
+  // must not hide the head.
+  const quietScrollUntil = useRef(0);
   const [openAsbab, setOpenAsbab] = useState<Set<number>>(() => new Set());
   const [contextSheet, setContextSheet] = useState(false);
   const [playerSheet, setPlayerSheet] = useState(false);
@@ -188,7 +218,7 @@ export function ReaderView({
   const wordByWordState = useWordByWord(p.showWords && mode !== "mushaf", p.glossLang);
   const themesState = useThemes(p.showThemes && mode !== "mushaf", i18n.lang);
   const asbabState = useAsbab(p.showAsbab && mode !== "mushaf");
-  const infoState = useSurahInfo(p.infoLang, showInfo && target.scope === "surah");
+  const infoState = useSurahInfo(p.infoLang, showInfo);
   const themes = themesState.data;
   const themeIdx = useMemo(
     () => (themes ? themeIndexById(themes, verses.length) : null),
@@ -203,7 +233,10 @@ export function ReaderView({
     p.showTranslit && mode !== "mushaf" ? TRANSLITERATION_EDITION : null,
   );
   const tafsirEd = tafsirById(p.tafsirEdition);
-  const inlineTafsirOn = p.showTafsir && mode !== "mushaf";
+  const tafsirDl = useTafsirDownloads();
+  // In the app, an edition not downloaded yet shows the offer in settings.
+  const tafsirPending = needsDownload(tafsirEd, tafsirDl);
+  const inlineTafsirOn = p.showTafsir && mode !== "mushaf" && !tafsirPending;
   const tafsir = useTranslation(
     inlineTafsirOn && tafsirEd.kind === "ayah" ? tafsirEd.id : null,
   );
@@ -265,7 +298,7 @@ export function ReaderView({
   const describe = useCallback(
     (id: number) => {
       const v = verses[id - 1];
-      const name = v ? (surahMap.get(v.s)?.nameEn ?? "") : "";
+      const name = v ? (surahMap.get(v.s)?.name ?? "") : "";
       return {
         title: v ? `${name} ${v.s}:${v.a}` : "",
         artist: reciterName,
@@ -287,7 +320,7 @@ export function ReaderView({
   const surahsLabel = useCallback(
     (ns: number[]) =>
       ns.length === 1
-        ? (surahMap.get(ns[0])?.nameEn ?? String(ns[0]))
+        ? (surahMap.get(ns[0])?.name ?? String(ns[0]))
         : t.reader.audio.nSurahs(ns.length),
     [surahMap, t],
   );
@@ -399,6 +432,13 @@ export function ReaderView({
     rec.play(id);
   };
   const playingId = rec.cursor?.id;
+  /** The learner edited the range: if the ayah being recited fell outside it,
+   *  go to the new range's start now instead of finishing that ayah first. */
+  const editRange = (next: LoopRange | null) => {
+    setLoopRange(next);
+    const r = next ?? scopeRange;
+    if (rec.cursor && outsideRange(rec.cursor.id, r)) rec.moveTo(r.from);
+  };
 
   // ── Items: ayahs, or mushaf pages ──
   const filtered = useMemo(() => {
@@ -431,6 +471,9 @@ export function ReaderView({
     estimateSize: () => (pages ? 720 : 170),
     getItemKey: (i) => (pages ? `p${pages[i][0].id}` : filtered[i].id),
     overscan: 4,
+    // Room under the floating head, and scrolls to a row stop below it.
+    paddingStart: headH,
+    scrollPaddingStart: headH,
     // Breathing room below the final item; scales with the Arabic size.
     paddingEnd: Math.round(24 * arabicScale),
   });
@@ -466,6 +509,7 @@ export function ReaderView({
       navSettledRef.current = true;
       return;
     }
+    quietScrollUntil.current = Date.now() + 700;
     const tm = setTimeout(() => {
       // Instant, not smooth: during a smooth scroll the virtualizer skips
       // measuring rows far from the target and never returns to them, so
@@ -485,7 +529,10 @@ export function ReaderView({
   useEffect(() => {
     if (playingId === undefined) return;
     const idx = indexOfAyah(playingId);
-    if (idx >= 0) rowVirtualizer.scrollToIndex(idx, { align: "auto" });
+    if (idx >= 0) {
+      quietScrollUntil.current = Date.now() + 400;
+      rowVirtualizer.scrollToIndex(idx, { align: "auto" });
+    }
   }, [playingId, indexOfAyah, rowVirtualizer]);
 
   // Rows are measured lazily, so the total height can grow after reaching the
@@ -499,10 +546,36 @@ export function ReaderView({
     if (!sc) return;
     const room = sc.scrollHeight - sc.clientHeight;
     atBottomRef.current = room - sc.scrollTop < 8;
-    // Only changes when another row reaches the top, not on every pixel.
-    const top = rowVirtualizer.getVirtualItems().find((vi) => vi.end > sc.scrollTop + 8);
+    const y = sc.scrollTop;
+    const quiet = Date.now() < quietScrollUntil.current || !navSettledRef.current;
+    const hidden = quiet
+      ? headHiddenRef.current
+      : nextHeadHidden(headHiddenRef.current, y, lastScrollY.current, headHRef.current);
+    lastScrollY.current = y;
+    if (hidden !== headHiddenRef.current) {
+      headHiddenRef.current = hidden;
+      setHeadHidden(hidden);
+    }
+    // The ayah just below the head. Only changes when another row reaches the
+    // top, not on every pixel.
+    const below = hidden ? 0 : headHRef.current;
+    const top = rowVirtualizer.getVirtualItems().find((vi) => vi.end > y + below + 8);
     if (top) setTopId(itemFirstAyah.current(top.index));
   }, [rowVirtualizer]);
+  // Measure the head (it grows with the search field).
+  useLayoutEffect(() => {
+    const el = headRef.current;
+    if (!el) return;
+    const update = () => {
+      headHRef.current = el.offsetHeight;
+      setHeadH(el.offsetHeight);
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const totalSize = rowVirtualizer.getTotalSize();
   useEffect(() => {
     const sc = scrollRef.current;
@@ -526,6 +599,7 @@ export function ReaderView({
         (el.tagName === "INPUT" ||
           el.tagName === "TEXTAREA" ||
           el.tagName === "SELECT" ||
+          el.getAttribute("role") === "combobox" ||
           el.isContentEditable)
       )
         return;
@@ -568,8 +642,9 @@ export function ReaderView({
   const headerSurah = target.scope === "surah" ? surahMap.get(target.value) : undefined;
   const title = headerSurah ? (
     <span className="flex items-baseline gap-2">
+      {/* On a phone the head holds six tools: the name alone. */}
       <span className="truncate">
-        {headerSurah.number}. {headerSurah.nameEn}
+        {narrow ? headerSurah.name : `${headerSurah.number}. ${headerSurah.name}`}
       </span>
       {!narrow && (
         <span
@@ -607,7 +682,7 @@ export function ReaderView({
   const copyText = (v: Verse) => {
     const tr = translation.data?.[v.id];
     const trName = editionName;
-    const name = surahMap.get(v.s)?.nameEn ?? `${t.common.surah} ${v.s}`;
+    const name = surahMap.get(v.s)?.name ?? `${t.common.surah} ${v.s}`;
     const text = [v.ar, tr ? `${tr} (${trName})` : null, `— ${name} ${v.s}:${v.a}`]
       .filter(Boolean)
       .join("\n\n");
@@ -617,7 +692,7 @@ export function ReaderView({
   const marksAt = useMemo(() => marksByAyah(marks), [marks]);
   const refOf = (id: number) => {
     const v = verses[id - 1];
-    return v ? `${surahMap.get(v.s)?.nameEn ?? ""} ${v.s}:${v.a}` : "";
+    return v ? `${surahMap.get(v.s)?.name ?? ""} ${v.s}:${v.a}` : "";
   };
 
   // Last read (Home): the ayah at the top once it has stayed there a few
@@ -666,6 +741,7 @@ export function ReaderView({
           kind: tafsirEd.kind,
           lang: tafsirEd.lang,
           source: tafsirEd.source,
+          published: lang === "id" ? tafsirEd.published.id : tafsirEd.published.en,
           loading: tafsirEd.kind === "ayah" ? tafsir.loading : groupedTafsir.loading,
           ayah: tafsir.data,
           groupAt: (id, prevId) =>
@@ -724,8 +800,31 @@ export function ReaderView({
     tafsir.error ||
     groupedTafsir.error;
 
+  // The ayah the reader is on: the one at the top of the screen, else the
+  // chosen one.
+  const hereVerse = verses[(inScope(topId) ? topId! : (selected?.id ?? 1)) - 1];
+  const divisions: ReaderScope[] = (DIVISIONS as readonly ReaderScope[]).includes(
+    target.scope,
+  )
+    ? [...DIVISIONS]
+    : [...DIVISIONS, target.scope];
   const settings = (
     <div className="flex flex-col gap-3">
+      <Select<ReaderScope>
+        label={t.reader.divideBy}
+        value={target.scope}
+        options={divisions.map((d) => ({ value: d, label: t.scope[d] }))}
+        onChange={(scope) => {
+          if ((DIVISIONS as readonly string[]).includes(scope))
+            p.setDivision(scope as (typeof DIVISIONS)[number]);
+          if (hereVerse)
+            onNavigate({
+              scope,
+              value: scopeField(hereVerse, scope),
+              anchor: hereVerse.id,
+            });
+        }}
+      />
       <EditionSelect
         index={editions}
         value={edition}
@@ -742,15 +841,13 @@ export function ReaderView({
       {p.showTafsir && (
         <Select
           value={p.tafsirEdition}
-          onChange={(e) => p.setTafsirEdition(e.target.value)}
+          onChange={p.setTafsirEdition}
           label={t.reader.tafsirSource}
-        >
-          {TAFSIR_EDITIONS.map((x) => (
-            <option key={x.id} value={x.id}>
-              {x.label}
-            </option>
-          ))}
-        </Select>
+          options={tafsirOptions(lang, tafsirDl)}
+        />
+      )}
+      {p.showTafsir && tafsirPending && (
+        <TafsirDownloadOffer ed={tafsirEd} dl={tafsirDl} />
       )}
       <Toggle
         checked={p.showTajweed}
@@ -758,31 +855,30 @@ export function ReaderView({
         label={t.reader.tajweed}
       />
       {p.showTajweed && (
-        <div className="flex flex-wrap gap-x-3 gap-y-1 rounded-lg bg-surface-sunken p-2 dark:bg-paper">
-          {TAJWEED_LEGEND.map((r) => (
-            <span
-              key={r.code}
-              className="inline-flex items-center gap-1.5 text-xs text-ink-muted"
-            >
-              <span
-                className="h-2.5 w-2.5 rounded-sm"
-                style={{ backgroundColor: dark ? r.dark : r.color }}
-              />
-              {t.tajweed[r.code] ?? r.name}
-            </span>
-          ))}
-        </div>
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          onClick={() => {
+            setSettingsOpen(false);
+            setTajweedRules(true);
+          }}
+          className="-mt-1 inline-flex min-h-10 items-center justify-between gap-2 rounded-lg px-1 text-left text-sm text-illumination hover:bg-surface-sunken touch:min-h-11"
+        >
+          {t.reader.tajweedRules}
+          <ArrowRight size={15} aria-hidden />
+        </button>
       )}
       <Toggle checked={p.showWords} onChange={p.setShowWords} label={t.reader.wbw} />
       {p.showWords && (
-        <Select
+        <Select<GlossLang>
           value={p.glossLang}
-          onChange={(e) => p.setGlossLang(e.target.value as GlossLang)}
+          onChange={p.setGlossLang}
           label={t.reader.glossLang}
-        >
-          <option value="en">{t.reader.glossEn}</option>
-          <option value="id">{t.reader.glossId}</option>
-        </Select>
+          options={[
+            { value: "en", label: t.reader.glossEn },
+            { value: "id", label: t.reader.glossId },
+          ]}
+        />
       )}
       <Toggle checked={p.showThemes} onChange={p.setShowThemes} label={t.reader.themes} />
       <Toggle checked={p.showAsbab} onChange={p.setShowAsbab} label={t.reader.asbab} />
@@ -852,85 +948,86 @@ export function ReaderView({
       />
     );
 
+  // The surah "About" describes: the one of the ayah at the top.
+  const infoSurah = hereVerse ? surahMap.get(hereVerse.s) : undefined;
+  // The head stays put while anything it opened, or any sheet, is up.
+  const headOff =
+    headHidden &&
+    !searchOpen &&
+    !query &&
+    !settingsOpen &&
+    !goToOpen &&
+    !markFor &&
+    !contextSheet &&
+    !playerSheet &&
+    !showInfo &&
+    !tajweedRules;
+
   return (
     <section
       ref={rootRef}
       aria-label={t.reader.aria}
       className={cx(
-        "flex h-[calc(100*var(--zvh))] min-w-0 flex-col bg-paper",
-        "pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]",
+        "relative flex h-[calc(100*var(--zvh))] min-w-0 flex-col bg-paper",
+        "pb-[env(safe-area-inset-bottom)]",
       )}
     >
-      <ReaderToolbar
-        title={title}
-        subtitle={narrow ? null : subtitle}
-        onBack={onClose}
-        onGoTo={() => setGoToOpen(true)}
-        mode={mode}
-        onMode={p.setMode}
-        searchOpen={searchOpen || !!query}
-        onSearchOpen={setSearchOpen}
-        query={query}
-        onQuery={setQuery}
-        player={
-          reciter ? { on: p.showAudio, toggle: () => p.setShowAudio(!p.showAudio) } : null
-        }
-        settingsOpen={settingsOpen}
-        onSettingsOpen={setSettingsOpen}
-        settings={settings}
-      />
+      {/* The head floats over the list so hiding it never resizes the scroller
+          (the text would jump). The list reserves its height (paddingStart). */}
+      <div
+        ref={headRef}
+        // `inert` is not in React 18's types; passed through as an attribute.
+        {...({ inert: headOff ? "" : undefined } as object)}
+        aria-hidden={headOff || undefined}
+        className={cx(
+          "absolute inset-x-0 top-0 z-20 bg-paper pt-[env(safe-area-inset-top)]",
+          "transition-transform duration-200 ease-out motion-reduce:transition-none",
+          headOff && "-translate-y-full",
+        )}
+      >
+        <ReaderToolbar
+          title={title}
+          subtitle={narrow ? null : subtitle}
+          compact={narrow}
+          onBack={onClose}
+          onGoTo={() => setGoToOpen(true)}
+          mode={mode}
+          onMode={p.setMode}
+          searchOpen={searchOpen || !!query}
+          onSearchOpen={setSearchOpen}
+          query={query}
+          onQuery={setQuery}
+          info={{ on: showInfo, toggle: () => setShowInfo(!showInfo) }}
+          player={
+            reciter
+              ? { on: p.showAudio, toggle: () => p.setShowAudio(!p.showAudio) }
+              : null
+          }
+          settingsOpen={settingsOpen}
+          onSettingsOpen={setSettingsOpen}
+          settings={settings}
+        />
 
-      {/* Where this scope sits in the whole Qur'an, and where you are in it. */}
-      <QuranStrip
-        verses={verses}
-        surahMap={surahMap}
-        dark={dark}
-        from={scopeRange.from}
-        to={scopeRange.to}
-        at={inScope(topId) ? topId : selected?.id}
-        label={t.reader.stripLabel}
-        onPick={(id) => {
-          const v = verses[id - 1];
-          if (v)
-            onNavigate({
-              scope: target.scope,
-              value: scopeField(v, target.scope),
-              anchor: id,
-            });
-        }}
-      />
-
-      {showInfo && target.scope === "surah" && (
-        <div className="max-h-[35%] shrink-0 overflow-y-auto border-b border-line bg-surface px-4 py-3">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-ink">{t.reader.about}</p>
-            <SegmentedControl<InfoLang>
-              value={p.infoLang}
-              onChange={p.setInfoLang}
-              ariaLabel={t.reader.infoLang}
-              options={[
-                { value: "en", label: "English" },
-                { value: "id", label: "Indonesia" },
-              ]}
-            />
-          </div>
-          <div
-            lang={p.infoLang}
-            className="max-w-[68ch] whitespace-pre-line font-reading leading-relaxed text-ink"
-          >
-            {infoState.loading
-              ? t.common.loading
-              : infoState.error
-                ? t.common.failedToLoad(infoState.error)
-                : infoState.data?.[target.value]
-                  ? renderInline(infoState.data[target.value]!)
-                  : t.reader.noInfo}
-          </div>
-          <p className="mt-2 text-xs text-ink-subtle">
-            {t.reader.infoSource(p.infoLang === "en")}
-          </p>
-        </div>
-      )}
+        {/* Where this scope sits in the whole Qur'an, and where you are in it. */}
+        <QuranStrip
+          verses={verses}
+          surahMap={surahMap}
+          dark={dark}
+          from={scopeRange.from}
+          to={scopeRange.to}
+          at={inScope(topId) ? topId : selected?.id}
+          label={t.reader.stripLabel}
+          onPick={(id) => {
+            const v = verses[id - 1];
+            if (v)
+              onNavigate({
+                scope: target.scope,
+                value: scopeField(v, target.scope),
+                anchor: id,
+              });
+          }}
+        />
+      </div>
 
       <div className="flex min-h-0 flex-1">
         <div
@@ -947,7 +1044,10 @@ export function ReaderView({
               }}
             >
               {count === 0 && (
-                <p className="py-8 text-center text-sm text-ink-subtle">
+                <p
+                  className="py-8 text-center text-sm text-ink-subtle"
+                  style={{ marginTop: headH }}
+                >
                   {t.reader.noMatch}
                 </p>
               )}
@@ -1009,7 +1109,7 @@ export function ReaderView({
                   >
                     {t.reader.continueTo(t.scope[target.scope], nextTarget.value)}
                     {target.scope === "surah" && surahMap.get(nextTarget.value)
-                      ? ` · ${surahMap.get(nextTarget.value)!.nameEn}`
+                      ? ` · ${surahMap.get(nextTarget.value)!.name}`
                       : ""}
                     <ArrowRight size={15} aria-hidden />
                   </button>
@@ -1020,7 +1120,7 @@ export function ReaderView({
                     onClick={() => onNavigate({ scope: "surah", value: nextRevealed.id })}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-line px-4 py-2.5 text-sm text-ink-muted touch:min-h-11 hover:bg-surface-sunken"
                   >
-                    {t.reader.nextRevealed(nextRevealed.id, nextRevealed.nameEn)}
+                    {t.reader.nextRevealed(nextRevealed.id, nextRevealed.name)}
                   </button>
                 )}
               </div>
@@ -1031,7 +1131,8 @@ export function ReaderView({
         {docked && p.showContext && (
           <aside
             aria-label={t.reader.contextPanel}
-            className="w-[24rem] shrink-0 overflow-y-auto border-l border-line bg-surface"
+            className="w-[24rem] shrink-0 overflow-y-auto border-l border-line bg-surface transition-[padding] duration-200 motion-reduce:transition-none"
+            style={{ paddingTop: headOff ? 0 : headH }}
           >
             {contextPanel()}
           </aside>
@@ -1047,7 +1148,7 @@ export function ReaderView({
           options={p.audioOpts}
           onOptions={p.setAudioOpts}
           range={range}
-          onRange={setLoopRange}
+          onRange={editRange}
           roomy={width >= PLAYER_ROOMY_PX}
           onOpenOptions={openPlayerSheet}
           download={downloadPrompt}
@@ -1070,7 +1171,7 @@ export function ReaderView({
         open={goToOpen}
         onClose={() => setGoToOpen(false)}
         title={t.reader.goTo}
-        side={phone ? "bottom" : "right"}
+        side="top"
         closeLabel={t.common.close}
       >
         {goToOpen && selected && (
@@ -1082,12 +1183,6 @@ export function ReaderView({
             onGo={(tg) => {
               setGoToOpen(false);
               onNavigate(tg);
-            }}
-            onInfo={(surah) => {
-              setGoToOpen(false);
-              setShowInfo(true);
-              if (target.scope !== "surah" || target.value !== surah)
-                onNavigate({ scope: "surah", value: surah });
             }}
           />
         )}
@@ -1118,10 +1213,57 @@ export function ReaderView({
       </Sheet>
 
       <Sheet
+        open={showInfo}
+        onClose={() => setShowInfo(false)}
+        title={infoSurah ? t.reader.aboutSurah(infoSurah.name) : t.reader.about}
+        side="bottom"
+        closeLabel={t.common.close}
+      >
+        {infoSurah && (
+          <div className="px-4 py-3">
+            <SegmentedControl<InfoLang>
+              value={p.infoLang}
+              onChange={p.setInfoLang}
+              ariaLabel={t.reader.infoLang}
+              options={[
+                { value: "en", label: "English" },
+                { value: "id", label: "Indonesia" },
+              ]}
+            />
+            <div
+              lang={p.infoLang}
+              className="mt-3 max-w-[68ch] whitespace-pre-line font-reading leading-relaxed text-ink"
+            >
+              {infoState.loading
+                ? t.common.loading
+                : infoState.error
+                  ? t.common.failedToLoad(infoState.error)
+                  : infoState.data?.[infoSurah.id]
+                    ? renderInline(infoState.data[infoSurah.id]!)
+                    : t.reader.noInfo}
+            </div>
+            <p className="mt-2 text-xs text-ink-subtle">
+              {t.reader.infoSource(p.infoLang === "en")}
+            </p>
+          </div>
+        )}
+      </Sheet>
+
+      <Sheet
+        open={tajweedRules}
+        onClose={() => setTajweedRules(false)}
+        title={t.reader.tajweedRules}
+        side="bottom"
+        closeLabel={t.common.close}
+      >
+        <TajweedRules dark={dark} />
+      </Sheet>
+
+      <Sheet
         open={audioOn && playerSheet}
         onClose={() => setPlayerSheet(false)}
         title={t.reader.audio.options}
-        side={phone ? "bottom" : "right"}
+        side="bottom"
         closeLabel={t.common.close}
       >
         <RecitationControls
@@ -1133,8 +1275,8 @@ export function ReaderView({
           surahs={surahs}
           range={range}
           isDefaultRange={!loopRange}
-          onRange={setLoopRange}
-          onResetRange={() => setLoopRange(null)}
+          onRange={editRange}
+          onResetRange={() => editRange(null)}
           options={p.audioOpts}
           onOptions={p.setAudioOpts}
           storage={storage}
@@ -1146,7 +1288,7 @@ export function ReaderView({
           onCancel={() => {
             const was = sheetSnapshot.current;
             if (was) {
-              setLoopRange(was.loopRange);
+              editRange(was.loopRange);
               p.setAudioOpts(was.options);
               p.setReciter(was.reciter);
             }

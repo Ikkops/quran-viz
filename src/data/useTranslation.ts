@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { TranslationData } from "../types/quran";
-import { BASE } from "./base";
+import { dataFileUrl } from "./tafsirStore";
 
 /** Maximum number of editions to keep in memory. Each translation file is
  *  ~1.3 MB on average; 24 caps the cache near ~30 MB. Least-recently-inserted
@@ -23,7 +23,8 @@ export function loadTranslation(identifier: string): Promise<TranslationData> {
   const existing = inflight.get(identifier);
   if (existing) return existing;
 
-  const p = fetch(`${BASE}data/translations/${identifier}.json`)
+  const p = dataFileUrl(`translations/${identifier}.json`)
+    .then((url) => fetch(url))
     .then((res) => {
       if (!res.ok) throw new Error(`Failed to load ${identifier}: ${res.status}`);
       return res.json() as Promise<TranslationData>;

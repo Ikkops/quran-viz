@@ -57,7 +57,7 @@ export function SurahRow({ s, onOpen }: { s: Surah; onOpen: () => void }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-base font-medium text-illumination">
-          {s.nameEn}
+          {s.name}
         </span>
         <span className="flex items-center gap-1.5 text-xs text-ink-muted">
           <span className="truncate">{i.meaning(s)}</span>

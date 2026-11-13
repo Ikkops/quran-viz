@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   BookOpenText,
   ChevronDown,
+  Info,
   Rows3,
   Search,
   Settings,
@@ -58,12 +59,13 @@ function Popover({
 
 /**
  * The reader's head, one row: back, the title (a button that opens "Go to"),
- * search, the layout switch (ayahs or mushaf pages), the player's show/hide
- * and settings.
+ * search, about this surah, the layout switch (ayahs or mushaf pages), the
+ * player's show/hide and settings.
  */
 export function ReaderToolbar({
   title,
   subtitle,
+  compact,
   onBack,
   onGoTo,
   mode,
@@ -72,6 +74,7 @@ export function ReaderToolbar({
   onSearchOpen,
   query,
   onQuery,
+  info,
   player,
   settingsOpen,
   onSettingsOpen,
@@ -79,6 +82,8 @@ export function ReaderToolbar({
 }: {
   title: ReactNode;
   subtitle: ReactNode;
+  /** Narrow head: the title drops its chevron to leave room for the name. */
+  compact?: boolean;
   onBack: () => void;
   /** Open the "Go to" sheet (surah, ayah, page). */
   onGoTo: () => void;
@@ -88,6 +93,8 @@ export function ReaderToolbar({
   onSearchOpen: (open: boolean) => void;
   query: string;
   onQuery: (q: string) => void;
+  /** About this surah (the surah of the ayah at the top). */
+  info: { on: boolean; toggle: () => void };
   /** The recitation player's show/hide, when there is audio to play. */
   player: null | { on: boolean; toggle: () => void };
   settingsOpen: boolean;
@@ -113,7 +120,10 @@ export function ReaderToolbar({
             onClick={onGoTo}
             aria-haspopup="dialog"
             title={t.reader.goTo}
-            className="flex min-h-11 max-w-full items-center gap-1.5 rounded-lg px-2 text-left hover:bg-surface-sunken"
+            className={cx(
+              "flex min-h-11 max-w-full items-center gap-1.5 rounded-lg text-left hover:bg-surface-sunken",
+              compact ? "px-1" : "px-2",
+            )}
           >
             <span className="min-w-0">
               <span className="block truncate text-lg font-semibold leading-tight text-ink">
@@ -125,7 +135,9 @@ export function ReaderToolbar({
                 </span>
               )}
             </span>
-            <ChevronDown size={17} aria-hidden className="shrink-0 text-ink-subtle" />
+            {!compact && (
+              <ChevronDown size={17} aria-hidden className="shrink-0 text-ink-subtle" />
+            )}
           </button>
         </h1>
         <QuietIconButton
@@ -138,6 +150,14 @@ export function ReaderToolbar({
           disabled={mode === "mushaf"}
         >
           <Search size={18} />
+        </QuietIconButton>
+        <QuietIconButton
+          label={t.reader.about}
+          pressed={info.on}
+          aria-haspopup="dialog"
+          onClick={info.toggle}
+        >
+          <Info size={18} />
         </QuietIconButton>
         {/* Shows the layout it switches to. */}
         <QuietIconButton

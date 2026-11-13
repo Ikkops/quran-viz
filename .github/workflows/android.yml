@@ -30,7 +30,7 @@ jobs:
           cache: npm
 
       - run: npm ci
-      - run: npm run build # tsc --noEmit && vite build → dist/ (data included)
+      - run: npm run build:android # dist/ with data, minus the tafsirs the app downloads
       - run: npx cap sync android
 
       - uses: actions/setup-java@v5

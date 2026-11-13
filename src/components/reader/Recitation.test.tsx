@@ -23,6 +23,7 @@ const idle: Recitation = {
   step: vi.fn(),
   restart: vi.fn(),
   seek: vi.fn(),
+  moveTo: vi.fn(),
   clock: { subscribe: () => () => {}, get: () => clockAt },
   lengthOf: () => 10,
 };

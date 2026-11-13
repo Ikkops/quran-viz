@@ -13,7 +13,10 @@ export function useDismiss(
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) close.current();
+      const tgt = e.target as Element | null;
+      // A Select's list is portalled out of the popover; a press in it is inside.
+      if (tgt?.closest?.("[data-select-popup]")) return;
+      if (ref.current && !ref.current.contains(tgt)) close.current();
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") close.current();

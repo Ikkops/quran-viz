@@ -4,7 +4,12 @@ export interface Surah {
   id: number;
   number: number;
   nameAr: string;
+  /** Transliterated name, quran.com spelling ("Ali 'Imran"). Data, not for display. */
   nameEn: string;
+  /** Transliterated name, Kemenag spelling ("Ali 'Imran", "Yasin"). Data, not for display. */
+  nameId: string;
+  /** The name to show: `nameEn` or `nameId` by UI language (set in `App`). */
+  name: string;
   meaning: string;
   type: RevelationType;
   ayahCount: number;

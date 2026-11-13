@@ -211,7 +211,7 @@ export function DashboardView({
         return { title: `${target.scope} ${target.value}`, target };
       const s = surahMap.get(target.value);
       const d = surahData.find((x) => x.id === target.value);
-      const title = `${target.value}. ${s?.nameEn ?? ""}`;
+      const title = `${target.value}. ${s?.name ?? ""}`;
       const detail = d
         ? t.dashboard.surahDetail(i18nPlace(d.type), n(d.ayahCount), n(d.wordCount))
         : undefined;
@@ -433,7 +433,7 @@ export function DashboardView({
 
   /** The question's answer, worded from facts computed over the range. */
   const answer = useMemo((): string | null => {
-    const name = (id: number) => surahMap.get(id)?.nameEn ?? `#${id}`;
+    const name = (id: number) => surahMap.get(id)?.name ?? `#${id}`;
     const a = t.answers;
     switch (viz) {
       case "length": {

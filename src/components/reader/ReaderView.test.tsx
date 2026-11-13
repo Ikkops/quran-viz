@@ -42,6 +42,8 @@ const surahs: Surah[] = [
     number: 1,
     nameAr: "الفاتحة",
     nameEn: "Al-Fatiha",
+    nameId: "Al-Fatiha",
+    name: "Al-Fatiha",
     meaning: "The Opening",
     type: "Meccan",
     ayahCount: 2,
@@ -182,6 +184,30 @@ describe("ReaderView", () => {
     renderReader({ onNavigate });
     await user.click(screen.getByRole("button", { name: /Continue to Surah 2/i }));
     expect(onNavigate).toHaveBeenCalledWith({ scope: "surah", value: 2 });
+  });
+
+  it("switches the division from settings and stays on the ayah", async () => {
+    const user = userEvent.setup();
+    const onNavigate = vi.fn();
+    renderReader({ onNavigate, target: { scope: "surah", value: 1, anchor: 2 } });
+    await user.click(screen.getByRole("button", { name: /Reader settings/i }));
+    await user.click(screen.getByRole("combobox", { name: /Read by/ }));
+    await user.click(screen.getByRole("option", { name: "Juz" }));
+    expect(onNavigate).toHaveBeenCalledWith({ scope: "juz", value: 1, anchor: 2 });
+    expect(localStorage.getItem("qv.reader.scope")).toBe('"juz"');
+  });
+
+  it("opens the tajweed rules from settings instead of a legend", async () => {
+    const user = userEvent.setup();
+    renderReader();
+    await user.click(screen.getByRole("button", { name: /Reader settings/i }));
+    await user.click(screen.getByRole("switch", { name: /Tajweed/i }));
+    expect(screen.queryByText("Ghunnah (nasalization)")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Tajweed rules" }));
+    const sheet = screen.getByRole("dialog", { name: "Tajweed rules" });
+    expect(
+      within(sheet).getByText("Ikhfāʾ Shafawī (mīm before bāʾ)"),
+    ).toBeInTheDocument();
   });
 
   it("goes to a chosen ayah from the title's sheet", async () => {

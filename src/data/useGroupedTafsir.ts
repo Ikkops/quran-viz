@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { dataUrl } from "./base";
+import { dataFileUrl } from "./tafsirStore";
 import type { GroupedTafsirRow } from "./sections";
 
 /** `<ident>/<surah>` -> parsed rows. Per-surah files are small (≤ ~0.7 MB). */
@@ -12,7 +12,8 @@ function loadSurah(ident: string, surah: number): Promise<GroupedTafsirRow[]> {
   if (hit) return Promise.resolve(hit);
   const pending = inflight.get(key);
   if (pending) return pending;
-  const p = fetch(dataUrl(`tafsir/${key}.json`))
+  const p = dataFileUrl(`tafsir/${key}.json`)
+    .then((url) => fetch(url))
     .then((r) => {
       if (!r.ok) throw new Error(`tafsir/${key}.json: ${r.status}`);
       return r.json() as Promise<GroupedTafsirRow[]>;

@@ -90,9 +90,22 @@ const presetTab = (key: string, value: string) => {
 };
 
 export default function App() {
-  const { data, loading, error } = useQuranData();
+  const { data: loaded, loading, error } = useQuranData();
   const theme = useTheme();
   const { t, lang } = useI18n();
+  // Surah names in the UI language's spelling (Al-Baqarah / Al-Baqarah,
+  // Ya-Sin / Yasin, Ash-Sharh / Asy-Syarh).
+  const data = useMemo(
+    () =>
+      loaded && {
+        ...loaded,
+        surahs: loaded.surahs.map((s) => ({
+          ...s,
+          name: lang === "id" ? s.nameId : s.nameEn,
+        })),
+      },
+    [loaded, lang],
+  );
   const initial = readHash();
   // An old `#browse` (Map) link opens the dashboard on its Map tab.
   useState(() => {
@@ -256,6 +269,7 @@ export default function App() {
         (el.tagName === "INPUT" ||
           el.tagName === "TEXTAREA" ||
           el.tagName === "SELECT" ||
+          el.getAttribute("role") === "combobox" ||
           el.isContentEditable);
       const action = shortcutFor(e, typing, modalOpen);
       if (!action || !data) return;
@@ -351,6 +365,7 @@ export default function App() {
 
   return (
     <div
+      id="app-root"
       className="min-h-[calc(100*var(--zvh))] bg-paper pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] font-ui text-ink"
       // `--zvh` is 1vh corrected for this zoom: use `calc(N*var(--zvh))` instead of
       // `Nvh` anywhere below, since CSS zoom multiplies `vh` lengths.

@@ -261,6 +261,8 @@ export const id: Messages = {
   ui: {
     resize: "Ubah lebar (seret; klik ganda untuk mengembalikan)",
     resizeTitle: "Seret untuk mengubah lebar · klik ganda untuk mengembalikan",
+    filterOptions: "Saring",
+    noMatches: "Tidak ada yang cocok",
   },
 
   settings: {
@@ -809,6 +811,17 @@ export const id: Messages = {
       roots: "Akar & topik",
     },
     noTafsir: "Tidak ada bagian tafsir untuk ayat ini.",
+    tafsirDownload: {
+      offer: (name: string, size: string) =>
+        `${name} belum ada di perangkat ini. Unduh sekali (${size}) agar bisa dibaca tanpa internet.`,
+      download: "Unduh",
+      downloading: (pct: number) => `Mengunduh… ${pct}%`,
+      progress: "Kemajuan unduhan tafsir",
+      cancel: "Batalkan unduhan",
+      failed: "Unduhan terhenti. Periksa koneksi lalu coba lagi.",
+      remove: "Hapus dari perangkat",
+      note: "Diunduh dari repositori GitHub aplikasi ini.",
+    },
     noWords: "Tidak ada data kata per kata untuk ayat ini.",
     noAsbab: "Tidak ada riwayat asbabun nuzul terverifikasi untuk ayat ini.",
     noSimilar: "Tidak ada ayat mirip yang tercatat untuk ayat ini.",
@@ -835,6 +848,11 @@ export const id: Messages = {
     tafsir: "Tafsir",
     tafsirSource: "Sumber tafsir",
     tajweed: "Warna tajwid",
+    tajweedRules: "Hukum tajwid",
+    tajweedIntro:
+      "Arti setiap warna, dengan satu contoh dari mushaf. Pewarnaan diambil dari edisi quran-tajweed, bukan dihitung oleh program.",
+    divideBy: "Baca per",
+    aboutSurah: (name) => `Tentang ${name}`,
     wbw: "Per kata",
     glossLang: "Bahasa arti kata",
     glossEn: "Inggris",
@@ -955,22 +973,41 @@ export const id: Messages = {
 
   tajweed: {
     n: "Mad thabi'i (mad asli)",
-    p: "Mad jaiz",
-    o: "Mad wajib — terpisah (munfashil)",
-    c: "Mad wajib — bersambung (muttashil)",
+    p: "Mad 'aridh lissukun",
+    o: "Mad wajib muttashil / jaiz munfashil",
     m: "Mad lazim",
     g: "Ghunnah (dengung)",
     a: "Idgham bighunnah",
     u: "Idgham bilaghunnah",
-    d: "Idgham mimi",
-    b: "Idgham mutajanisain / mutaqaribain",
+    w: "Idgham mimi",
+    d: "Idgham mutajanisain",
+    b: "Idgham mutaqaribain",
     f: "Ikhfa' (samar)",
-    w: "Ikhfa' syafawi",
+    c: "Ikhfa' syafawi",
     i: "Iqlab",
     q: "Qalqalah (memantul)",
     h: "Hamzah washal (tidak dibaca saat bersambung)",
     s: "Tidak dibaca",
     l: "Lam syamsiyah",
+  },
+  tajweedHelp: {
+    n: "Huruf mad tanpa hamzah atau sukun sesudahnya. Dibaca 2 harakat.",
+    p: "Huruf mad sebelum huruf yang mati karena waqaf. Boleh 2, 4, atau 6 harakat.",
+    o: "Huruf mad bertemu hamzah, dalam satu kata atau di kata berikutnya. Dibaca 4–5 harakat menurut riwayat Hafs.",
+    m: "Huruf mad bertemu sukun asli atau tasydid, seperti pada huruf pembuka surah (الٓمٓ). Dibaca 6 harakat.",
+    g: "Nun atau mim bertasydid: didengungkan 2 harakat.",
+    a: "Nun mati atau tanwin melebur ke ي ن م و, dengan dengung.",
+    u: "Nun mati atau tanwin melebur ke ل atau ر, tanpa dengung.",
+    w: "Mim mati bertemu mim: dileburkan, dengan dengung.",
+    d: "Dua huruf yang makhrajnya sama, seperti د bertemu ت: dileburkan.",
+    b: "Dua huruf yang makhrajnya berdekatan, seperti ل bertemu ر: dileburkan.",
+    f: "Nun mati atau tanwin bertemu salah satu dari 15 huruf: dibaca samar, dengan dengung.",
+    c: "Mim mati bertemu ba': dibaca samar, dengan dengung.",
+    i: "Nun mati atau tanwin bertemu ba': berubah menjadi bunyi mim, dengan dengung.",
+    q: "ق ط ب ج د yang mati: dibaca memantul.",
+    h: "Hamzah washal: tidak dibaca bila bersambung dengan kata sebelumnya.",
+    s: "Ditulis tetapi tidak dibaca.",
+    l: "Lam pada al- bertemu huruf syamsiyah: lam tidak dibaca, huruf sesudahnya ditasydid.",
   },
 
   welcome: {
@@ -991,7 +1028,7 @@ export const id: Messages = {
   about: {
     title: "Tentang aplikasi",
     purpose:
-      "Alat belajar susunan Al-Qur'an: panjang surah, tempat dan urutan turun, pembagian mushaf, kosakata, akar kata, topik, dan ayat-ayat mirip. Semuanya terhubung ke ayatnya beserta terjemahan, tafsir, dan asbabun nuzul. Seluruh data ada di dalam aplikasi dan bisa dipakai tanpa internet.",
+      "Alat belajar susunan Al-Qur'an: panjang surah, tempat dan urutan turun, pembagian mushaf, kosakata, akar kata, topik, dan ayat-ayat mirip. Semuanya terhubung ke ayatnya beserta terjemahan, tafsir, dan asbabun nuzul. Semuanya bisa dipakai tanpa internet; di aplikasi Android, murattal dan tiga tafsir (Tahlili, Wajiz, Jalalain terjemahan Indonesia) diunduh sekali bila diminta.",
     sourcesTitle: "Sumber",
     sources: [
       [
@@ -1002,6 +1039,11 @@ export const id: Messages = {
         "Terjemahan Indonesia, tafsir, kata per kata",
         "Quranic Universal Library (QUL, Tarteel): terjemahan Kemenag RI, Kompleks Raja Fahd, dan Sabiq; Tafsir al-Mukhtashar dan Tafsir as-Sa'di; serta arti kata per kata berbahasa Indonesia.",
       ],
+      [
+        "Tafsir Indonesia lainnya",
+        "Tafsir Tahlili dan Tafsir Wajiz © Kementerian Agama RI: Tahlili melalui equran.id, Wajiz melalui dataset gadingnst/quran-api (diambil dari quran.kemenag.go.id). Tafsir al-Jalalain (terjemahan Indonesia) dari edisi Tanzil melalui api.alquran.cloud. Tafsir al-Muntakhab (terjemahan Indonesia di bawah supervisi M. Quraish Shihab, Kairo 2001), melalui Tanzil. Tahun terbit tiap tafsir tercantum di bawah catatannya.",
+      ],
+      ["Nama surah", "Inggris: ejaan quran.com. Indonesia: transliterasi Kemenag."],
       [
         "Topik, ayat mirip, pengantar surah, ruku', dan manzil",
         "Quranic Universal Library (QUL). Topik digabung, dinamai ulang, dan disusun dalam kategori untuk aplikasi ini.",

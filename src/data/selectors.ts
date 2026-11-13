@@ -140,7 +140,7 @@ export function aggregateBySurah(
     const s = surahMap.get(id)!;
     out.push({
       id,
-      name: s.nameEn,
+      name: s.name,
       nameAr: s.nameAr,
       meaning: s.meaning,
       type: s.type,

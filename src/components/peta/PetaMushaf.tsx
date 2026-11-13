@@ -182,7 +182,7 @@ export function PetaMushaf({
   const readout = shown
     ? t.peta.readout(
         `${shown.s}:${shown.a}`,
-        surahMap.get(shown.s)?.nameEn ?? "",
+        surahMap.get(shown.s)?.name ?? "",
         place(ayahPlace(shown, surahMap)),
         shown.juz,
         shown.page,
@@ -330,7 +330,7 @@ export function PetaMushaf({
             <span className="tabular-nums text-ink-subtle">
               {t.peta.revealing(revealing.revelationOrder)}:
             </span>{" "}
-            <span className="font-medium">{revealing.nameEn}</span>{" "}
+            <span className="font-medium">{revealing.name}</span>{" "}
             <span className="text-ink-subtle">
               ({t.common.surah} {revealing.id}, {place(revealing.type)})
             </span>

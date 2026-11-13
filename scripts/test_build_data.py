@@ -100,6 +100,65 @@ def test_group_tafsir_dedups_passages():
     }
 
 
+def test_collapse_runs_groups_repeated_notes_within_a_surah():
+    texts = ["a", "b", "b", "b", "c", "c", "d"]
+    # surah 1 = a b b b, surah 2 = c c d
+    assert bd.collapse_runs(texts, [4, 3]) == {
+        1: [[1, 1, "a"], [2, 4, "b"]],
+        2: [[1, 2, "c"], [3, 3, "d"]],
+    }
+    # the same note ending one surah and opening the next stays two passages
+    assert bd.collapse_runs(["x", "x"], [1, 1]) == {1: [[1, 1, "x"]], 2: [[1, 1, "x"]]}
+    # non-adjacent repeats are separate passages
+    assert bd.collapse_runs(["x", "y", "x"], [3]) == {
+        1: [[1, 1, "x"], [2, 2, "y"], [3, 3, "x"]]}
+    import pytest
+    with pytest.raises(ValueError):
+        bd.collapse_runs(["x"], [2])
+
+
+def test_clean_scraped_strips_crawl_residue():
+    css = ("Normal\n 0\n\n\n false\n /* Style Definitions */\n table.MsoNormalTable\n"
+           "\t{mso-style-name:\"Table Normal\";\n\tmso-bidi-theme-font:minor-bidi;}\n\n\n"
+           "Apa yang dijelaskan di atas.")
+    assert bd.clean_scraped(css) == "Apa yang dijelaskan di atas."
+    after = "jalan keluar.\n\n\n  " + css.split("\n\n\nApa")[0]
+    assert bd.clean_scraped(after) == "jalan keluar."
+    assert bd.clean_scraped("mengingin\\ kan kematian") == "menginginkan kematian"
+    assert bd.clean_scraped("Al-Qur\\'an, bertanya, \\\\\"Apa") == "Al-Qur'an, bertanya, \"Apa"
+    assert bd.clean_scraped("yang terbaik.”[]") == "yang terbaik.”"
+    assert bd.clean_scraped("Surah a€li Imra\xa0n/3: 134") == "Surah Ali 'Imran/3: 134"
+    assert bd.clean_scraped("kaum 'a€d, kaum Å\xa0amud,") == "kaum 'Ad, kaum Šamud,"
+    assert bd.clean_scraped("bagimu ¦\" (al-A'raf/7: 59) ila'ï€ª)") == "bagimu …\" (al-A'raf/7: 59) ila')"
+    assert bd.clean_scraped("Lauá¸¥ Maá¸¥fudh, Surah Ä€li 'Imran") == "Lauḥ Maḥfudh, Surah Āli 'Imran"
+    assert bd.clean_scraped("disebut 'Ä€d al-Â¸la") == "disebut 'Ād al-Ula"
+    assert bd.clean_scraped("Hà Mìm. Café – ok") == "Hà Mìm. Café – ok"
+    assert bd.clean_scraped("Surah Luqma\xa0n/31: 13, ar-Rahma\xa0n") == "Surah Luqman/31: 13, ar-Rahman"
+    assert bd.clean_scraped("di\xa0alam  semesta\n\n\n\nlagi") == "di alam semesta\n\nlagi"
+    # clean text is left alone
+    clean = "Pada ayat ini, Allah menyuruh.\n\nMaha Esa (Yasin/36 : 82)"
+    assert bd.clean_scraped(clean) == clean
+
+
+def test_surah_names_id_file_is_valid(tmp_path):
+    import pytest
+    names = bd.load_surah_names_id(bd.SURAH_NAMES_ID)
+    assert len(names) == 114
+    assert names[0] == "Al-Fatihah" and names[2] == "Ali 'Imran" and names[113] == "An-Nas"
+    bad = tmp_path / "names.json"
+    for data in (names[:113], names[:113] + [""], names[:113] + [names[0]], {"1": "x"}):
+        bad.write_text(__import__("json").dumps(data), encoding="utf-8")
+        with pytest.raises(SystemExit):
+            bd.load_surah_names_id(bad)
+
+
+def test_tafsir_snapshots_are_complete():
+    for name in bd.LOCAL_TAFSIRS:
+        texts = bd.load_snapshot(name)
+        assert len(texts) == 6236
+        assert all(bd.clean_scraped(t) for t in texts)
+
+
 def test_check_revelation_order_rejects_duplicates():
     import pytest
     good = {i: 115 - i for i in range(1, 115)}

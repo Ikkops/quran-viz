@@ -118,6 +118,9 @@ export interface Recitation {
   restart: () => void;
   /** Play ayah `id` from `offset` seconds in. */
   seek: (id: number, offset: number) => void;
+  /** Go to ayah `id` now (an edited range left the current ayah outside it);
+   *  paused stays paused. */
+  moveTo: (id: number) => void;
   clock: PlayClock;
   /** Length of an ayah in seconds: measured once played, else estimated. */
   lengthOf: (id: number) => number;
@@ -488,6 +491,13 @@ export function useRecitation({
     [start, playing],
   );
 
+  // The range was edited and left the current ayah outside it: go to `id` (the
+  // new range's start) now, cutting the ayah being recited. Paused stays paused.
+  const moveTo = useCallback(
+    (id: number) => start(cursorAt(id, live.current.needsBasmalah), 0, !playing),
+    [start, playing],
+  );
+
   // The system's media controls (notification, lock screen, headset buttons).
   const controls = useRef({ toggle, step, stop, playing });
   useLayoutEffect(() => {
@@ -524,6 +534,7 @@ export function useRecitation({
     step,
     restart,
     seek,
+    moveTo,
     clock,
     lengthOf,
   };

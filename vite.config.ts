@@ -1,9 +1,10 @@
-import { createReadStream, statSync } from "node:fs";
+import { createReadStream, rmSync, statSync } from "node:fs";
 import { extname, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Connect, Plugin } from "vite";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { DOWNLOADED_TAFSIR_PATHS } from "./src/data/editions";
 
 /** Recitation audio lives in `audio/` (gitignored, filled by
  *  scripts/fetch_audio.py). It is served at `audio/` by `dev` and `preview`
@@ -66,8 +67,24 @@ function localAudio(): Plugin {
   };
 }
 
+/** `vite build --mode android` (`npm run build:android`, the APK's build):
+ *  leave out the tafsir editions the app downloads on request instead
+ *  (`download` in src/data/editions.ts, fetched by src/data/tafsirStore.ts). */
+function androidData(): Plugin {
+  let outDir = "";
+  return {
+    name: "quran-viz-android-data",
+    apply: (_, env) => env.command === "build" && env.mode === "android",
+    configResolved: (c) => void (outDir = resolve(c.root, c.build.outDir)),
+    closeBundle() {
+      for (const p of DOWNLOADED_TAFSIR_PATHS)
+        rmSync(resolve(outDir, "data", p), { recursive: true, force: true });
+    },
+  };
+}
+
 // Static SPA. Base is relative so it can be hosted from any subpath.
 export default defineConfig({
   base: "./",
-  plugins: [react(), localAudio()],
+  plugins: [react(), localAudio(), androidData()],
 });

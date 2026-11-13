@@ -22,7 +22,7 @@ function VerseCard({
     >
       <div className="mb-1 flex items-center justify-between" dir="ltr">
         <span className="text-xs font-medium text-ink-muted dark:text-ink-subtle">
-          {s?.nameEn} {v.s}:{v.a}
+          {s?.name} {v.s}:{v.a}
         </span>
         <Badge color={ctx.primary}>{t.charts.nWords(v.w)}</Badge>
       </div>

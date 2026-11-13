@@ -33,7 +33,7 @@ export function BoxPlots({
       .map((id) => {
         const stats = boxStats(grouped.get(id)!);
         max = Math.max(max, stats.max);
-        return { id, name: surahMap.get(id)?.nameEn ?? `#${id}`, ...stats };
+        return { id, name: surahMap.get(id)?.name ?? `#${id}`, ...stats };
       });
     return { boxes, globalMax: max };
   }, [verses, order, surahMap]);
