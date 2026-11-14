@@ -30,7 +30,12 @@ jobs:
           cache: npm
 
       - run: npm ci
+      - run: npm test # a release that fails them is never published
       - run: npm run build:android # dist/ with data, minus the tafsirs the app downloads
+        env:
+          # A release downloads tafsir and word timings from its own commit
+          # (src/data/tafsirStore.ts); a pull request's APK from main.
+          VITE_DATA_REF: ${{ github.event_name == 'push' && github.sha || 'main' }}
       - run: npx cap sync android
 
       - uses: actions/setup-java@v5

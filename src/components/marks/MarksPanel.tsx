@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Bookmark as BookmarkIcon,
   ChevronDown,
@@ -16,10 +16,14 @@ import {
   addPin,
   deleteMark,
   editMark,
+  markedAyahs,
+  sanitizeMarks,
   toggleInCollection,
   type MarkColor,
   type Marks,
 } from "../../lib/marks";
+import { downloadText } from "../../lib/export";
+import { dayKey } from "../../data/readingLog";
 import { useI18n } from "../../i18n/I18nContext";
 import { Card, QuietIconButton, cx } from "../ui";
 
@@ -150,15 +154,31 @@ export function MarksPanel({
       </QuietIconButton>
     </>
   );
+  const outline =
+    "inline-flex min-h-10 items-center gap-1.5 self-start rounded-lg border border-line px-3 text-sm font-medium text-ink hover:border-ink-subtle touch:min-h-11";
   const addButton = (label: string, key: string) => (
-    <button
-      type="button"
-      onClick={() => setForm(key)}
-      className="inline-flex min-h-10 items-center gap-1.5 self-start rounded-lg border border-line px-3 text-sm font-medium text-ink hover:border-ink-subtle touch:min-h-11"
-    >
+    <button type="button" onClick={() => setForm(key)} className={outline}>
       <Plus size={16} aria-hidden /> {label}
     </button>
   );
+  // Backup: the marks live only in this device's storage, so they can be
+  // saved to a file and read back (after a reinstall, or on another device).
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [backupNote, setBackupNote] = useState<string | null>(null);
+  const restore = async (file: File | undefined) => {
+    if (!file) return;
+    let next: Marks | undefined;
+    try {
+      next = sanitizeMarks(JSON.parse(await file.text()));
+    } catch {
+      // Not JSON: said below.
+    }
+    if (!next) setBackupNote(m.backupBad);
+    else if (window.confirm(m.restoreConfirm(markedAyahs(next).length))) {
+      onMarks(next);
+      setBackupNote(m.restored);
+    }
+  };
 
   return (
     <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] items-start gap-4">
@@ -345,6 +365,49 @@ export function MarksPanel({
           />
         ) : (
           addButton(m.newCollection, "new-collection")
+        )}
+      </Card>
+
+      <Card className="col-span-full flex flex-col gap-2 p-4">
+        <h2 className="text-sm font-semibold text-ink-subtle">{m.backup}</h2>
+        <p className="text-xs text-ink-subtle">{m.backupHelp}</p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            className={outline}
+            onClick={() =>
+              void downloadText(
+                JSON.stringify(marks, null, 2),
+                `quran-viz-bookmarks-${dayKey(new Date())}.json`,
+                "application/json",
+              )
+            }
+          >
+            {m.saveBackup}
+          </button>
+          <button
+            type="button"
+            className={outline}
+            onClick={() => fileRef.current?.click()}
+          >
+            {m.restoreBackup}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/json,.json"
+            hidden
+            aria-label={m.restoreBackup}
+            onChange={(e) => {
+              void restore(e.target.files?.[0]);
+              e.target.value = ""; // the same file can be chosen again
+            }}
+          />
+        </div>
+        {backupNote && (
+          <p className="text-sm text-ink-muted" role="status">
+            {backupNote}
+          </p>
         )}
       </Card>
     </div>

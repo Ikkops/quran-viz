@@ -40,7 +40,7 @@ export interface HistogramBucket {
 export function histogram(values: number[], bucketSize: number): HistogramBucket[] {
   if (values.length === 0) return [];
   const max = Math.max(...values);
-  const bucketCount = Math.ceil((max + 1) / bucketSize);
+  const bucketCount = Math.ceil(max / bucketSize);
   const buckets: HistogramBucket[] = Array.from({ length: bucketCount }, (_, i) => {
     const lo = i * bucketSize + 1;
     const hi = (i + 1) * bucketSize;

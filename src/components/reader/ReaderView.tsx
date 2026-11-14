@@ -361,8 +361,10 @@ export function ReaderView({
   const reciters = useReciters(native ? RECITERS : LOCAL_RECITERS);
   // The stored choice, or the first reciter present locally.
   const reciter = reciters?.find((r) => r.id === p.reciterPref) ?? reciters?.[0] ?? null;
-  const downloads = useAudioDownloads(RECITERS);
   const reciterId = (reciter?.id ?? p.reciterPref) as ReciterId;
+  // The chosen reciter's downloads; the others' (their surah counts in the
+  // reciter list) are read only once the player's sheet is open.
+  const downloads = useAudioDownloads(playerSheet ? RECITERS : [reciterId]);
   const onDevice = downloads.downloaded[reciterId];
   const available = useCallback(
     (id: number) => !native || !!onDevice?.[verses[id - 1]?.s ?? 0],

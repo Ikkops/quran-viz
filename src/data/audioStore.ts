@@ -22,7 +22,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Encoding, Filesystem } from "@capacitor/filesystem";
-import { FileTransfer } from "@capacitor/file-transfer";
+import { fetchFile, runPool } from "./download";
 import {
   RECITERS,
   RECITER_INFO,
@@ -276,35 +276,6 @@ async function saveManifest(reciter: string, m: Record<number, number>) {
   update({ downloaded: { ...state.downloaded, [reciter]: m } });
 }
 
-async function sizeOf(path: string): Promise<number> {
-  try {
-    return (await Filesystem.stat({ path })).size;
-  } catch {
-    return 0;
-  }
-}
-
-/** Download one file to `<name>.part`, then move it into place, so an
- *  interrupted download never leaves a short file that looks finished. */
-async function fetchFile(reciter: ReciterId, name: string): Promise<number> {
-  const path = `${folder(reciter)}/${name}`;
-  const have = await sizeOf(path);
-  if (have >= MIN_BYTES) return have;
-  const part = `${path}.part`;
-  await FileTransfer.downloadFile({
-    url: RECITER_INFO[reciter].source + name,
-    path: part,
-    connectTimeout: 15_000,
-    readTimeout: 30_000,
-  });
-  const got = await sizeOf(part);
-  if (got < MIN_BYTES) throw new Error(name);
-  // A short leftover would block the rename.
-  if (have > 0) await Filesystem.deleteFile({ path }).catch(() => undefined);
-  await Filesystem.rename({ from: part, to: path });
-  return got;
-}
-
 /** A surah's word timings from the device, downloading the small file
  *  first if it isn't there (surahs downloaded before timings existed). Read
  *  and written through Filesystem, not the WebView's file server. Null for
@@ -362,27 +333,32 @@ async function run() {
       await Filesystem.mkdir({ path: folder(reciter), recursive: true }).catch(
         () => undefined,
       );
-      const todo = [...files];
       let bytes = 0;
       let done = 0;
-      const worker = async () => {
-        for (let name = todo.shift(); name; name = todo.shift()) {
-          if (stopRequested) return;
-          const size = await fetchFile(reciter, name);
-          // The shared basmalah file counts toward surah 1 only.
-          if (name !== audioFileName(1, 1) || job.surah === 1) bytes += size;
-          done += 1;
-          if (state.active) update({ active: { ...state.active, done } });
-        }
-      };
       try {
-        await Promise.all(Array.from({ length: PARALLEL }, worker));
+        await runPool(
+          files,
+          PARALLEL,
+          () => stopRequested,
+          async (name) => {
+            const size = await fetchFile(
+              RECITER_INFO[reciter].source + name,
+              `${folder(reciter)}/${name}`,
+              MIN_BYTES,
+            );
+            // The shared basmalah file counts toward surah 1 only.
+            if (name !== audioFileName(1, 1) || job.surah === 1) bytes += size;
+            done += 1;
+            if (state.active) update({ active: { ...state.active, done } });
+          },
+        );
       } catch (e) {
-        stopRequested = true;
         update({ error: e instanceof Error ? e.message : String(e), queue: [] });
         break;
       }
-      if (stopRequested) break;
+      // Cancelled: this surah stays unfinished. Surahs asked for since then
+      // (the queue was emptied by the cancel) still get their turn.
+      if (stopRequested) continue;
       // Word timings ride along; without them the audio still plays.
       await deviceTimings(reciter, job.surah);
       const m = await loadManifest(reciter);
@@ -439,8 +415,10 @@ async function listFiles(dir: string): Promise<{ name: string; size: number }[]>
 
 /**
  * Keep audio on another volume from now on, moving what is already
- * downloaded (copy, then delete the original, file by file). Downloads stop
- * first. If the target is short of space nothing is moved.
+ * downloaded: every file is copied first, and the originals go only once the
+ * app reads from the new place, so a move that fails halfway (card pulled,
+ * card full) leaves the audio whole where it was. Downloads stop first. If
+ * the target is short of space nothing is moved.
  */
 export async function moveAudioTo(target: string | AudioVolume): Promise<void> {
   await init();
@@ -453,14 +431,28 @@ export async function moveAudioTo(target: string | AudioVolume): Promise<void> {
   while (running) await new Promise((r) => setTimeout(r, 200));
 
   // From a card that has gone missing there is nothing to copy: just switch.
-  const plan: { reciter: string; files: { name: string; size: number }[] }[] = [];
+  // `todo` leaves out unfinished downloads (not worth carrying over) and what
+  // an earlier move that failed already copied: an ayah file of the same size
+  // at the target is that same file, so trying again carries on from there.
+  type Entry = { name: string; size: number };
+  const plan: { reciter: string; files: Entry[]; todo: Entry[]; stale: Set<string> }[] =
+    [];
   if (!state.cardMissing)
     for (const r of RECITERS) {
       const files = await listFiles(folderIn(from, r));
-      if (files.length) plan.push({ reciter: r, files });
+      if (!files.length) continue;
+      const there = new Map(
+        (await listFiles(folderIn(to, r))).map((f) => [f.name, f.size]),
+      );
+      const todo = files.filter(
+        (f) =>
+          !f.name.endsWith(".part") &&
+          !(f.name.endsWith(".mp3") && there.get(f.name) === f.size),
+      );
+      plan.push({ reciter: r, files, todo, stale: new Set(there.keys()) });
     }
-  const total = plan.reduce((n, p) => n + p.files.length, 0);
-  const bytes = plan.reduce((n, p) => n + p.files.reduce((m, f) => m + f.size, 0), 0);
+  const total = plan.reduce((n, p) => n + p.todo.length, 0);
+  const bytes = plan.reduce((n, p) => n + p.todo.reduce((m, f) => m + f.size, 0), 0);
   if (bytes > to.free) {
     update({ moveError: "space" });
     return;
@@ -468,40 +460,41 @@ export async function moveAudioTo(target: string | AudioVolume): Promise<void> {
   update({ moving: { done: 0, total }, moveError: null });
   let done = 0;
   try {
-    for (const { reciter, files } of plan) {
+    for (const { reciter, todo, stale } of plan) {
       const src = folderIn(from, reciter);
       const dst = folderIn(to, reciter);
       await Filesystem.mkdir({ path: dst, recursive: true }).catch(() => undefined);
-      for (const f of files) {
-        // Unfinished downloads aren't worth carrying over.
-        if (f.name.endsWith(".part")) {
-          await Filesystem.deleteFile({ path: `${src}/${f.name}` }).catch(
+      for (const f of todo) {
+        // A short or stale copy would block this one.
+        if (stale.has(f.name))
+          await Filesystem.deleteFile({ path: `${dst}/${f.name}` }).catch(
             () => undefined,
           );
-        } else {
-          await Filesystem.copy({ from: `${src}/${f.name}`, to: `${dst}/${f.name}` });
-          await Filesystem.deleteFile({ path: `${src}/${f.name}` });
-        }
+        await Filesystem.copy({ from: `${src}/${f.name}`, to: `${dst}/${f.name}` });
         done += 1;
         update({ moving: { done, total } });
       }
     }
-    // Tidy up the emptied folders, never anything else that sits beside them.
-    if (!state.cardMissing) {
-      for (const { reciter } of plan)
-        await Filesystem.rmdir({ path: folderIn(from, reciter) }).catch(() => undefined);
-      if (!from.custom)
-        await Filesystem.rmdir({ path: audioDir(from) }).catch(() => undefined);
-    }
   } catch (e) {
-    // Files copied so far stay at the target; the rest stay where they were.
-    // Point at the target anyway only if everything got there.
+    // Nothing was deleted: the audio is still whole where it was, and the
+    // copies made so far wait at the target for the next try.
     update({ moving: null, moveError: e instanceof Error ? e.message : String(e) });
     void refreshVolumes();
     return;
   }
   writeLocation(to.id);
   selectVolume(to);
+  // The copies are in use now. Clear out the originals and their emptied
+  // folders, never anything else that sits beside them; a file that won't go
+  // only takes up space.
+  for (const { reciter, files } of plan) {
+    const src = folderIn(from, reciter);
+    for (const f of files)
+      await Filesystem.deleteFile({ path: `${src}/${f.name}` }).catch(() => undefined);
+    await Filesystem.rmdir({ path: src }).catch(() => undefined);
+  }
+  if (plan.length > 0 && !from.custom)
+    await Filesystem.rmdir({ path: audioDir(from) }).catch(() => undefined);
   update({ moving: null });
   void refreshVolumes();
 }

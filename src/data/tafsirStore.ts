@@ -13,13 +13,16 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Directory, Encoding, Filesystem } from "@capacitor/filesystem";
-import { FileTransfer } from "@capacitor/file-transfer";
 import { dataUrl } from "./base";
+import { fetchFile, runPool } from "./download";
 import { TAFSIR_EDITIONS, tafsirFiles, type TafsirEdition } from "./editions";
 
-/** Where the app downloads tafsir files from: `public/data` on main. */
-export const REMOTE_DATA =
-  "https://raw.githubusercontent.com/Ikkops/quran-viz/main/public/data/";
+/** Where the app downloads tafsir files from: `public/data` at the commit the
+ *  release was built from (CI sets VITE_DATA_REF), so an app that hasn't
+ *  updated never gets files in a newer format; `main` for other builds. */
+export const REMOTE_DATA = `https://raw.githubusercontent.com/Ikkops/quran-viz/${
+  import.meta.env.VITE_DATA_REF || "main"
+}/public/data/`;
 const PARALLEL = 4;
 
 const isNative = (): boolean => Capacitor.isNativePlatform();
@@ -103,32 +106,6 @@ export async function dataFileUrl(path: string): Promise<string> {
   return Capacitor.convertFileSrc(`${await rootUri()}/${path}`);
 }
 
-async function sizeOf(path: string): Promise<number> {
-  try {
-    return (await Filesystem.stat({ path })).size;
-  } catch {
-    return 0;
-  }
-}
-
-/** One file to `<name>.part`, then into place (kept if already there). */
-async function fetchFile(dir: string, path: string): Promise<number> {
-  const target = `${dir}/${path}`;
-  const have = await sizeOf(target);
-  if (have > 0) return have;
-  const part = `${target}.part`;
-  await FileTransfer.downloadFile({
-    url: REMOTE_DATA + path,
-    path: part,
-    connectTimeout: 15_000,
-    readTimeout: 30_000,
-  });
-  const got = await sizeOf(part);
-  if (got === 0) throw new Error(path);
-  await Filesystem.rename({ from: part, to: target });
-  return got;
-}
-
 let stopRequested = false;
 
 /** Download every file of an edition; one edition at a time. */
@@ -147,21 +124,20 @@ export async function downloadTafsir(id: string): Promise<void> {
       await Filesystem.mkdir({ path: `${dir}/${f}`, recursive: true }).catch(
         () => undefined,
       );
-    const todo = [...files];
     let bytes = 0;
     let done = 0;
-    const worker = async () => {
-      for (let f = todo.shift(); f; f = todo.shift()) {
-        if (stopRequested) return;
-        bytes += await fetchFile(dir, f);
+    await runPool(
+      files,
+      PARALLEL,
+      () => stopRequested,
+      async (f) => {
+        bytes += await fetchFile(REMOTE_DATA + f, `${dir}/${f}`);
         done += 1;
         update({ active: { id, done, total: files.length } });
-      }
-    };
-    await Promise.all(Array.from({ length: PARALLEL }, worker));
+      },
+    );
     if (!stopRequested) await saveManifest({ ...(await loadManifest()), [id]: bytes });
   } catch {
-    stopRequested = true;
     update({ failed: id });
   } finally {
     update({ active: null });

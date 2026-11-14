@@ -56,6 +56,11 @@ describe("TafsirSourceLine", () => {
   it("names the source, the publication date and a way to remove it", async () => {
     render(<TafsirSourceLine ed={tahlili} />);
     expect(screen.getByText(/revised ed\. 2004–2008/)).toBeInTheDocument();
+    // A stray tap on the link must not delete the download.
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    await userEvent.click(screen.getByRole("button", { name: "Remove from device" }));
+    expect(store.deleteTafsir).not.toHaveBeenCalled();
+    confirm.mockReturnValue(true);
     await userEvent.click(screen.getByRole("button", { name: "Remove from device" }));
     expect(store.deleteTafsir).toHaveBeenCalledWith("id.kemenag-tahlili");
   });

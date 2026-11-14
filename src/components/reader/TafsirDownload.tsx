@@ -93,7 +93,10 @@ export function TafsirSourceLine({
           {" "}
           <button
             type="button"
-            onClick={() => void deleteTafsir(ed.id)}
+            onClick={() => {
+              if (window.confirm(t.reader.tafsirDownload.removeConfirm(ed.label)))
+                void deleteTafsir(ed.id);
+            }}
             className="underline underline-offset-2 hover:text-ink"
           >
             {t.reader.tafsirDownload.remove}

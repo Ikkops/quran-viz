@@ -32,30 +32,6 @@ export function parseTajweed(s: string): TajweedSegment[] {
   return out;
 }
 
-/**
- * Split tajweed-annotated text into whitespace-delimited words, each kept as a
- * list of coloured segments (a rule span can carry across a word's letters).
- * Used to colour word-by-word display, where the Arabic is shown per token.
- */
-export function splitTajweedWords(marked: string): TajweedSegment[][] {
-  const words: TajweedSegment[][] = [];
-  let current: TajweedSegment[] = [];
-  for (const seg of parseTajweed(marked)) {
-    const parts = seg.text.split(/(\s+)/);
-    for (const part of parts) {
-      if (part === "") continue;
-      if (/^\s+$/.test(part)) {
-        if (current.length) words.push(current);
-        current = [];
-      } else {
-        current.push({ text: part, rule: seg.rule });
-      }
-    }
-  }
-  if (current.length) words.push(current);
-  return words;
-}
-
 // Arabic letters (no harakat, Quranic marks, tatweel or ۞) and the alef
 // variants unified before letters are compared.
 const LETTER = /[\u0621-\u063A\u0641-\u064A\u0671-\u06D3\u06FA-\u06FF]/;

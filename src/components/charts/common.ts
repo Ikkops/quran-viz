@@ -12,9 +12,6 @@ export function placeColor(place: AyahPlace, palette: Palette): string {
 }
 
 /** Caveat shown wherever ayah-level places are used. */
-export const PLACE_CAVEAT =
-  "Ayah-level places follow the traditional mushaf surah headers; scholars differ on many.";
-
 export type ColorMode = "type" | "fawatih";
 
 /** A division the reader can be browsed by, in the order the reader lists them. */

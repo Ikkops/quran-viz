@@ -41,6 +41,14 @@ export function addReadingTime(seconds: number, now: Date = new Date()): void {
   listeners.forEach((fn) => fn());
 }
 
+// Another tab added reading time: read the log again before adding to it.
+if (typeof window !== "undefined")
+  window.addEventListener("storage", (e) => {
+    if (e.key !== READING_LOG_KEY) return;
+    log = null;
+    listeners.forEach((fn) => fn());
+  });
+
 /** Recitation is playing: listening counts as reading, even with the screen
  *  untouched or off. */
 export function setListening(on: boolean): void {
