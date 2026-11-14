@@ -235,8 +235,3 @@ export function shiftAnchor(
   if (period === "year") return `${Number(anchor.slice(0, 4)) + delta}-01-01`;
   return anchor;
 }
-
-/** Whole minutes for a label; anything under a minute that isn't zero is 1. */
-export function minutesOf(seconds: number): number {
-  return seconds <= 0 ? 0 : Math.max(1, Math.round(seconds / 60));
-}

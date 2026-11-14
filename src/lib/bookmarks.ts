@@ -28,18 +28,3 @@ export function sanitizeBookmarks(raw: unknown): Bookmark[] | undefined {
   }
   return out;
 }
-
-/** Add the ayah if absent, remove it if present. */
-export function toggleBookmark(
-  list: Bookmark[],
-  id: number,
-  now = Date.now(),
-): Bookmark[] {
-  return list.some((b) => b.id === id)
-    ? list.filter((b) => b.id !== id)
-    : [...list, { id, note: "", at: now }];
-}
-
-export function setBookmarkNote(list: Bookmark[], id: number, note: string): Bookmark[] {
-  return list.map((b) => (b.id === id ? { ...b, note } : b));
-}

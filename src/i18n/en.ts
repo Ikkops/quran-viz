@@ -240,6 +240,15 @@ export const en = {
     saveTo: "Choose the collections that hold this ayah.",
     here: "On this ayah",
     nowAt: (ref: string) => `Now at ${ref}`,
+    backup: "Backup",
+    backupHelp:
+      "Pins, collections and notes are kept only on this device. Save a backup file to keep them safe or to move them to another device.",
+    saveBackup: "Save a backup",
+    restoreBackup: "Restore from a backup",
+    restoreConfirm: (n: number) =>
+      `Replace your pins and collections with the ones in this file (${n} marked ayahs)? This can't be undone.`,
+    restored: "Backup restored.",
+    backupBad: "That file isn't a bookmarks backup.",
   },
 
   viz: {
@@ -728,6 +737,8 @@ export const en = {
       cancel: "Cancel download",
       failed: "The download stopped. Check the connection and try again.",
       remove: "Remove from device",
+      removeConfirm: (name: string) =>
+        `Remove ${name} from this device? Reading it again needs a new download.`,
       note: "Downloaded from the app's GitHub repository.",
     },
     noWords: "No word-by-word data for this ayah.",

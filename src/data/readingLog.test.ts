@@ -6,7 +6,6 @@ import {
   currentStreak,
   dayKey,
   longestStreak,
-  minutesOf,
   sanitizeReadingLog,
   shiftAnchor,
 } from "./readingLog";
@@ -144,11 +143,4 @@ describe("activityView", () => {
     expect(v.seconds).toBe(0);
     expect(v.hasPrev).toBe(false);
   });
-});
-
-it("rounds a label to whole minutes, never down to zero", () => {
-  expect(minutesOf(0)).toBe(0);
-  expect(minutesOf(20)).toBe(1);
-  expect(minutesOf(89)).toBe(1);
-  expect(minutesOf(91)).toBe(2);
 });

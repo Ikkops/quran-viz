@@ -44,6 +44,18 @@ export function usePersistentState<T>(
     }
   }, [key, value]);
 
+  // Another tab wrote this key: take its value, or this tab's next write
+  // would put its own stale copy back over it (a bookmark added there, gone).
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === key) setValue(readPersisted(key, initial, sanitize));
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+    // `initial` and `sanitize` are fresh on every render; the key is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
   return [value, setValue] as const;
 }
 

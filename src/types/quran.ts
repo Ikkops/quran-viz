@@ -52,16 +52,6 @@ export interface Verse {
   p?: AyahPlace;
 }
 
-/** Verse augmented with cumulative running totals (global + per-juz). */
-export interface EnrichedVerse extends Verse {
-  cumulGlobalW: number;
-  cumulGlobalV: number;
-  cumulGlobalL: number;
-  cumulJuzW: number;
-  cumulJuzV: number;
-  cumulJuzL: number;
-}
-
 export type EditionType = "translation" | "transliteration" | "tafsir";
 
 export interface Edition {

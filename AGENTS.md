@@ -89,13 +89,16 @@ under each note). The three snapshot editions carry `download: { bytes }`
 (checked against the files by `editions.test.ts`): `npm run build:android`
 (`vite build --mode android`, the `androidData` plugin in `vite.config.ts`,
 run by CI) deletes them from `dist/data`, and the app downloads one on request
-(`data/tafsirStore.ts`) from `raw.githubusercontent.com/Ikkops/quran-viz/main/
-public/data/` into `<Data>/data/<same path>`, with `downloads.json` written
+(`data/tafsirStore.ts`) from `raw.githubusercontent.com/Ikkops/quran-viz/<ref>/
+public/data/` (`REMOTE_DATA`: `<ref>` is `VITE_DATA_REF`, which the workflow
+sets to the release's own commit on `main` so an app that hasn't updated never
+meets a newer file format; `main` for a pull request's APK and local builds) into `<Data>/data/<same path>`, with `downloads.json` written
 only when every file is in. The loaders (`useTranslation`, `useGroupedTafsir`)
 resolve URLs through `dataFileUrl`, so the device copy is read instead; until
 then the reader settings and the context sheet show `TafsirDownloadOffer`
 (size, progress, cancel) and the tafsir select adds the size. So new files for
-those editions reach the app only once merged to `main`. Surah names:
+those editions reach the app with the release built from the commit that has
+them. Surah names:
 `nameEn` is qul.db `chapters.name_simple` (quran.com spelling, "Al-Fatihah");
 `nameId` comes from the checked-in `scripts/data/surah_names_id.json` (114
 unique names, equran.id spelling: Ghafir, Al-Mujadilah, Al-Insyirah; the ETL
@@ -138,8 +141,8 @@ Egyptian-mushaf surah headers, corrected where two sources agree (added 6:141 an
 surah's get `verses[].p` (`Meccan` | `Medinan` | `Hijra` = revealed en route:
 22:52–55, 28:85, 47:13); `surahs[].exceptions` counts them and
 `meta.classificationByAyah` gives the ayah-level split. These are traditional
-attributions that commentators dispute; the UI always shows `PLACE_CAVEAT`
-(`components/charts/common.ts`). Use `ayahPlace(v, surahMap)` from
+attributions that commentators dispute; the UI always shows `t.placeCaveat`
+(`i18n/`). Use `ayahPlace(v, surahMap)` from
 `data/selectors.ts`, never `v.p` alone.
 
 **Surah chronology (Browse → Sort → Timeline).** The checked-in
@@ -214,7 +217,7 @@ with `source='sahih-ar'` (never `wahidi-en`, a copyrighted translation).
   forms; its stopwords must cover Uthmani spellings too (ذٰلك → `ذالك`).
 
 **Data-shaping vs. presentation.** Pure transforms live in `src/data/`
-(`selectors.ts` filter/aggregate, `stats.ts`, `enrich.ts`, `fawatih.ts`,
+(`selectors.ts` filter/aggregate, `stats.ts`, `fawatih.ts`,
 `arabic.ts`) and are unit-tested. Components in `src/components/charts/` are
 presentational and receive a `ChartContext` (`components/charts/common.ts`:
 `{ palette, primary, colorMode, dark, activeKeys?, onOpen?, onSelectSurah?, onMark? }`).
@@ -382,7 +385,11 @@ another ayah; a collection has a name, a colour and any number of ayahs with
 notes. Colours come from `MARK_COLORS`. First run makes one pin and one
 collection named in the UI language and takes over the old `qv.bookmarks`. In
 the reader each ayah has a pin button and a bookmark button that open
-`components/marks/MarkSheet.tsx`.
+`components/marks/MarkSheet.tsx`. Activity → Bookmarks ends with Backup: the
+marks saved as a JSON file (`downloadText` in `lib/export.ts`) and read back
+through `sanitizeMarks`, replacing the current ones after a confirm. Stored
+state follows other tabs (`usePersistentState` and the reading log listen for
+`storage` events), so two open tabs don't overwrite each other.
 
 **Settings** (`views/SettingsView.tsx`, view id `settings`): language, theme,
 interface scale, accent, Qur'an font and size, last-read count, audio storage
@@ -553,7 +560,10 @@ until the learner asks, and the selector notes how many surahs of each are on
 the device. The learner downloads a surah at a time from everyayah.com into
 `<volume>/audio/<reciter>/SSSAAA.mp3` with `@capacitor/file-transfer`
 (4 in parallel, each to `.part` then renamed; files under 2 KB count as
-failed). `surahs.json` in each reciter folder maps surah → bytes and is
+failed; `fetchFile` and `runPool` in `data/download.ts`, shared with
+`tafsirStore`: a download ends only when every transfer in flight has, so a
+retry never meets one still writing; tests in `audioStore.test.ts` run the
+store against fake plugins). `surahs.json` in each reciter folder maps surah → bytes and is
 written only when the whole surah is in place. One app-wide queue
 (`downloadSurahs`, `cancelDownloads`, `deleteReciterAudio`,
 `useAudioDownloads`). `useRecitation` takes `base` (the device folder through
@@ -570,8 +580,11 @@ volumes below, or any folder (`chooseAudioFolder`: the system folder picker,
 its tree URI turned into a path by the plugin; needs "All files access",
 `MANAGE_EXTERNAL_STORAGE`, granted on a system screen via `requestFolderAccess`).
 A chosen folder is a volume with `custom: true` whose reciter folders sit
-directly inside it; its path persists in `qv.audio.location`. Moving never
-deletes anything but the emptied reciter folders.
+directly inside it; its path persists in `qv.audio.location`. Moving
+(`moveAudioTo`) copies every file first and deletes the originals only once the
+app reads from the new place, so a move that fails halfway leaves the audio
+whole where it was; trying again skips the ayah files already copied. It never
+deletes anything else that sits beside the audio.
 
 The volume is internal storage (`getFilesDir()`, the old `Directory.Data`) or
 the app's folder on an SD card, listed by the in-app `AudioStorage` plugin

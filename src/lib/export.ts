@@ -70,17 +70,25 @@ export function toCsv(rows: Record<string, unknown>[]): string {
 }
 
 /** Download rows as a UTF-8 CSV (with BOM, so Excel shows Arabic correctly). */
-export async function downloadCsv(
+export function downloadCsv(
   rows: Record<string, unknown>[],
   filename: string,
 ): Promise<void> {
   const name = filename.endsWith(".csv") ? filename : `${filename}.csv`;
-  const text = "﻿" + toCsv(rows);
+  return downloadText("\ufeff" + toCsv(rows), name, "text/csv");
+}
+
+/** Download text as a UTF-8 file (the share sheet in the app). */
+export async function downloadText(
+  text: string,
+  name: string,
+  type: string,
+): Promise<void> {
   if (Capacitor.isNativePlatform()) {
     await shareNative(name, utf8ToBase64(text));
     return;
   }
-  const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
+  const blob = new Blob([text], { type: `${type};charset=utf-8` });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.download = name;

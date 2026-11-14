@@ -13,6 +13,13 @@ describe("usePersistentState", () => {
     expect(second.result.current[0]).toBe(true);
   });
 
+  it("takes a value another tab wrote", () => {
+    const { result } = renderHook(() => usePersistentState("t.list", ["a"]));
+    localStorage.setItem("t.list", JSON.stringify(["a", "b"]));
+    act(() => void window.dispatchEvent(new StorageEvent("storage", { key: "t.list" })));
+    expect(result.current[0]).toEqual(["a", "b"]);
+  });
+
   it("falls back to the initial value when sanitize rejects the stored one", () => {
     localStorage.setItem("t.lang", JSON.stringify("fr"));
     expect(readPersisted("t.lang", "en", persisted.oneOf(["en", "id"]))).toBe("en");

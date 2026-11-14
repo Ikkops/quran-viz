@@ -356,6 +356,15 @@ export const id: Messages = {
     saveTo: "Pilih koleksi yang menyimpan ayat ini.",
     here: "Di ayat ini",
     nowAt: (ref) => `Sekarang di ${ref}`,
+    backup: "Cadangan",
+    backupHelp:
+      "Pin, koleksi, dan catatan hanya tersimpan di perangkat ini. Simpan berkas cadangan agar aman atau untuk dipindahkan ke perangkat lain.",
+    saveBackup: "Simpan cadangan",
+    restoreBackup: "Pulihkan dari cadangan",
+    restoreConfirm: (n) =>
+      `Ganti pin dan koleksi dengan isi berkas ini (${n} ayat bertanda)? Ini tidak bisa dibatalkan.`,
+    restored: "Cadangan dipulihkan.",
+    backupBad: "Berkas itu bukan cadangan penanda.",
   },
 
   viz: {
@@ -819,6 +828,8 @@ export const id: Messages = {
       cancel: "Batalkan unduhan",
       failed: "Unduhan terhenti. Periksa koneksi lalu coba lagi.",
       remove: "Hapus dari perangkat",
+      removeConfirm: (name: string) =>
+        `Hapus ${name} dari perangkat ini? Untuk membacanya lagi perlu mengunduh ulang.`,
       note: "Diunduh dari repositori GitHub aplikasi ini.",
     },
     noWords: "Tidak ada data kata per kata untuk ayat ini.",

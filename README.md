@@ -1,27 +1,33 @@
 # Quran — Data Visualization
 
-A static React + TypeScript dashboard for exploring the Quran quantitatively and
-textually. Rebuild of the original single-file `quran_data_visualization.tsx`,
-now modular, typed, and backed by the richer **quran-database-main** SQLite
-dataset instead of a manual Excel/CSV upload.
+A static React + TypeScript app for reading the Quran and exploring it
+quantitatively: a reader, a dashboard of charts, and the mushaf's structure. It
+is backed by the **quran-database-main** SQLite dataset and the QUL corpus,
+turned into static JSON at build time. The same build ships as an Android app.
+
+[`AGENTS.md`](AGENTS.md) is the full guide (commands, data pipeline, runtime
+architecture, UI patterns); [`PRODUCT.md`](PRODUCT.md) and
+[`DESIGN.md`](DESIGN.md) say who the app is for and how it should look.
 
 ## Features
 
-- **Dashboard** — 15 visualizations: words/letters/verses per surah, average
-  verse length, size treemap & cards, words‑vs‑verses scatter, opening‑category
-  (Fawatih) breakdown, juz→surah sunburst, verse‑length histogram & box plots,
-  verse‑density heatmap, longest/shortest verses, and Arabic/English word clouds.
-  Filter by surah or juz range, sort, colour by Meccan/Medinan or opening
-  category, switch bar layout, and export any chart to PNG.
-- **Structure** (new — enabled by the richer DB) — totals & Meccan/Medinan split,
-  604‑page Mushaf density map, hizb (1–60) breakdown, and the 15 sajda markers.
-- **Compare** (new) — view any surah with multiple translations side‑by‑side
-  (100 editions, 43 languages), with an optional transliteration row.
-- **Surah detail modal** — click any chart element to read a surah verse‑by‑verse
-  with a chosen translation, transliteration toggle, in‑verse search, and an
-  optional read‑only **tafsir context** (Al‑Muyassar / Al‑Jalalayn).
-- Dark mode, colour palettes / custom colour, and shareable `#dashboard` /
-  `#structure` / `#compare` URLs.
+- **Home**: where reading last stopped, today's reading time and streak, and
+  the index of surahs, juz and manzils.
+- **Reader**: ayah by ayah or as mushaf pages (four printed layouts), with
+  several translations and tafsirs side by side, transliteration, tajweed
+  colours, word-by-word meanings and grammar, translator footnotes, asbab
+  al-nuzul, find-in-text, pins and collections with notes, and recitation with
+  range repeat and word highlighting.
+- **Dashboard**: each chart answers a question (surah length, verse-length
+  distribution, opening categories, roots, topics, similar ayahs, word
+  clouds…), with filters, a data table, and PNG / CSV export.
+- **Structure**: totals and the Makki/Madani split, the 604-page mushaf map,
+  hizb breakdown and the sajda markers.
+- **Activity**: reading statistics and a daily goal; bookmarks, with backup to
+  a file.
+- **Settings**: language (English / Indonesian), themes, interface scale,
+  Qur'an font, audio storage (Android).
+- Shareable `#dashboard` / `#structure` links and deep links to any ayah.
 
 ## Data pipeline
 
@@ -31,13 +37,13 @@ The app ships only compact static JSON; the 209 MB SQLite DB is build‑time onl
 npm run build:data   # scripts/build_data.py: quran.db -> public/data/*.json
 ```
 
-Outputs in `public/data/`:
+The core outputs in `public/data/` (the full list is in `AGENTS.md`):
 
 | File | Contents |
 | --- | --- |
 | `surahs.json` | 114 surahs + aggregates (words, letters, pages, juz span) |
 | `verses.json` | 6,236 verses: structure (juz/hizb/rub/page/sajda) + computed word/letter counts + Arabic text |
-| `editions.json` | index of 100 text editions (translations, transliteration, tafsir) |
+| `editions.json` | index of the text editions (translations, transliteration, tafsir) |
 | `translations/<id>.json` | one lazy‑loaded file per edition, indexed by ayah id |
 | `meta.json` | juz/hizb ranges, totals, classification, provenance |
 
@@ -49,16 +55,17 @@ from the authoritative `hizbs` table ranges; `rub` is the raw 1–240 quarter in
 
 ```bash
 npm install
-npm run build:data   # requires ../quran-database-main/quran.db(.gz)
+npm run build:data   # requires ../quran-database-main/quran.db(.gz) and ../reference/quran-refs/{qul,hadith}.db
 npm run dev          # http://localhost:5173
-npm test             # vitest unit tests for the data utilities
+npm test             # vitest: data utilities, stores and components
 npm run build        # typecheck + production build to dist/
 ```
 
 ## Android app
 
 The same build ships as an Android app via [Capacitor](https://capacitorjs.com/)
-(`capacitor.config.ts`, `android/`), with all data bundled so it works offline.
+(`capacitor.config.ts`, `android/`), with the data bundled so it works offline;
+recitation audio and three large tafsirs are downloaded on request.
 
 - **Pull requests** build a signed APK and attach it to the Actions run.
 - **Pushes to `main`** build it and publish a GitHub Release `v1.0.<run>`.
