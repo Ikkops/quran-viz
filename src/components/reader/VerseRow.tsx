@@ -16,6 +16,9 @@ import { alignTajweedToWords, type TajweedSegment } from "../../data/tajweed";
 import { useI18n } from "../../i18n/I18nContext";
 import { cx, QuietIconButton } from "../ui";
 import { AyahEnd, AyahText, TajweedSegs } from "./AyahText";
+import { HighlightText, RecitedWords, TranslationText, type Hits } from "./MarkedText";
+import type { Footnotes } from "../../data/footnotes";
+import type { PlayClock } from "../../data/useRecitation";
 import { BASMALA, boundaryLabels, type ReaderMode } from "./readerShared";
 
 /** A translation column (one edition) as the row needs it. */
@@ -26,6 +29,22 @@ export interface RowTranslation {
   rtl: boolean;
   data: (string | null)[] | null;
   loading: boolean;
+  /** Translator footnotes, for the editions that have them. */
+  notes?: Footnotes;
+}
+
+/** One tafsir shown under the ayahs. */
+export interface RowTafsir {
+  id: string;
+  label: string;
+  kind: "ayah" | "grouped";
+  lang: string;
+  source: string;
+  /** When it was published, in the UI language. */
+  published: string;
+  loading: boolean;
+  ayah: (string | null)[] | null;
+  groupAt: (id: number, prevId: number | null) => TafsirGroup | null;
 }
 
 /** Everything a verse row reads, built once per render by ReaderView. */
@@ -39,24 +58,19 @@ export interface RowContext {
   showWords: boolean;
   showTajweed: boolean;
   translationScale: number;
-  /** Primary translation (ayah mode) or the compared editions (compare mode). */
+  /** The chosen translations, the main one first. */
   translations: RowTranslation[];
   translit: (string | null)[] | null;
   tajweed: (string | null)[] | null;
   wordByWord: WordByWordData | null;
   alignCache: Map<string, TajweedSegment[][] | null>;
   glossLang: string;
-  /** Inline tafsir under each ayah (or passage), when on. */
-  inlineTafsir: null | {
-    kind: "ayah" | "grouped";
-    lang: string;
-    source: string;
-    /** When it was published, in the UI language. */
-    published: string;
-    loading: boolean;
-    ayah: (string | null)[] | null;
-    groupAt: (id: number, prevId: number | null) => TafsirGroup | null;
-  };
+  /** Tafsirs under each ayah (or passage), when on; empty when off. */
+  inlineTafsirs: RowTafsir[];
+  /** Search hits: ayah id → field ("ar", "ref" or a translation id) → hits. */
+  search: Map<number, Map<string, Hits>> | null;
+  /** Word timings of the reciter, for lighting up the word being recited. */
+  recited: null | { clock: PlayClock; timing: (id: number) => number[] | undefined };
   /** Inline asbab, when on: entries keyed by their first ayah. */
   inlineAsbab: null | {
     byFirst: Map<number, AsbabEntry[]>;
@@ -67,6 +81,8 @@ export interface RowContext {
   themeAt: (id: number, prevId: number | null) => string | null;
   verseColor: (v: Verse) => string;
   audioOn: boolean;
+  /** A reciter is available: each ayah gets its play button. */
+  canPlay: boolean;
   playingId: number | undefined;
   inEditedRange: (id: number) => boolean;
   playFrom: (id: number) => void;
@@ -215,6 +231,10 @@ export function VerseRow({
       )
     : undefined;
   const trSize = { fontSize: `calc(1.0625rem * ${ctx.translationScale})` };
+  const hits = ctx.search?.get(v.id);
+  const arHits = hits?.get("ar");
+  const refHit = hits?.get("ref");
+  const timing = playing && ctx.recited ? ctx.recited.timing(v.id) : undefined;
 
   return (
     <>
@@ -230,9 +250,12 @@ export function VerseRow({
       {theme && <p className="mb-1 mt-3 text-sm font-semibold text-ink-muted">{theme}</p>}
       <article
         aria-label={ref}
+        data-match-current={refHit?.current === 0 || undefined}
         className={cx(
           "relative border-b border-line/70 py-3 pl-3 pr-1 transition-colors",
           selected && "bg-surface-sunken/70 dark:bg-surface/60",
+          refHit && "bg-illumination/10",
+          refHit?.current === 0 && "ring-2 ring-inset ring-illumination",
         )}
         style={
           playing
@@ -278,7 +301,7 @@ export function VerseRow({
                 {ctx.copied.ok ? t.reader.copied(ctx.copied.what) : t.reader.copyFailed}
               </span>
             )}
-            {ctx.audioOn && (
+            {ctx.canPlay && (
               <QuietIconButton
                 label={`${t.reader.audio.playFrom} ${ref}`}
                 onClick={() => ctx.playFrom(v.id)}
@@ -372,7 +395,23 @@ export function VerseRow({
           <WordByWord v={v} ctx={ctx} />
         ) : (
           <p lang="ar" dir="rtl" className="quran-text text-ink">
-            <AyahText v={v} tajweed={marked} />
+            {arHits ? (
+              <>
+                <HighlightText text={v.ar} hits={arHits} />
+                <AyahEnd n={v.a} />
+              </>
+            ) : timing && ctx.recited ? (
+              <RecitedWords
+                id={v.id}
+                ar={v.ar}
+                tajweed={marked}
+                clock={ctx.recited.clock}
+                timing={timing}
+                end={<AyahEnd n={v.a} />}
+              />
+            ) : (
+              <AyahText v={v} tajweed={marked} />
+            )}
           </p>
         )}
 
@@ -382,18 +421,43 @@ export function VerseRow({
           </p>
         )}
 
-        {ctx.translations[0] && (
-          <p
-            lang={ctx.translations[0].lang}
-            dir={ctx.translations[0].rtl ? "rtl" : "ltr"}
-            className="mt-2 max-w-[68ch] font-reading leading-relaxed text-ink"
-            style={trSize}
-          >
-            {ctx.translations[0].loading ? "…" : (ctx.translations[0].data?.[v.id] ?? "")}
-          </p>
-        )}
+        {ctx.translations.map((tr, i) => (
+          <div key={tr.id} className={i === 0 ? "mt-2" : "mt-3"}>
+            {ctx.translations.length > 1 && (
+              <p className="mb-0.5 text-xs font-medium text-ink-subtle">{tr.name}</p>
+            )}
+            <p
+              lang={tr.lang}
+              dir={tr.rtl ? "rtl" : "ltr"}
+              className={cx(
+                "max-w-[68ch] font-reading leading-relaxed",
+                i === 0 ? "text-ink" : "text-ink-muted",
+              )}
+              style={trSize}
+            >
+              {tr.loading ? (
+                "…"
+              ) : (
+                <TranslationText
+                  text={tr.data?.[v.id] ?? ""}
+                  notes={tr.notes?.[v.id]}
+                  hits={hits?.get(tr.id)}
+                />
+              )}
+            </p>
+          </div>
+        ))}
 
-        {ctx.inlineTafsir && <InlineTafsir v={v} prev={prev} ctx={ctx} />}
+        {ctx.inlineTafsirs.map((tf) => (
+          <InlineTafsir
+            key={tf.id}
+            v={v}
+            prev={prev}
+            tf={tf}
+            named={ctx.inlineTafsirs.length > 1}
+            scale={ctx.translationScale}
+          />
+        ))}
 
         {asbab && ctx.inlineAsbab?.open.has(v.id) && (
           <div className="mt-2 rounded-lg bg-surface-sunken p-3 dark:bg-surface">
@@ -432,36 +496,47 @@ export function VerseRow({
 function InlineTafsir({
   v,
   prev,
-  ctx,
+  tf,
+  named,
+  scale,
 }: {
   v: Verse;
   prev: Verse | null;
-  ctx: RowContext;
+  tf: RowTafsir;
+  /** Several tafsirs are shown: each says whose it is. */
+  named: boolean;
+  scale: number;
 }) {
   const { t } = useI18n();
-  const tf = ctx.inlineTafsir!;
+  const title = named ? (
+    <p className="mb-1 text-xs font-semibold text-ink-subtle">{tf.label}</p>
+  ) : null;
   if (tf.loading) return <p className="mt-2 text-sm text-ink-subtle">…</p>;
   if (tf.kind === "ayah") {
     const text = tf.ayah?.[v.id];
     if (!text) return null;
     if (tf.lang === "ar")
       return (
-        <p
-          lang="ar"
-          dir="rtl"
-          className="mt-2 rounded-lg bg-surface-sunken p-3 font-arabic text-base leading-loose text-ink-muted dark:bg-surface"
-        >
-          {text}
-        </p>
+        <div className="mt-2 rounded-lg bg-surface-sunken p-3 dark:bg-surface">
+          {title}
+          <p
+            lang="ar"
+            dir="rtl"
+            className="font-arabic text-base leading-loose text-ink-muted"
+          >
+            {text}
+          </p>
+        </div>
       );
     return (
       <div
         lang={tf.lang}
         className="mt-2 rounded-lg bg-surface-sunken p-3 dark:bg-surface"
       >
+        {title}
         <p
           className="max-w-[68ch] whitespace-pre-line font-reading text-ink-muted"
-          style={{ fontSize: `calc(0.9375rem * ${ctx.translationScale})` }}
+          style={{ fontSize: `calc(0.9375rem * ${scale})` }}
         >
           {text}
         </p>
@@ -475,6 +550,7 @@ function InlineTafsir({
   if (!g) return null;
   return (
     <div lang={tf.lang} className="mt-2 rounded-lg bg-surface-sunken p-3 dark:bg-surface">
+      {title}
       {g.to !== g.from && (
         <p className="mb-1 text-xs font-medium text-ink-subtle">
           {t.reader.versesRange(`${g.s}:${g.from}–${g.to}`)}
@@ -482,7 +558,7 @@ function InlineTafsir({
       )}
       <p
         className="max-w-[68ch] whitespace-pre-line font-reading text-ink-muted"
-        style={{ fontSize: `calc(0.9375rem * ${ctx.translationScale})` }}
+        style={{ fontSize: `calc(0.9375rem * ${scale})` }}
       >
         {g.text}
       </p>

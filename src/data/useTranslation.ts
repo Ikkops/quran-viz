@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { TranslationData } from "../types/quran";
 import { dataFileUrl } from "./tafsirStore";
 
@@ -79,4 +79,47 @@ export function useTranslation(identifier: string | null): State {
   }, [identifier]);
 
   return state;
+}
+
+/** Several editions at once (the reader's extra translations and tafsirs):
+ *  one state per identifier, in the same order. */
+export function useTranslations(identifiers: string[]): State[] {
+  const key = identifiers.join("|");
+  const [states, setStates] = useState<Record<string, State>>({});
+  useEffect(() => {
+    let alive = true;
+    for (const id of identifiers) {
+      if (cache.has(id)) continue;
+      setStates((s) => ({ ...s, [id]: { data: null, loading: true, error: null } }));
+      loadTranslation(id)
+        .then(
+          (data) =>
+            alive &&
+            setStates((s) => ({ ...s, [id]: { data, loading: false, error: null } })),
+        )
+        .catch(
+          (err) =>
+            alive &&
+            setStates((s) => ({
+              ...s,
+              [id]: { data: null, loading: false, error: String(err) },
+            })),
+        );
+    }
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  // The same array until something loads, so callers can memoise on it.
+  return useMemo(
+    () =>
+      identifiers.map((id) => {
+        const hit = cache.get(id);
+        if (hit) return { data: hit, loading: false, error: null };
+        return states[id] ?? { data: null, loading: true, error: null };
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [key, states],
+  );
 }

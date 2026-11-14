@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   BookOpenText,
   ChevronDown,
+  ChevronUp,
   Info,
   Rows3,
   Search,
@@ -74,6 +75,7 @@ export function ReaderToolbar({
   onSearchOpen,
   query,
   onQuery,
+  matches,
   info,
   player,
   settingsOpen,
@@ -93,6 +95,8 @@ export function ReaderToolbar({
   onSearchOpen: (open: boolean) => void;
   query: string;
   onQuery: (q: string) => void;
+  /** Search hits: how many, which one is shown, and stepping between them. */
+  matches?: { count: number; at: number; onStep: (d: 1 | -1) => void } | null;
   /** About this surah (the surah of the ayah at the top). */
   info: { on: boolean; toggle: () => void };
   /** The recitation player's show/hide, when there is audio to play. */
@@ -126,7 +130,12 @@ export function ReaderToolbar({
             )}
           >
             <span className="min-w-0">
-              <span className="block truncate text-lg font-semibold leading-tight text-ink">
+              <span
+                className={cx(
+                  "block truncate font-semibold leading-tight text-ink",
+                  compact ? "text-base" : "text-lg",
+                )}
+              >
                 {title}
               </span>
               {subtitle && (
@@ -202,11 +211,44 @@ export function ReaderToolbar({
                   onQuery("");
                   onSearchOpen(false);
                 }
+                if (e.key === "Enter" && matches?.count) {
+                  e.preventDefault();
+                  matches.onStep(e.shiftKey ? -1 : 1);
+                }
               }}
               placeholder={t.reader.searchPh}
               aria-label={t.reader.searchAria}
-              className="h-10 touch:min-h-11 w-full rounded-lg border border-line bg-surface pl-8 pr-3 text-base text-ink"
+              className="h-10 touch:min-h-11 w-full rounded-lg border border-line bg-surface pl-8 pr-24 text-base text-ink"
             />
+            {query.trim() && matches && (
+              <div className="absolute inset-y-0 right-1 flex items-center">
+                <span
+                  className="px-1.5 text-xs tabular-nums text-ink-subtle"
+                  role="status"
+                  aria-live="polite"
+                >
+                  {matches.count
+                    ? t.reader.matchOf(matches.at + 1, matches.count)
+                    : t.reader.noMatches}
+                </span>
+                <QuietIconButton
+                  label={t.reader.prevMatch}
+                  onClick={() => matches.onStep(-1)}
+                  disabled={!matches.count}
+                  className="h-8 w-8"
+                >
+                  <ChevronUp size={17} />
+                </QuietIconButton>
+                <QuietIconButton
+                  label={t.reader.nextMatch}
+                  onClick={() => matches.onStep(1)}
+                  disabled={!matches.count}
+                  className="h-8 w-8"
+                >
+                  <ChevronDown size={17} />
+                </QuietIconButton>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -43,6 +43,20 @@ export function tafsirOptions(uiLang: string, dl?: TafsirDownloads) {
     }));
 }
 
+/** Mushaf page layouts: flowing text, or the line breaks of a printed mushaf
+ *  (`mushaf/<id>.json`, from the ETL). */
+export const MUSHAF_LAYOUTS = [
+  "flow",
+  "madinah-1441",
+  "madinah-1405",
+  "indopak-15",
+  "indopak-16",
+] as const;
+export type MushafLayoutId = (typeof MUSHAF_LAYOUTS)[number];
+
+/** At most this many extra translations, and extra tafsirs, under each ayah. */
+export const MAX_EXTRA = 3;
+
 /** The ways the reader can divide the text into windows (reader settings). */
 export const DIVISIONS = ["surah", "juz", "hizb", "ruku", "page"] as const;
 export type Division = (typeof DIVISIONS)[number];
@@ -142,6 +156,21 @@ export function useReaderPrefs() {
     TAFSIR_EDITIONS[0].id,
     persisted.oneOf(tafsirIds),
   );
+  const [extraEditions, setExtraEditions] = usePersistentState<string[]>(
+    K + "extraEditions",
+    [],
+    persisted.stringList(MAX_EXTRA),
+  );
+  const [extraTafsirs, setExtraTafsirs] = usePersistentState<string[]>(
+    K + "extraTafsirs",
+    [],
+    persisted.stringList(MAX_EXTRA, tafsirIds),
+  );
+  const [mushafLayout, setMushafLayout] = usePersistentState<MushafLayoutId>(
+    K + "layout",
+    "madinah-1441",
+    persisted.oneOf(MUSHAF_LAYOUTS),
+  );
   const [translationScale, setTranslationScale] = usePersistentState(
     K + "translationScale",
     1,
@@ -192,6 +221,12 @@ export function useReaderPrefs() {
     setInfoLang,
     tafsirEdition,
     setTafsirEdition,
+    extraEditions,
+    setExtraEditions,
+    extraTafsirs,
+    setExtraTafsirs,
+    mushafLayout,
+    setMushafLayout,
     translationScale,
     setTranslationScale,
     mode,

@@ -3,8 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { Verse } from "../../types/quran";
 import { DEFAULT_RECITATION } from "../../data/recitation";
-import type { Recitation } from "../../data/useRecitation";
-import { MiniPlayer, type AudioDownloadPrompt } from "./Recitation";
+import type { Recitation, ReciterIndex } from "../../data/useRecitation";
+import { MiniPlayer, RecitationControls, type AudioDownloadPrompt } from "./Recitation";
+import type { Surah } from "../../types/quran";
 
 const verses = [
   { id: 1, s: 1, a: 1 },
@@ -53,6 +54,7 @@ function bar(
       onRange={() => {}}
       roomy
       onOpenOptions={() => {}}
+      onClose={() => {}}
       download={download}
       {...over}
     />,
@@ -141,5 +143,57 @@ describe("MiniPlayer controls", () => {
     bar(null, rec);
     await userEvent.click(screen.getByRole("button", { name: "Start this ayah again" }));
     expect(rec.restart).toHaveBeenCalled();
+  });
+});
+
+describe("MiniPlayer close", () => {
+  it("closes from the player itself", async () => {
+    const onClose = vi.fn();
+    bar(null, idle, { onClose });
+    await userEvent.click(screen.getByRole("button", { name: "Close the player" }));
+    expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("RecitationControls reciter list", () => {
+  it("puts downloaded reciters first, marked, then a line, then the rest", async () => {
+    const r = (id: string, name: string): ReciterIndex => ({
+      id,
+      name,
+      nameAr: name,
+      bitrate: 64,
+      files: 6236,
+      total: 6236,
+      complete: true,
+    });
+    render(
+      <RecitationControls
+        rec={idle}
+        reciters={[r("a", "Alpha"), r("b", "Beta"), r("c", "Gamma")]}
+        reciter="a"
+        onReciter={() => {}}
+        verses={verses}
+        surahs={[{ number: 1, id: 1, name: "Al-Fatiha", ayahCount: 3 } as Surah]}
+        range={{ from: 1, to: 3 }}
+        isDefaultRange
+        onRange={() => {}}
+        onResetRange={() => {}}
+        options={DEFAULT_RECITATION}
+        onOptions={() => {}}
+        reciterNote={(id) => (id === "c" ? "2 surahs" : null)}
+        timed={(id) => id === "b"}
+        onPlay={() => {}}
+        onCancel={() => {}}
+      />,
+    );
+    await userEvent.click(screen.getByRole("combobox", { name: /^Reciter/ }));
+    const items = screen.getAllByRole("option");
+    expect(items.map((o) => o.textContent)).toEqual([
+      expect.stringMatching(/^Gamma.*2 surahs/),
+      expect.stringMatching(/^Alpha/),
+      expect.stringMatching(/^Beta.*Highlights each word/),
+    ]);
+    expect(items[0].querySelector("[aria-label='On this device']")).not.toBeNull();
+    expect(screen.getByRole("separator")).toBeInTheDocument();
   });
 });
