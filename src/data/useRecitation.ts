@@ -392,6 +392,7 @@ export function useRecitation({
     clearGap();
     audioRef.current?.pause();
     setPlaying(false);
+    setMissing(null);
     setAt(null);
   }, [setAt]);
 
@@ -413,6 +414,14 @@ export function useRecitation({
     (id: number) => start(cursorAt(id, live.current.needsBasmalah)),
     [start],
   );
+
+  // Playback stopped at an ayah whose surah wasn't on the device: once that
+  // download is in, carry on from there (the range is unchanged).
+  useEffect(() => {
+    if (missing === null || !enabled || base === null) return;
+    if (available && !available(missing)) return;
+    start(cursorAt(missing, live.current.needsBasmalah));
+  }, [missing, available, enabled, base, start]);
 
   const toggle = useCallback(() => {
     const audio = audioRef.current;

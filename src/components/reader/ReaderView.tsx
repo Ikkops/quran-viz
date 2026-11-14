@@ -13,7 +13,7 @@ import { SCOPE_MAX, surahColorById, type ReaderScope } from "../charts/common";
 import type { ColorMode, ReaderTarget } from "../charts/common";
 import { useTranslation, useTranslations } from "../../data/useTranslation";
 import { useTajweed } from "../../data/useTajweed";
-import { useWordByWord } from "../../data/useWordByWord";
+import { useSurahWords } from "../../data/words";
 import { useThemes } from "../../data/useThemes";
 import { useAsbab } from "../../data/useAsbab";
 import { useSurahInfo, type InfoLang } from "../../data/useSurahInfo";
@@ -46,7 +46,6 @@ import { MushafLinesPage } from "./MushafLinesPage";
 import { needsDownload, useTafsirDownloads } from "../../data/tafsirStore";
 import { TafsirDownloadOffer } from "./TafsirDownload";
 import { useElementWidth } from "../../lib/useElementWidth";
-import type { TajweedSegment } from "../../data/tajweed";
 import {
   editionByIdentifier,
   isRtl,
@@ -86,7 +85,7 @@ import { useReciters, useRecitation } from "../../data/useRecitation";
 import {
   cancelDownloads,
   deleteReciterAudio,
-  deviceTimingsUrl,
+  deviceTimings,
   downloadSurahs,
   isNativeApp,
   useAudioDownloads,
@@ -109,6 +108,8 @@ import {
   type RowTranslation,
 } from "./VerseRow";
 import { MushafPage } from "./MushafPage";
+import { WordDetailPage, WordPopover } from "./WordDetail";
+import { pickOf, type WordPick } from "./wordPick";
 import { VerseContextPanel, type ExploreTarget } from "./VerseContextPanel";
 import {
   copyToClipboard,
@@ -126,7 +127,6 @@ const NARROW_PX = 560;
 /** Reader width from which the player keeps the range ends beside its seek bar. */
 const PLAYER_ROOMY_PX = 560;
 /** Reader width from which the context panel docks beside the text. */
-const DOCK_PX = 960;
 
 export interface ReaderViewProps {
   target: ReaderTarget;
@@ -188,7 +188,6 @@ export function ReaderView({
   const rootRef = useRef<HTMLElement>(null);
   const width = useElementWidth(rootRef);
   const narrow = width > 0 && width < NARROW_PX;
-  const docked = width >= DOCK_PX;
 
   const [query, setQuery] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
@@ -224,8 +223,9 @@ export function ReaderView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(false);
   const navSettledRef = useRef(false);
-  // `${glossLang}:${ayahId}` -> tajweed pieces per word-by-word item (static data).
-  const alignCache = useRef(new Map<string, TajweedSegment[][] | null>());
+  // A tapped word (its popup), and the word whose details page is open.
+  const [wordPick, setWordPick] = useState<WordPick | null>(null);
+  const [wordDetail, setWordDetail] = useState<{ id: number; w: number } | null>(null);
 
   const surahMap = useMemo(() => surahMapOf(surahs), [surahs]);
   const scopeVerses = useMemo(
@@ -248,7 +248,6 @@ export function ReaderView({
 
   // ── Data ──
   const tajweedState = useTajweed(p.showTajweed);
-  const wordByWordState = useWordByWord(p.showWords && mode !== "mushaf", p.glossLang);
   const themesState = useThemes(p.showThemes && mode !== "mushaf", i18n.lang);
   const asbabState = useAsbab(p.showAsbab && mode !== "mushaf");
   const infoState = useSurahInfo(p.infoLang, showInfo);
@@ -305,6 +304,29 @@ export function ReaderView({
     [scopeVerses],
   );
   const groupedTafsirs = useGroupedTafsirs(groupedTafsirIds, scopeSurahs);
+  // Word data (meanings, grammar): for word by word, and once a word is
+  // tapped. Mushaf pages also show the edges of the surahs around the scope.
+  const pickedSurah = verses[(wordDetail?.id ?? wordPick?.id ?? 0) - 1]?.s;
+  const wordSurahs = useMemo(() => {
+    if (!p.showWords && pickedSurah === undefined) return null;
+    const set = new Set(scopeSurahs);
+    if (mode === "mushaf")
+      for (const x of scopeSurahs) {
+        if (x > 1) set.add(x - 1);
+        if (x < 114) set.add(x + 1);
+      }
+    if (pickedSurah !== undefined) set.add(pickedSurah);
+    return [...set].sort((a, b) => a - b);
+  }, [p.showWords, pickedSurah, scopeSurahs, mode]);
+  const wordsAt = useSurahWords(wordSurahs);
+  const wordsOf = (id: number) => {
+    const v = verses[id - 1];
+    return v ? wordsAt(v.s, v.a) : undefined;
+  };
+  const onWord = (id: number, w: number, el: Element) => {
+    setMenuFor(null);
+    setWordPick(pickOf(id, w, el));
+  };
   const tafsirGroups = useMemo(() => {
     const m = new Map<string, ReturnType<typeof tafsirGroupLookup>>();
     groupedTafsirs.forEach((st, id) => {
@@ -500,11 +522,11 @@ export function ReaderView({
   // Word timings of the surah being recited (some reciters only). In the app
   // they are downloaded with the surah's audio.
   const playingSurah = playingId ? (verses[playingId - 1]?.s ?? null) : null;
-  const timingUrl = native ? deviceTimingsUrl : undefined;
   const surahTimings = useWordTimings(
     reciterId,
     audioOn ? playingSurah : null,
-    timingUrl,
+    native ? deviceTimings : undefined,
+    playingId,
   );
   const timingOf = useCallback(
     (id: number) => {
@@ -818,8 +840,8 @@ export function ReaderView({
 
   const openContext = (id: number) => {
     setSelectedId(id);
-    if (docked) p.setShowContext(true);
-    else setContextSheet(true);
+    setWordPick(null);
+    setContextSheet(true);
   };
 
   const verseColor = (v: Verse): string =>
@@ -962,8 +984,8 @@ export function ReaderView({
     translations,
     translit: translit.data,
     tajweed: tajweedState.data,
-    wordByWord: wordByWordState.data,
-    alignCache: alignCache.current,
+    wordsOf,
+    onWord,
     glossLang: p.glossLang,
     inlineTafsirs,
     search: searchHits,
@@ -1015,7 +1037,6 @@ export function ReaderView({
 
   const loadError =
     tajweedState.error ||
-    wordByWordState.error ||
     themesState.error ||
     asbabState.error ||
     tafsirError ||
@@ -1198,13 +1219,6 @@ export function ReaderView({
       )}
       <Toggle checked={p.showThemes} onChange={p.setShowThemes} label={t.reader.themes} />
       <Toggle checked={p.showAsbab} onChange={p.setShowAsbab} label={t.reader.asbab} />
-      {docked && (
-        <Toggle
-          checked={p.showContext}
-          onChange={p.setShowContext}
-          label={t.reader.contextPanel}
-        />
-      )}
       <hr className="border-line" />
       <Slider
         label={t.reader.arabicSize}
@@ -1227,15 +1241,13 @@ export function ReaderView({
           {t.reader.failed(
             tajweedState.error
               ? t.reader.failedWhat.tajweed
-              : wordByWordState.error
-                ? t.reader.failedWhat.wbw
-                : themesState.error
-                  ? t.reader.failedWhat.themes
-                  : asbabState.error
-                    ? t.reader.failedWhat.asbab
-                    : layoutState.error
-                      ? t.reader.failedWhat.layout
-                      : t.reader.failedWhat.tafsir,
+              : themesState.error
+                ? t.reader.failedWhat.themes
+                : asbabState.error
+                  ? t.reader.failedWhat.asbab
+                  : layoutState.error
+                    ? t.reader.failedWhat.layout
+                    : t.reader.failedWhat.tafsir,
           )}
         </p>
       )}
@@ -1403,11 +1415,15 @@ export function ReaderView({
                         wordCount={wordCount}
                         inScope={(id) => id >= scopeRange.from && id <= scopeRange.to}
                         tajweed={p.showTajweed ? tajweedState.data : null}
-                        selectedId={highlightId}
+                        selectedId={contextSheet ? highlightId : undefined}
+                        pickedWord={wordPick ?? wordDetail}
                         playingId={audioOn ? playingId : undefined}
                         clock={rec.clock}
                         timing={timingOf}
-                        onSelect={openContext}
+                        audioRange={audioOn && loopRange ? range : null}
+                        glosses={p.showWords ? wordsOf : null}
+                        glossLang={p.glossLang}
+                        onWord={onWord}
                       />
                     </div>
                   );
@@ -1433,7 +1449,7 @@ export function ReaderView({
                         verses={page}
                         surahMap={surahMap}
                         tajweed={p.showTajweed ? tajweedState.data : null}
-                        selectedId={highlightId}
+                        selectedId={contextSheet ? highlightId : undefined}
                         playingId={audioOn ? playingId : undefined}
                         onSelect={openContext}
                       />
@@ -1486,16 +1502,6 @@ export function ReaderView({
             )}
           </div>
         </div>
-
-        {docked && p.showContext && (
-          <aside
-            aria-label={t.reader.contextPanel}
-            className="w-[24rem] shrink-0 overflow-y-auto border-l border-line bg-surface transition-[padding] duration-200 motion-reduce:transition-none"
-            style={{ paddingTop: headOff ? 0 : headH }}
-          >
-            {contextPanel()}
-          </aside>
-        )}
       </div>
 
       {audioOn && (
@@ -1516,15 +1522,69 @@ export function ReaderView({
       )}
 
       <Sheet
-        open={!docked && contextSheet && !!selected}
+        open={contextSheet && !!selected}
         onClose={() => setContextSheet(false)}
         title={
           selected ? t.reader.contextFor(`${selected.s}:${selected.a}`) : t.reader.context
         }
-        side={phone ? "bottom" : "right"}
+        side="bottom"
         closeLabel={t.reader.closeContext}
       >
         {contextPanel()}
+      </Sheet>
+
+      {wordPick && verses[wordPick.id - 1] && (
+        <WordPopover
+          pick={wordPick}
+          verse={verses[wordPick.id - 1]}
+          info={wordsOf(wordPick.id)?.[wordPick.w]}
+          loading={!wordsOf(wordPick.id)}
+          glossLang={lang === "id" ? "id" : "en"}
+          canPlay={!!reciter}
+          onMore={() => {
+            setWordDetail({ id: wordPick.id, w: wordPick.w });
+            setWordPick(null);
+          }}
+          onPlay={() => {
+            setWordPick(null);
+            playFrom(wordPick.id);
+          }}
+          onContext={() => openContext(wordPick.id)}
+          onClose={() => setWordPick(null)}
+        />
+      )}
+
+      <Sheet
+        open={!!wordDetail}
+        onClose={() => setWordDetail(null)}
+        title={t.word.title}
+        side="bottom"
+        closeLabel={t.common.close}
+      >
+        {wordDetail &&
+          verses[wordDetail.id - 1] &&
+          wordsOf(wordDetail.id)?.[wordDetail.w] && (
+            <WordDetailPage
+              key={`${wordDetail.id}:${wordDetail.w}`}
+              verse={verses[wordDetail.id - 1]}
+              w={wordDetail.w}
+              info={wordsOf(wordDetail.id)![wordDetail.w]}
+              verses={verses}
+              surahMap={surahMap}
+              onRead={(tg) => {
+                setWordDetail(null);
+                onNavigate(tg);
+              }}
+              onExplore={
+                onExplore
+                  ? (x) => {
+                      setWordDetail(null);
+                      onExplore(x);
+                    }
+                  : undefined
+              }
+            />
+          )}
       </Sheet>
 
       <Sheet

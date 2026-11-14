@@ -28,34 +28,42 @@ export const timingsPath = (reciter: string, surah: number) =>
 
 const cache = new Map<string, SurahTimings>();
 const inflight = new Map<string, Promise<SurahTimings>>();
+/** When a surah's timings last failed to load (retried after a while). */
+const failedAt = new Map<string, number>();
+const RETRY_MS = 8000;
 
-/** Where a surah's timings are read from: `data/` here, the device copy in
- *  the app (null when there is none). */
-export type TimingsUrl = (reciter: string, surah: number) => Promise<string | null>;
-const webUrl: TimingsUrl = async (r, s) => dataUrl(timingsPath(r, s));
+/** Where a surah's timings come from: `data/` here; in the app the device
+ *  copy, downloaded first when missing (null when it can't be had). */
+export type TimingsSource = (
+  reciter: string,
+  surah: number,
+) => Promise<SurahTimings | null>;
+const fromWeb: TimingsSource = async (r, s) => {
+  const res = await fetch(dataUrl(timingsPath(r, s)));
+  if (!res.ok) throw new Error(`${timingsPath(r, s)}: ${res.status}`);
+  return (await res.json()) as SurahTimings;
+};
 
 export function loadTimings(
   reciter: string,
   surah: number,
-  url: TimingsUrl = webUrl,
+  source: TimingsSource = fromWeb,
 ): Promise<SurahTimings> {
   const path = timingsPath(reciter, surah);
   const hit = cache.get(path);
   if (hit) return Promise.resolve(hit);
   let p = inflight.get(path);
   if (!p) {
-    p = url(reciter, surah)
-      .then((u) => {
-        if (!u) throw new Error(`${path}: not on the device`);
-        return fetch(u);
-      })
-      .then((r) => {
-        if (!r.ok) throw new Error(`${path}: ${r.status}`);
-        return r.json() as Promise<SurahTimings>;
-      })
+    p = source(reciter, surah)
       .then((d) => {
+        if (!Array.isArray(d)) throw new Error(`${path}: not available`);
         cache.set(path, d);
+        failedAt.delete(path);
         return d;
+      })
+      .catch((e: unknown) => {
+        failedAt.set(path, Date.now());
+        throw e;
       })
       .finally(() => inflight.delete(path));
     inflight.set(path, p);
@@ -64,19 +72,23 @@ export function loadTimings(
 }
 
 /** The surah's timings for a timed reciter, null otherwise or until loaded
- *  (a missing file just means no word highlighting). */
+ *  (a missing file just means no word highlighting). `again` (the ayah
+ *  being recited) retries a failed load once a few seconds have passed. */
 export function useWordTimings(
   reciter: string,
   surah: number | null,
-  url?: TimingsUrl,
+  source?: TimingsSource,
+  again?: unknown,
 ): SurahTimings | null {
   const on = surah !== null && TIMED_RECITERS.has(reciter);
   const path = on ? timingsPath(reciter, surah) : "";
   const [, bump] = useState(0);
   useEffect(() => {
     if (!on || cache.has(path)) return;
+    const failed = failedAt.get(path);
+    if (failed !== undefined && Date.now() - failed < RETRY_MS) return;
     let alive = true;
-    loadTimings(reciter, surah, url).then(
+    loadTimings(reciter, surah, source).then(
       () => alive && bump((n) => n + 1),
       () => undefined,
     );
@@ -84,7 +96,7 @@ export function useWordTimings(
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path]);
+  }, [path, again]);
   return on ? (cache.get(path) ?? null) : null;
 }
 

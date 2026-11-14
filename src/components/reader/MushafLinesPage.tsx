@@ -8,6 +8,8 @@ import {
 } from "react";
 import type { Surah, Verse } from "../../types/quran";
 import { pageLines, splitWords, type MushafLayout } from "../../data/mushafLayout";
+import { glossOf, type WordInfo } from "../../data/words";
+import type { GlossLang } from "../../data/useWordByWord";
 import { alignTajweedToWords, type TajweedSegment } from "../../data/tajweed";
 import { wordAt } from "../../data/wordTimings";
 import type { PlayClock } from "../../data/useRecitation";
@@ -31,7 +33,9 @@ const SHORT_LINE = 0.72;
  * One page of a printed mushaf, line for line: each line holds the words the
  * print puts there, spread to the full width; surah names and basmalas take
  * their own lines. The font size is fitted so the page's widest line fills
- * the width. Ayahs outside the reader's scope are dimmed.
+ * the width. Ayahs outside the reader's scope are dimmed. A tapped word
+ * opens its popup (`onWord`); with `glosses`, each word's meaning sits under
+ * it.
  */
 export function MushafLinesPage({
   layout,
@@ -42,10 +46,14 @@ export function MushafLinesPage({
   inScope,
   tajweed,
   selectedId,
+  pickedWord,
   playingId,
   clock,
   timing,
-  onSelect,
+  audioRange,
+  glosses,
+  glossLang,
+  onWord,
 }: {
   layout: MushafLayout;
   page: number;
@@ -54,11 +62,18 @@ export function MushafLinesPage({
   wordCount: (id: number) => number;
   inScope: (id: number) => boolean;
   tajweed: (string | null)[] | null;
+  /** The ayah whose context is open. */
   selectedId: number | undefined;
+  /** The word whose popup or details are open. */
+  pickedWord: { id: number; w: number } | null;
   playingId: number | undefined;
   clock: PlayClock;
   timing: (id: number) => number[] | undefined;
-  onSelect: (id: number) => void;
+  /** The player's edited range, faintly tinted. */
+  audioRange: { from: number; to: number } | null;
+  glosses: ((id: number) => WordInfo[] | undefined) | null;
+  glossLang: GlossLang;
+  onWord: (id: number, w: number, el: Element) => void;
 }) {
   const { t } = useI18n();
   const arabicFont = useArabicFont();
@@ -146,17 +161,17 @@ export function MushafLinesPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [width, lines, arabicFont, words]);
 
-  const onKey = (id: number) => (e: KeyboardEvent) => {
+  const onKey = (id: number, w: number) => (e: KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      onSelect(id);
+      onWord(id, w - 1, e.currentTarget);
     }
   };
   const first = verses[ids[0] - 1];
   const names = [...new Set(ids.map((id) => verses[id - 1]?.s))]
     .map((s) => surahMap.get(s)?.name)
     .filter(Boolean);
-  const lineH = "2.05em";
+  const lineH = glosses ? "2.9em" : "2.05em";
 
   return (
     <figure
@@ -229,13 +244,43 @@ export function MushafLinesPage({
                 "flex whitespace-nowrap",
                 centred ? "justify-center gap-[0.25em]" : "justify-between",
               )}
-              style={{ height: lineH, lineHeight: lineH }}
+              style={
+                glosses
+                  ? { minHeight: lineH, alignItems: "flex-start" }
+                  : { height: lineH, lineHeight: lineH }
+              }
             >
               {l.words.map(({ id, w }) => {
                 const aw = words.get(id);
                 const v = verses[id - 1];
                 const last = w === wordCount(id);
                 const lit = on && id === playingId && w - 1 >= on[0] && w - 1 < on[1];
+                const picked = pickedWord?.id === id && pickedWord.w === w - 1;
+                const ranged =
+                  !!audioRange && id >= audioRange.from && id <= audioRange.to;
+                const gloss = glosses?.(id)?.[w - 1];
+                // One background, the strongest state winning.
+                const bg = lit
+                  ? "bg-illumination/25"
+                  : picked
+                    ? "bg-illumination/20 ring-1 ring-illumination/60"
+                    : selectedId === id
+                      ? "bg-illumination/15"
+                      : playingId === id
+                        ? "bg-rubric/10"
+                        : ranged
+                          ? "bg-illumination/10"
+                          : undefined;
+                const text = (
+                  <>
+                    {aw?.segs?.[w - 1] ? (
+                      <TajweedSegs segs={aw.segs[w - 1]} />
+                    ) : (
+                      (aw?.text[w - 1] ?? "")
+                    )}
+                    {last && v && <AyahEnd n={v.a} />}
+                  </>
+                );
                 return (
                   <span
                     key={`${id}:${w}`}
@@ -245,22 +290,31 @@ export function MushafLinesPage({
                       w === 1 ? t.reader.selectAyah(`${v?.s}:${v?.a}`) : undefined
                     }
                     aria-pressed={w === 1 ? selectedId === id : undefined}
-                    onClick={() => onSelect(id)}
-                    onKeyDown={onKey(id)}
+                    onClick={(e) => onWord(id, w - 1, e.currentTarget)}
+                    onKeyDown={onKey(id, w)}
                     className={cx(
                       "shrink-0 cursor-pointer rounded-sm transition-colors motion-reduce:transition-none",
+                      glosses && "inline-flex flex-col items-center",
                       !inScope(id) && "opacity-40",
-                      selectedId === id && "bg-illumination/15",
-                      playingId === id && "bg-rubric/10",
-                      lit && "bg-illumination/25",
+                      bg,
                     )}
                   >
-                    {aw?.segs?.[w - 1] ? (
-                      <TajweedSegs segs={aw.segs[w - 1]} />
+                    {glosses ? (
+                      <>
+                        <span style={{ lineHeight: "1.75em" }}>{text}</span>
+                        {/* Takes the word's width without widening it. */}
+                        <span
+                          lang={glossLang}
+                          dir="ltr"
+                          className="line-clamp-2 w-0 min-w-full whitespace-normal break-words hyphens-auto text-center font-ui leading-tight text-ink-subtle"
+                          style={{ fontSize: "max(0.6rem, 0.3em)" }}
+                        >
+                          {gloss ? glossOf(gloss, glossLang) : "\u00a0"}
+                        </span>
+                      </>
                     ) : (
-                      (aw?.text[w - 1] ?? "")
+                      text
                     )}
-                    {last && v && <AyahEnd n={v.a} />}
                   </span>
                 );
               })}

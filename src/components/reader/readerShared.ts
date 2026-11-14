@@ -135,7 +135,6 @@ export function useReaderPrefs() {
   const [showThemes, setShowThemes] = useBool("themes", false);
   const [showAsbab, setShowAsbab] = useBool("asbab", false);
   const [showAudio, setShowAudio] = useBool("audio", true);
-  const [showContext, setShowContext] = useBool("context", true);
   const [glossLang, setGlossLang] = usePersistentState<GlossLang>(
     K + "glossLang",
     "en",
@@ -213,8 +212,6 @@ export function useReaderPrefs() {
     setShowAsbab,
     showAudio,
     setShowAudio,
-    showContext,
-    setShowContext,
     glossLang,
     setGlossLang,
     infoLang,

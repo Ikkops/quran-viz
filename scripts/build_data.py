@@ -929,6 +929,7 @@ def main() -> None:
     corpus = db.execute(
         "SELECT id FROM editions WHERE identifier='quran-corpus-qd'"
     ).fetchone()
+    corpus_words: dict = {}  # ayah id -> tag string per word (word details)
     if corpus:
         from collections import Counter
         # Like the word-by-word edition, the corpus already excludes the basmala
@@ -949,6 +950,7 @@ def main() -> None:
                 if len(fields) < 3:
                     continue
                 tags = fields[2].strip()
+                corpus_words.setdefault(r["ayah_id"], []).append(tags)
                 if not tags:
                     continue
                 total += 1
@@ -1044,6 +1046,15 @@ def main() -> None:
     step("footnotes/: " + ", ".join(f"{k} {c} notes ({e} ayahs exact)" for k, (c, e) in notes.items()))
     step("mushaf/: " + ", ".join(reader_data.export_mushaf(OUT, write_json, verses, has_basmala)))
     step(f"timings/: {len(reader_data.export_timings(OUT, write_json, verses))} reciters")
+    qul = sqlite3.connect(f"file:{QUL_DB}?mode=ro", uri=True)
+    lemma_at = dict(qul.execute(
+        "SELECT lw.location, l.text FROM lemma_words lw JOIN lemmas l ON l.id = lw.lemma_id"
+    ).fetchall())
+    qul.close()
+    wn = reader_data.export_words(OUT, write_json, verses, corpus_words, lemma_at, bw_to_arabic)
+    assert wn["mismatched"] <= 5, f"corpus words drifted from quran.com's in {wn['mismatched']} ayahs"
+    step(f"words/: {wn['roots']} roots, {wn['lemmas']} lemmas, "
+         f"{wn['mismatched']} ayahs without morphology")
 
     # --- sanity checks: fail loudly if the source DB drifted unexpectedly ---
     assert len(verses) == max_ayah_id, (
@@ -1072,7 +1083,7 @@ def main() -> None:
 
 
 # Progress lines for the background-task band: "n/total · (pct%) · what · eta m:ss".
-ETL_STEPS = 27  # step() calls in a full run (tajweed/wordbyword/morphology count)
+ETL_STEPS = 28  # step() calls in a full run (tajweed/wordbyword/morphology count)
 _etl_start = datetime.now(timezone.utc)
 _etl_done = 0
 

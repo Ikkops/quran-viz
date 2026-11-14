@@ -15,6 +15,15 @@ Called by build_data.py once verses.json and translations/ are written:
   timings/<reciter>/<surah>.json        per ayah, flat [wordFrom, wordTo,
                                         startMs, endMs, ...] (0-based words,
                                         wordTo exclusive)
+  words/<surah>.json                    per ayah, per app word: [translit,
+                                        English, Indonesian, tags, lemma,
+                                        root] (tags = the corpus POS and
+                                        features, "N|M|GEN"; lemma and root
+                                        1-based into lexicon.json, 0 = none)
+  lexicon.json                          {roots: [[ar, bw, count]], lemmas:
+                                        [[ar, root, count, en, id]]}
+  lexicon-occ.json                      per lemma (index 0 unused): flat
+                                        [ayah id, word (0-based), ...]
 """
 
 from __future__ import annotations
@@ -271,3 +280,170 @@ def export_timings(out: Path, write_json, verses: list[dict]) -> list[str]:
             write_json(d / f"{s}.json", surah)
         done.append(rid)
     return done
+
+
+# Buckwalter (the corpus's extended set) → Arabic.
+_BW = {
+    "'": "ء", "|": "آ", ">": "أ", "&": "ؤ", "<": "إ", "}": "ئ", "A": "ا",
+    "b": "ب", "p": "ة", "t": "ت", "v": "ث", "j": "ج", "H": "ح", "x": "خ",
+    "d": "د", "*": "ذ", "r": "ر", "z": "ز", "s": "س", "$": "ش", "S": "ص",
+    "D": "ض", "T": "ط", "Z": "ظ", "E": "ع", "g": "غ", "_": "ـ", "f": "ف",
+    "q": "ق", "k": "ك", "l": "ل", "m": "م", "n": "ن", "h": "ه", "w": "و",
+    "Y": "ى", "y": "ي", "F": "ً", "N": "ٌ", "K": "ٍ", "a": "َ", "u": "ُ",
+    "i": "ِ", "~": "ّ", "o": "ْ", "`": "ٰ", "{": "ٱ", "^": "ٓ", "#": "ٔ",
+    ":": "ۜ", "@": "۟", '"': "۠", "[": "ۢ", ";": "ۥ", ",": "ۦ", ".": "ۭ",
+    "!": "ۨ", "-": "۪", "+": "۫", "%": "۬", "]": "ۭ",
+}
+
+
+def buckwalter(bw: str) -> str:
+    return "".join(_BW.get(c, "") for c in bw)
+
+
+def _skeleton(ar: str) -> str:
+    """Letters only, alif and hamza forms and ta marbuta folded."""
+    out = _DIAC.sub("", ar)
+    for a, b in (("ٱ", ""), ("ا", ""), ("أ", ""), ("إ", ""), ("آ", ""), ("ء", ""),
+                 ("ؤ", "و"), ("ئ", "ي"), ("ى", "ي"), ("ة", "ه"), (" ", "")):
+        out = out.replace(a, b)
+    # The short vowels too (مِن is not مَن).
+    return out + "|" + "".join(c for c in ar if c in "َُِ")
+
+
+# Ayahs whose quran.com glosses are shifted against its own words: the
+# glosses in word order. 2:181 (id) splits بعدما into two glosses and drops
+# the last one.
+GLOSS_FIXES = {
+    "id": {
+        (2, 181): [
+            "maka barang siapa", "mengubahnya", "setelah apa", "yang mendengarnya",
+            "maka sesungguhnya hanyalah", "dosanya", "atas", "orang-orang yang",
+            "(mereka) mengubahnya", "sesungguhnya", "Allah", "Maha Mendengar",
+            "Maha Mengetahui",
+        ],
+    },
+}
+
+
+def qdc_targets(ar: str, n: int) -> list[list[int]] | None:
+    """For each of the `n` words quran.com's word data gives an ayah, the
+    app's words (0-based) it covers. It mostly splits as the app does; in
+    some ayahs it splits بعدما as quran-align does (`qc_word_map`), and in
+    37:130 it writes إل ياسين as one word."""
+    k = len(split_words(ar))
+    if n == k:
+        return [[i] for i in range(n)]
+    m = qc_word_map(ar)
+    if n == len(m) - 1:
+        return [[m[q] - 1] for q in range(1, n + 1)]
+    if 0 < n < k:
+        return [[i] for i in range(n - 1)] + [list(range(n - 1, k))]
+    return None
+
+
+def _most_common(xs: list[str]) -> str:
+    best: dict[str, int] = {}
+    for x in xs:
+        if x:
+            best[x] = best.get(x, 0) + 1
+    return max(best, key=lambda k: (best[k], -len(k))) if best else ""
+
+
+def export_words(
+    out: Path,
+    write_json,
+    verses: list[dict],
+    corpus: dict[int, list[str]],
+    lemma_at: dict[str, str],
+    bw_to_arabic,
+) -> dict[str, int]:
+    """Per-word files for the reader's word meanings and word details.
+
+    `corpus` maps ayah id → the corpus tag string of each quran.com word
+    ("N|LEM:kita`b|ROOT:ktb|M|NOM"); `lemma_at` maps "s:a:w" → QUL's lemma
+    (vowelled Arabic). Glosses and transliteration come from the words
+    snapshots, in the same word numbering."""
+    gl = {lang: load_gz(DATA / "words" / f"{lang}.json.gz") for lang in ("en", "id")}
+    for lang, rows in gl.items():
+        # 2:181 lists its ayah number as a word ("", "(181)").
+        gl[lang] = [[w for w in ws if w[0]] for ws in rows]
+        for (s, a), fix in GLOSS_FIXES.get(lang, {}).items():
+            i = next(k for k, v in enumerate(verses) if v["s"] == s and v["a"] == a)
+            gl[lang][i] = [[w[0], g] for w, g in zip(gl[lang][i], fix)]
+    for lang, rows in gl.items():
+        if len(rows) != len(verses):
+            raise SystemExit(f"words/{lang}: {len(rows)} ayahs")
+    roots: dict[str, int] = {}
+    root_list: list[list] = []
+    lemmas: dict[str, int] = {}
+    lemma_list: list[list] = []  # [ar, root, count, [en...], [id...]]
+    occ: list[list[int]] = [[]]
+    by_surah: dict[int, list] = {}
+    mismatched = 0
+    for i, v in enumerate(verses):
+        en, idg = gl["en"][i], gl["id"][i]
+        tags = corpus.get(v["id"], [])
+        targets = qdc_targets(v["ar"], len(en))
+        if targets is None or len(idg) != len(en):
+            raise SystemExit(f"words {v['s']}:{v['a']}: {len(en)}/{len(idg)} glosses")
+        if len(tags) != len(en):
+            mismatched += 1
+            tags = []
+        words: list[list | None] = [None] * len(split_words(v["ar"]))
+        for q in range(1, len(en) + 1):
+            tr, ge, gi = en[q - 1][0], en[q - 1][1], idg[q - 1][1]
+            t = tags[q - 1] if tags else ""
+            parts = [x for x in t.split("|") if x]
+            lem_bw = next((x[4:] for x in parts if x.startswith("LEM:")), "")
+            root_bw = next((x[5:] for x in parts if x.startswith("ROOT:")), "")
+            feat = "|".join(x for x in parts if not x.startswith(("LEM:", "ROOT:")))
+            r = 0
+            if root_bw:
+                if root_bw not in roots:
+                    root_list.append([bw_to_arabic(root_bw), root_bw, 0])
+                    roots[root_bw] = len(root_list)
+                r = roots[root_bw]
+                root_list[r - 1][2] += 1
+            lm = 0
+            lem_ar = ""
+            if lem_bw:
+                # QUL's lemma when it is the corpus's (QUL numbers some
+                # ayahs' words differently), else the corpus's spelled out.
+                qul = lemma_at.get(f"{v['s']}:{v['a']}:{q}", "")
+                mine = buckwalter(lem_bw)
+                lem_ar = qul if qul and _skeleton(qul) == _skeleton(mine) else mine
+            if lem_ar:
+                key = f"{lem_ar}|{r}"
+                if key not in lemmas:
+                    lemma_list.append([lem_ar, r, 0, [], []])
+                    occ.append([])
+                    lemmas[key] = len(lemma_list)
+                lm = lemmas[key]
+                row = lemma_list[lm - 1]
+                row[2] += 1
+                row[3].append(ge)
+                row[4].append(gi)
+            for app in targets[q - 1]:
+                if lm and occ[lm][-2:] != [v["id"], app]:
+                    occ[lm] += [v["id"], app]
+                w = words[app]
+                if w is None:
+                    words[app] = [tr, ge, gi, feat, lm, r]
+                elif len(targets[q - 1]) == 1:
+                    # quran.com's second half of a word the app writes as one.
+                    w[0], w[1], w[2] = f"{w[0]} {tr}", f"{w[1]} {ge}", f"{w[2]} {gi}"
+        if any(w is None for w in words):
+            raise SystemExit(f"words {v['s']}:{v['a']}: a word without data")
+        by_surah.setdefault(v["s"], []).append(words)
+    (out / "words").mkdir(parents=True, exist_ok=True)
+    for s, rows in by_surah.items():
+        write_json(out / "words" / f"{s}.json", rows)
+    write_json(out / "lexicon.json", {
+        "roots": root_list,
+        "lemmas": [
+            [ar, r, c, _most_common(e), _most_common(i)]
+            for ar, r, c, e, i in lemma_list
+        ],
+    })
+    write_json(out / "lexicon-occ.json", occ)
+    return {"roots": len(root_list), "lemmas": len(lemma_list), "mismatched": mismatched}

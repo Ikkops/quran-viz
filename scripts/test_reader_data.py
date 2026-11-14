@@ -67,3 +67,19 @@ def test_build_layout_splits_a_line_where_a_surah_starts():
     snap = {"pages": 1, "lines": 2, "starts": [[1, 2, 1, 1, 1]]}
     lay = rd.build_layout(snap, verses, basmala={2})
     assert lay["page"][0] == [["s", 1], [1, 1], ["sb", 2], [2, 1]]
+
+
+def test_qdc_targets_follow_the_app_words():
+    # Same split: one to one.
+    assert rd.qdc_targets("أ ب ج", 3) == [[0], [1], [2]]
+    # بعدما as two words: both halves land on the app's one word.
+    assert rd.qdc_targets("فَمَنۢ بَدَّلَهُۥ بَعْدَمَا سَمِعَهُۥ", 5) == [[0], [1], [2], [2], [3]]
+    # إل ياسين as one word: it covers both of the app's.
+    assert rd.qdc_targets("سَلَٰمٌ عَلَىٰٓ إِلْ يَاسِينَ", 3) == [[0], [1], [2, 3]]
+    assert rd.qdc_targets("أ ب", 5) is None
+
+
+def test_buckwalter_and_lemma_skeleton():
+    assert rd.buckwalter("kita`b") == "كِتَٰب"
+    assert rd._skeleton(rd.buckwalter("{ll~ah")) == rd._skeleton("ٱللَّه")
+    assert rd._skeleton("مِن") != rd._skeleton("مَن")

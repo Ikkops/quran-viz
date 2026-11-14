@@ -21,6 +21,10 @@ so re-fetching unchanged data leaves git clean.
              (cpfair/quran-align, release 2016-11-24, CC BY 4.0), keyed by
              the app's reciter ids. The other bitrates of a set are the same
              recording (durations match within 0.1 s), so the timings hold.
+  words      Per-word transliteration and English / Indonesian glosses from
+             the quran.com QDC API (`/verses/by_chapter/<n>?words=true&
+             word_translation_language=<en|id>`, 2 × 114 requests), in
+             quran.com's word numbering (the corpus and quran-align's).
 
 Usage (from quran-viz/):
     python3 -u scripts/fetch_reader_data.py               # everything
@@ -217,12 +221,45 @@ def fetch_timings() -> None:
         write_gz(DATA / "timings" / f"{rid}.json.gz", out)
 
 
+WORD_LANGS = ("en", "id")
+
+
+def fetch_words() -> None:
+    counts = ayah_counts()
+    for lang in WORD_LANGS:
+        out: list = []  # per ayah: [[transliteration, gloss], ...]
+        t0 = time.time()
+        for s in range(1, 115):
+            page, verses = 1, []
+            while page:
+                d = get_json(
+                    f"https://api.qurancdn.com/api/qdc/verses/by_chapter/{s}?words=true"
+                    f"&word_translation_language={lang}&per_page=50&page={page}"
+                    "&word_fields=text_uthmani"
+                )
+                verses += d["verses"]
+                page = d["pagination"]["next_page"]
+                time.sleep(0.25)
+            if len(verses) != counts[s - 1]:
+                raise SystemExit(f"words {lang} surah {s}: {len(verses)} ayahs")
+            for v in verses:
+                out.append([
+                    [(w.get("transliteration") or {}).get("text") or "",
+                     (w.get("translation") or {}).get("text") or ""]
+                    for w in v["words"] if w["char_type_name"] == "word"
+                ])
+            if s % 10 == 0 or s == 114:
+                progress(f"words-{lang}", s, 114, t0)
+        assert len(out) == TOTAL
+        write_gz(DATA / "words" / f"{lang}.json.gz", out)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("parts", nargs="*")
     ap.add_argument("--layout", action="append")
     args = ap.parse_args()
-    parts = args.parts or ["timings", "translit", "footnotes", "mushaf"]
+    parts = args.parts or ["timings", "translit", "footnotes", "mushaf", "words"]
     if not SURAHS.exists():
         sys.exit(f"Missing {SURAHS}; run `npm run build:data` once first.")
     for p in parts:

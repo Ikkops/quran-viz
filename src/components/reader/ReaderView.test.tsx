@@ -156,7 +156,11 @@ describe("ReaderView", () => {
 
   it("renders the Arabic text of each verse", () => {
     renderReader();
-    expect(screen.getByText("بِسْمِ ٱللَّهِ")).toBeInTheDocument();
+    // Each word is its own span (tappable for its details).
+    const ar = screen.getAllByText(
+      (_, el) => el?.tagName === "P" && el.getAttribute("lang") === "ar",
+    );
+    expect(ar.some((el) => el.textContent?.startsWith("بِسْمِ ٱللَّهِ"))).toBe(true);
   });
 
   it("marks every Arabic hit, counts them and steps between them", async () => {

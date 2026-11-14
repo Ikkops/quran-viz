@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { popupRoot, rootZoom } from "./popup";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { useI18n } from "../../i18n/I18nContext";
 
@@ -37,18 +38,6 @@ const fold = (s: string) =>
     .replace(/[̀-ͯ]/g, "")
     .replace(/['’ʿʾ`\-.]/g, "")
     .toLowerCase();
-
-/** The element the app's CSS `zoom` sits on; popups portal into it so they get
- *  the same zoom, theme and fonts. */
-function popupRoot(): HTMLElement {
-  return document.getElementById("app-root") ?? document.body;
-}
-
-/** CSS zoom of the app root (1 in tests, where layout is empty). */
-function rootZoom(root: HTMLElement): number {
-  const z = root.getBoundingClientRect().width / root.offsetWidth;
-  return Number.isFinite(z) && z > 0 ? z : 1;
-}
 
 type Place = { style: CSSProperties; above: boolean };
 
