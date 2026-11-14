@@ -7,6 +7,7 @@ import type { PlayClock } from "../../data/useRecitation";
 import { useI18n } from "../../i18n/I18nContext";
 import { cx } from "../ui";
 import { TajweedSegs } from "./AyahText";
+import { withRubrics } from "./rubrics";
 
 /** Search hits in one piece of text; `current` is the index of the hit the
  *  learner stepped to, if it is in this text. */
@@ -115,43 +116,81 @@ function shiftHits(hits: Hits | null | undefined, from: number, to: number): Hit
   return ranges.length ? { ranges, current } : null;
 }
 
-/** An ayah's Arabic as words, the words being recited lit up (word timings).
- *  Subscribes to the player clock, so only this row re-renders as it plays. */
-export function RecitedWords({
+const IDLE_TIME = { id: null, t: 0, rev: 0 };
+const idleClock: PlayClock = { subscribe: () => () => {}, get: () => IDLE_TIME };
+
+/** An ayah's Arabic as words: each one tappable (`onWord`, for its popup),
+ *  the words being recited lit up (word timings, read from `clock` so only
+ *  this row re-renders as it plays), and with `gloss` each word's meaning
+ *  under it (word by word). */
+export function AyahWords({
   id,
   ar,
   tajweed,
   clock,
   timing,
+  onWord,
+  gloss,
+  glossLang,
   end,
 }: {
   id: number;
   ar: string;
   tajweed?: string | null;
-  clock: PlayClock;
-  timing: number[] | undefined;
+  clock?: PlayClock;
+  timing?: number[];
+  onWord?: (id: number, w: number, el: Element) => void;
+  gloss?: (w: number) => string;
+  glossLang?: string;
   end: ReactNode;
 }) {
-  const time = useSyncExternalStore(clock.subscribe, clock.get);
-  const on = time.id === id ? wordAt(timing, time.t * 1000) : null;
+  const c = clock ?? idleClock;
+  const time = useSyncExternalStore(c.subscribe, c.get);
+  const on = clock && time.id === id ? wordAt(timing, time.t * 1000) : null;
   const words = useMemo(() => splitWords(ar), [ar]);
   const segs = useMemo<TajweedSegment[][] | null>(
     () => (tajweed ? alignTajweedToWords(tajweed, words) : null),
     [tajweed, words],
   );
+  const word = (w: string, i: number, extra?: string) => (
+    <span
+      role={onWord ? "button" : undefined}
+      tabIndex={onWord ? -1 : undefined}
+      onClick={onWord ? (e) => onWord(id, i, e.currentTarget) : undefined}
+      className={cx(
+        "rounded-sm transition-colors duration-150 motion-reduce:transition-none",
+        onWord && "cursor-pointer",
+        on && i >= on[0] && i < on[1] && "bg-illumination/20",
+        extra,
+      )}
+    >
+      {segs?.[i] ? <TajweedSegs segs={segs[i]} /> : withRubrics(w)}
+    </span>
+  );
+  if (gloss)
+    return (
+      <div lang="ar" dir="rtl" className="flex flex-wrap items-start gap-x-5 gap-y-2">
+        {words.map((w, i) => (
+          <span key={i} className="flex flex-col items-center">
+            {word(w, i, "quran-text leading-tight text-ink")}
+            <span
+              lang={glossLang}
+              dir="ltr"
+              className="mt-0.5 max-w-[9rem] text-center text-xs leading-tight text-ink-subtle"
+            >
+              {gloss(i)}
+            </span>
+          </span>
+        ))}
+        <span className="quran-text leading-tight">{end}</span>
+      </div>
+    );
   return (
     <>
       {words.map((w, i) => (
         <Fragment key={i}>
           {i > 0 && " "}
-          <span
-            className={cx(
-              "rounded-sm transition-colors duration-150 motion-reduce:transition-none",
-              on && i >= on[0] && i < on[1] && "bg-illumination/20",
-            )}
-          >
-            {segs?.[i] ? <TajweedSegs segs={segs[i]} /> : w}
-          </span>
+          {word(w, i)}
         </Fragment>
       ))}
       {end}

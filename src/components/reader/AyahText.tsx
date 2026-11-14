@@ -1,24 +1,9 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment } from "react";
 import type { Verse } from "../../types/quran";
 import { parseTajweed, tajweedColor, type TajweedSegment } from "../../data/tajweed";
 import { useArabicFont, useTheme } from "../../theme/ThemeContext";
 import { ayahEndMark } from "../../data/ayahContext";
-
-/** Rub' al-hizb (۞) and sajdah (۩) signs in the mushaf's red ink (DESIGN.md
- *  "The Red Ink Rule"); everything else as is. */
-function withRubrics(text: string): ReactNode {
-  const parts = text.split(/([۞۩])/);
-  if (parts.length === 1) return text;
-  return parts.map((p, i) =>
-    i % 2 ? (
-      <span key={i} className="quran-mark">
-        {p}
-      </span>
-    ) : (
-      <Fragment key={i}>{p}</Fragment>
-    ),
-  );
-}
+import { withRubrics } from "./rubrics";
 
 /** Tajweed-coloured pieces of text (one word, or a whole ayah). */
 export function TajweedSegs({ segs }: { segs: TajweedSegment[] }) {

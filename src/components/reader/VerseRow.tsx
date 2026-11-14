@@ -9,14 +9,14 @@ import {
   PanelRight,
   Play,
 } from "lucide-react";
-import type { Surah, Verse, WordByWordData } from "../../types/quran";
+import type { Surah, Verse } from "../../types/quran";
 import type { Collection, Pin } from "../../lib/marks";
 import type { TafsirGroup, AsbabEntry } from "../../data/sections";
-import { alignTajweedToWords, type TajweedSegment } from "../../data/tajweed";
+import { glossOf, type WordInfo } from "../../data/words";
 import { useI18n } from "../../i18n/I18nContext";
 import { cx, QuietIconButton } from "../ui";
-import { AyahEnd, AyahText, TajweedSegs } from "./AyahText";
-import { HighlightText, RecitedWords, TranslationText, type Hits } from "./MarkedText";
+import { AyahEnd } from "./AyahText";
+import { AyahWords, HighlightText, TranslationText, type Hits } from "./MarkedText";
 import type { Footnotes } from "../../data/footnotes";
 import type { PlayClock } from "../../data/useRecitation";
 import { BASMALA, boundaryLabels, type ReaderMode } from "./readerShared";
@@ -62,9 +62,11 @@ export interface RowContext {
   translations: RowTranslation[];
   translit: (string | null)[] | null;
   tajweed: (string | null)[] | null;
-  wordByWord: WordByWordData | null;
-  alignCache: Map<string, TajweedSegment[][] | null>;
-  glossLang: string;
+  /** The ayah's word data (meanings, grammar), once loaded. */
+  wordsOf: (id: number) => WordInfo[] | undefined;
+  /** A word was tapped (0-based), for its popup. */
+  onWord: (id: number, w: number, el: Element) => void;
+  glossLang: "en" | "id";
   /** Tafsirs under each ayah (or passage), when on; empty when off. */
   inlineTafsirs: RowTafsir[];
   /** Search hits: ayah id → field ("ar", "ref" or a translation id) → hits. */
@@ -122,50 +124,30 @@ export function Basmala() {
   );
 }
 
-function WordByWord({ v, ctx }: { v: Verse; ctx: RowContext }) {
-  const ws = ctx.wordByWord?.[v.id];
-  const marked = ctx.showTajweed ? ctx.tajweed?.[v.id] : null;
-  if (!ws)
-    return (
-      <p lang="ar" dir="rtl" className="quran-text text-ink">
-        <AyahText v={v} tajweed={marked} />
-      </p>
-    );
-  // Tajweed colours cut to match the word-by-word items. If the texts can't
-  // be aligned the items are shown uncoloured — never the whole ayah twice.
-  let aligned: TajweedSegment[][] | null = null;
-  if (marked) {
-    const key = `${ctx.glossLang}:${v.id}`;
-    if (!ctx.alignCache.has(key))
-      ctx.alignCache.set(
-        key,
-        alignTajweedToWords(
-          marked,
-          ws.map(([ar]) => ar),
-        ),
-      );
-    aligned = ctx.alignCache.get(key) ?? null;
-  }
+function WordByWord({
+  v,
+  ctx,
+  marked,
+  timing,
+}: {
+  v: Verse;
+  ctx: RowContext;
+  marked: string | null | undefined;
+  timing: number[] | undefined;
+}) {
+  const ws = ctx.wordsOf(v.id);
   return (
-    <div lang="ar" dir="rtl" className="flex flex-wrap items-start gap-x-5 gap-y-2">
-      {ws.map(([ar, gloss], i) => (
-        <span key={i} className="flex flex-col items-center">
-          <span className="quran-text leading-tight text-ink">
-            {aligned ? <TajweedSegs segs={aligned[i]} /> : ar}
-          </span>
-          <span
-            lang={ctx.glossLang}
-            dir="ltr"
-            className="mt-0.5 max-w-[9rem] text-center text-xs leading-tight text-ink-subtle"
-          >
-            {gloss}
-          </span>
-        </span>
-      ))}
-      <span className="quran-text leading-tight">
-        <AyahEnd n={v.a} />
-      </span>
-    </div>
+    <AyahWords
+      id={v.id}
+      ar={v.ar}
+      tajweed={marked}
+      clock={timing ? ctx.recited?.clock : undefined}
+      timing={timing}
+      onWord={ctx.onWord}
+      gloss={(i) => (ws?.[i] ? glossOf(ws[i], ctx.glossLang) : "")}
+      glossLang={ctx.glossLang}
+      end={<AyahEnd n={v.a} />}
+    />
   );
 }
 
@@ -391,8 +373,8 @@ export function VerseRow({
           </p>
         ))}
 
-        {ctx.showWords ? (
-          <WordByWord v={v} ctx={ctx} />
+        {ctx.showWords && !arHits ? (
+          <WordByWord v={v} ctx={ctx} marked={marked} timing={timing} />
         ) : (
           <p lang="ar" dir="rtl" className="quran-text text-ink">
             {arHits ? (
@@ -400,17 +382,16 @@ export function VerseRow({
                 <HighlightText text={v.ar} hits={arHits} />
                 <AyahEnd n={v.a} />
               </>
-            ) : timing && ctx.recited ? (
-              <RecitedWords
+            ) : (
+              <AyahWords
                 id={v.id}
                 ar={v.ar}
                 tajweed={marked}
-                clock={ctx.recited.clock}
+                clock={timing ? ctx.recited?.clock : undefined}
                 timing={timing}
+                onWord={ctx.onWord}
                 end={<AyahEnd n={v.a} />}
               />
-            ) : (
-              <AyahText v={v} tajweed={marked} />
             )}
           </p>
         )}

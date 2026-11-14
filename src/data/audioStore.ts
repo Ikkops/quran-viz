@@ -31,7 +31,7 @@ import {
   type ReciterId,
 } from "./recitation";
 import { REMOTE_DATA } from "./tafsirStore";
-import { TIMED_RECITERS, timingsPath } from "./wordTimings";
+import { TIMED_RECITERS, timingsPath, type SurahTimings } from "./wordTimings";
 
 /** Running inside the Android app (audio comes from device storage). */
 export const isNativeApp = (): boolean => Capacitor.isNativePlatform();
@@ -305,33 +305,42 @@ async function fetchFile(reciter: ReciterId, name: string): Promise<number> {
   return got;
 }
 
-/** URL of a surah's word timings on the device, downloading the small file
- *  first if it isn't there (surahs downloaded before timings existed). Null
- *  for reciters without timings or when it can't be had. */
-export async function deviceTimingsUrl(
+/** A surah's word timings from the device, downloading the small file
+ *  first if it isn't there (surahs downloaded before timings existed). Read
+ *  and written through Filesystem, not the WebView's file server. Null for
+ *  reciters without timings or when it can't be had. */
+export async function deviceTimings(
   reciter: string,
   surah: number,
-): Promise<string | null> {
+): Promise<SurahTimings | null> {
   if (!TIMED_RECITERS.has(reciter)) return null;
-  await init();
-  const path = `${folder(reciter)}/words-${surah}.json`;
-  if ((await sizeOf(path)) === 0) {
+  try {
+    await init();
+    const path = `${folder(reciter)}/words-${surah}.json`;
     try {
-      await Filesystem.mkdir({ path: folder(reciter), recursive: true }).catch(
-        () => undefined,
-      );
-      await FileTransfer.downloadFile({
-        url: REMOTE_DATA + timingsPath(reciter, surah),
-        path,
-        connectTimeout: 15_000,
-        readTimeout: 30_000,
-      });
+      const { data } = await Filesystem.readFile({ path, encoding: Encoding.UTF8 });
+      const d = JSON.parse(
+        typeof data === "string" ? data : await data.text(),
+      ) as unknown;
+      if (Array.isArray(d)) return d as SurahTimings;
     } catch {
-      await Filesystem.deleteFile({ path }).catch(() => undefined);
-      return null;
+      // Not there yet (or unreadable): fetch it below.
     }
+    const res = await fetch(REMOTE_DATA + timingsPath(reciter, surah));
+    if (!res.ok) return null;
+    const text = await res.text();
+    const d = JSON.parse(text) as unknown;
+    if (!Array.isArray(d)) return null;
+    await Filesystem.writeFile({
+      path,
+      data: text,
+      encoding: Encoding.UTF8,
+      recursive: true,
+    });
+    return d as SurahTimings;
+  } catch {
+    return null;
   }
-  return Capacitor.convertFileSrc(path);
 }
 
 let stopRequested = false;
@@ -375,7 +384,7 @@ async function run() {
       }
       if (stopRequested) break;
       // Word timings ride along; without them the audio still plays.
-      await deviceTimingsUrl(reciter, job.surah);
+      await deviceTimings(reciter, job.surah);
       const m = await loadManifest(reciter);
       await saveManifest(reciter, { ...m, [job.surah]: bytes });
     }

@@ -100,7 +100,7 @@ those editions reach the app only once merged to `main`. Surah names:
 `nameId` comes from the checked-in `scripts/data/surah_names_id.json` (114
 unique names, equran.id spelling: Ghafir, Al-Mujadilah, Al-Insyirah; the ETL
 fails otherwise). Reader extras come from `scripts/fetch_reader_data.py`
-snapshots (`scripts/data/{footnotes,translit,mushaf,timings}/*.json.gz`,
+snapshots (`scripts/data/{footnotes,translit,mushaf,timings,words}/*.json.gz`,
 re-fetch only to refresh; it prints progress) and are written by
 `scripts/reader_data.py` (tests in `scripts/test_reader_data.py`):
 `translations/id.transliteration.json` (equran.id `teksLatin`),
@@ -115,7 +115,17 @@ surah's first ayah, across a page break too, become its name and basmala;
 startMs, endMs, …]`; the other bitrates of those everyayah sets are the same
 recordings). Words are `split_words` / `splitWords` (pause marks join the
 word before, ۞ the word after); quran.com and quran-align split بَعْدَمَا in
-three ayahs into two words, which `qc_word_map` maps back. Regenerate with
+three ayahs into two words, which `qc_word_map` maps back. Word details:
+`words/<surah>.json` (per ayah, per app word: `[translit, English, Indonesian,
+tags, lemma, root]`; glosses and transliteration from quran.com's QDC word
+data, whose split `qdc_targets` maps onto the app's words — mostly one to
+one, بعدما split in some ayahs, إل ياسين joined in 37:130; `GLOSS_FIXES`
+holds 2:181's Indonesian glosses, shifted at the source; tags are the
+`quran-corpus-qd` POS and features, one entry per word), `lexicon.json`
+(`roots` `[ar, bw, count]`, `lemmas` `[ar, root, count, en, id]`; a lemma is
+QUL's vowelled one when its letters and short vowels match the corpus's
+`LEM`, else the corpus's spelled out by `buckwalter`) and `lexicon-occ.json`
+(per lemma, flat `[ayah id, word]`). Regenerate with
 `npm run build:data` — **never hand-edit files in `public/data/`.**
 
 **Revelation order and ayah-level places.** `surahs[].revelationOrder` (1–114,
@@ -422,7 +432,19 @@ pages follow `qv.reader.layout`: a printed layout (`MushafLinesPage`, data in
 `data/mushafLayout.ts`: whole pages, ayahs outside the scope dimmed, each
 line's words spread to the width, the font fitted to the widest line after
 `document.fonts.ready`, short lines centred) or `flow` (the old `MushafPage`,
-grouped by `verses.page`). Search is find-in-text (`data/textSearch.ts`): every
+grouped by `verses.page`). Tapping a word (ayah rows through `AyahWords`,
+printed mushaf pages) opens `WordPopover` (`WordDetail.tsx`, portalled into
+`#app-root` beside the word: the word, transliteration, meaning in the UI
+language, root, play, ayah context); its "Click for more" opens
+`WordDetailPage` in a bottom sheet (meanings, grammar worded by
+`describeTags` from `t.word`, lemma, root and the lemmas from it, every
+occurrence of the lemma, linking to the ayah). Word data (`data/words.ts`,
+`useSurahWords`) loads per surah only for word by word or once a word is
+tapped. Word by word in ayah rows uses the same data (so the recited word
+lights there too); on printed mushaf pages it puts each word's meaning under
+it (a `w-0 min-w-full` gloss that never widens the word, so the line fitting
+holds). The mushaf highlights the ayah whose context is open only while the
+sheet is open, and tints the player's edited range faintly. Search is find-in-text (`data/textSearch.ts`): every
 hit in the Arabic (`findAllArabic`, spelling-tolerant) and in each translation
 shown (`findAllLatin`, case and accents folded), plus `2:255`/`255` as an ayah;
 nothing is filtered out, the field shows `n/total` with ↑/↓ (Enter, Shift+Enter)
@@ -438,16 +460,16 @@ division is the bold subtitle. A sideways swipe on the list (≥ 80 px, mostly
 horizontal, under 0.7 s) goes to the next (left) or previous (right) window,
 like ←/→. Every ayah has a play button whenever a reciter exists; with the
 player hidden it opens it. While a reciter with word timings
-(`data/wordTimings.ts`, `TIMED_RECITERS`) plays, `RecitedWords` (ayah rows)
+(`data/wordTimings.ts`, `TIMED_RECITERS`) plays, `AyahWords` (ayah rows)
 and `MushafLinesPage` light up the word being recited from `rec.clock`. Only an
 ayah someone chose is highlighted (`highlightId`: a link's anchor or a tapped
 ayah), never the first ayah on opening. Section themes load in the UI language
 (`themes.json` / `themes-id.json`; Indonesian from the checked-in
 `scripts/data/themes_id.json`, keyed `surah:from-to`, which the ETL requires
 to cover every section). The reader measures its own
-width (`clientWidth`, so zoom-safe): below 560px the tools go icon-only, from
-960px the context panel docks beside the text (`qv.reader.context`), otherwise
-it opens in a `Sheet` (bottom on phones, right edge on wider layouts). The head
+width (`clientWidth`, so zoom-safe): below 560px the tools go icon-only. The
+context opens in a bottom `Sheet` at every width (the docked side panel and
+its `qv.reader.context` toggle are gone). The head
 (toolbar + `QuranStrip`) floats over the list (`absolute`, the virtualizer's
 `paddingStart`/`scrollPaddingStart` reserve its measured height) and slides away
 on a scroll down, back on a scroll up (`nextHeadHidden` in `lib/hideOnScroll.ts`);
@@ -536,8 +558,9 @@ written only when the whole surah is in place. One app-wide queue
 (`downloadSurahs`, `cancelDownloads`, `deleteReciterAudio`,
 `useAudioDownloads`). `useRecitation` takes `base` (the device folder through
 `Capacitor.convertFileSrc`) and `available(id)`; an ayah whose surah isn't
-downloaded stops playback and sets `rec.missing`. The `MiniPlayer` then
-becomes the download offer (what, estimated size by word share, progress,
+downloaded stops playback and sets `rec.missing`; once that surah is on the
+device, playback carries on from that ayah by itself (stopping forgets it).
+Meanwhile the `MiniPlayer` is the download offer (what, estimated size by word share, progress,
 cancel); the options sheet shows what is on the device, "download all" and
 "delete" (with a confirm). This, word timings and the downloadable tafsirs (see the ETL
 section) are the app's only network use, and only on the learner's tap.
@@ -604,7 +627,10 @@ app the reciter list puts reciters with audio on the device first (check mark,
 `Select` option `icon`), then a dividing line (`separator`), then the rest;
 reciters with word timings carry a highlighter mark (`trailing`). In the app
 the timings are `words-<surah>.json` in the reciter folder, downloaded after
-the surah's audio or on first play (`deviceTimingsUrl`); `build:android` leaves
+the surah's audio or on first play (`deviceTimings`: read and written with
+Filesystem, fetched from `REMOTE_DATA`, never through the WebView's file
+server; a failed load is retried after 8 s as playback moves on, the `again`
+argument of `useWordTimings`); `build:android` leaves
 `data/timings` out. Each verse row gets a "play from here" button; outside the
   range it sets the range to that ayah through the end of the scope. The range
   follows the scope until edited and resets on navigation unless a cursor exists.
