@@ -159,23 +159,36 @@ describe("ReaderView", () => {
     expect(screen.getByText("بِسْمِ ٱللَّهِ")).toBeInTheDocument();
   });
 
-  it("filters verses by Arabic search (diacritic-insensitive)", async () => {
+  it("marks every Arabic hit, counts them and steps between them", async () => {
     const user = userEvent.setup();
     renderReader();
     await user.click(screen.getByRole("button", { name: /Search in this view/i }));
-    const input = screen.getByPlaceholderText(/Search/i);
-    await user.type(input, "الحمد");
-    // 1:2 contains "ٱلْحَمْدُ" which normalizes to "الحمد"
-    expect(screen.getByRole("article", { name: "1:2" })).toBeInTheDocument();
-    expect(screen.queryByRole("article", { name: "1:1" })).not.toBeInTheDocument();
+    // "ٱللَّهِ" in 1:1 and "لِلَّهِ" in 1:2 both hold "لله".
+    await user.type(screen.getByPlaceholderText(/Find a word/i), "لله");
+    expect(screen.getByRole("status")).toHaveTextContent("1/2");
+    // Both ayahs stay; the first hit is the current one.
+    expect(screen.getByRole("article", { name: "1:1" })).toBeInTheDocument();
+    const marks = document.querySelectorAll("mark");
+    expect(marks).toHaveLength(2);
+    expect(marks[0]).toHaveAttribute("data-match-current", "true");
+    await user.click(screen.getByRole("button", { name: "Next match" }));
+    expect(screen.getByRole("status")).toHaveTextContent("2/2");
+    expect(document.querySelectorAll("mark")[1]).toHaveAttribute(
+      "data-match-current",
+      "true",
+    );
+    await user.click(screen.getByPlaceholderText(/Find a word/i));
+    await user.keyboard("{Enter}");
+    expect(screen.getByRole("status")).toHaveTextContent("1/2");
   });
 
-  it("shows the empty state when no verses match", async () => {
+  it("says when nothing matches", async () => {
     const user = userEvent.setup();
     renderReader();
     await user.click(screen.getByRole("button", { name: /Search in this view/i }));
-    await user.type(screen.getByPlaceholderText(/Search/i), "zzzzzz");
-    expect(screen.getByText(/No ayahs match/i)).toBeInTheDocument();
+    await user.type(screen.getByPlaceholderText(/Find a word/i), "zzzzzz");
+    expect(screen.getByRole("status")).toHaveTextContent("0 found");
+    expect(screen.getByRole("button", { name: "Next match" })).toBeDisabled();
   });
 
   it("continues to the next surah from the end of the text", async () => {

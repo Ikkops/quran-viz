@@ -4,6 +4,9 @@ const token = (name) => `rgb(var(--${name}) / <alpha-value>)`;
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: "class",
+  // On touch screens a tapped button kept its hover tint until the next tap
+  // elsewhere; hover styles apply only where a real pointer can hover.
+  future: { hoverOnlyWhenSupported: true },
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
   theme: {
     extend: {

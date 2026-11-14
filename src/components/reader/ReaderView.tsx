@@ -7,11 +7,11 @@ import {
   useState,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight, Plus, X } from "lucide-react";
 import type { EditionsIndex, Surah, Verse } from "../../types/quran";
 import { SCOPE_MAX, surahColorById, type ReaderScope } from "../charts/common";
 import type { ColorMode, ReaderTarget } from "../charts/common";
-import { useTranslation } from "../../data/useTranslation";
+import { useTranslation, useTranslations } from "../../data/useTranslation";
 import { useTajweed } from "../../data/useTajweed";
 import { useWordByWord } from "../../data/useWordByWord";
 import { useThemes } from "../../data/useThemes";
@@ -25,7 +25,24 @@ import {
   themeHeadingAt,
   themeIndexById,
 } from "../../data/sections";
-import { useGroupedTafsir } from "../../data/useGroupedTafsir";
+import { useGroupedTafsirs } from "../../data/useGroupedTafsir";
+import { useFootnotes } from "../../data/footnotes";
+import {
+  findAllArabic,
+  findAllLatin,
+  isAyahRef,
+  type TextMatch,
+} from "../../data/textSearch";
+import type { Hits } from "./MarkedText";
+import {
+  pageOf,
+  pagesFor,
+  useMushafLayout,
+  wordCounter,
+  type LayoutLine,
+} from "../../data/mushafLayout";
+import { TIMED_RECITERS, useWordTimings } from "../../data/wordTimings";
+import { MushafLinesPage } from "./MushafLinesPage";
 import { needsDownload, useTafsirDownloads } from "../../data/tafsirStore";
 import { TafsirDownloadOffer } from "./TafsirDownload";
 import { useElementWidth } from "../../lib/useElementWidth";
@@ -34,13 +51,21 @@ import {
   editionByIdentifier,
   isRtl,
   tafsirById,
-  TRANSLITERATION_EDITION,
+  transliterationFor,
+  type TafsirEdition,
 } from "../../data/editions";
 import type { GlossLang } from "../../data/useWordByWord";
 import { surahMapOf } from "../../data/selectors";
-import { normalizeArabic } from "../../data/arabic";
 import type { Palette } from "../../theme/palettes";
-import { cx, SegmentedControl, Select, Sheet, Slider, Toggle } from "../ui";
+import {
+  cx,
+  QuietIconButton,
+  SegmentedControl,
+  Select,
+  Sheet,
+  Slider,
+  Toggle,
+} from "../ui";
 import { EditionSelect } from "../panels/EditionSelect";
 import { marksByAyah, type Marks } from "../../lib/marks";
 import { MarkSheet } from "../marks/MarkSheet";
@@ -61,6 +86,7 @@ import { useReciters, useRecitation } from "../../data/useRecitation";
 import {
   cancelDownloads,
   deleteReciterAudio,
+  deviceTimingsUrl,
   downloadSurahs,
   isNativeApp,
   useAudioDownloads,
@@ -76,13 +102,20 @@ import { QuranStrip } from "../peta/QuranStrip";
 import { TajweedRules } from "./TajweedRules";
 import { nextHeadHidden } from "../../lib/hideOnScroll";
 import { ReaderToolbar } from "./ReaderToolbar";
-import { VerseRow, type RowContext, type RowTranslation } from "./VerseRow";
+import {
+  VerseRow,
+  type RowContext,
+  type RowTafsir,
+  type RowTranslation,
+} from "./VerseRow";
 import { MushafPage } from "./MushafPage";
 import { VerseContextPanel, type ExploreTarget } from "./VerseContextPanel";
 import {
   copyToClipboard,
   DIVISIONS,
   groupByPage,
+  MAX_EXTRA,
+  MUSHAF_LAYOUTS,
   scopeField,
   tafsirOptions,
   useReaderPrefs,
@@ -229,30 +262,60 @@ export function ReaderView({
     [asbabState.data],
   );
   const translation = useTranslation(mode === "ayah" ? edition : null);
+  // Further translations under the main one.
+  const extraIds = useMemo(
+    () =>
+      mode === "ayah"
+        ? p.extraEditions.filter(
+            (id) => id !== edition && !!editionByIdentifier(editions, id),
+          )
+        : [],
+    [mode, p.extraEditions, edition, editions],
+  );
+  const extraTr = useTranslations(extraIds);
+  const footnotes = useFootnotes(mode === "ayah" ? [edition, ...extraIds] : []);
+  // Indonesian spelling when the app is in Indonesian.
   const translit = useTranslation(
-    p.showTranslit && mode !== "mushaf" ? TRANSLITERATION_EDITION : null,
+    p.showTranslit && mode !== "mushaf" ? transliterationFor(lang) : null,
   );
   const tafsirEd = tafsirById(p.tafsirEdition);
   const tafsirDl = useTafsirDownloads();
-  // In the app, an edition not downloaded yet shows the offer in settings.
-  const tafsirPending = needsDownload(tafsirEd, tafsirDl);
-  const inlineTafsirOn = p.showTafsir && mode !== "mushaf" && !tafsirPending;
-  const tafsir = useTranslation(
-    inlineTafsirOn && tafsirEd.kind === "ayah" ? tafsirEd.id : null,
+  // The tafsirs shown under the ayahs: the main one (also the context
+  // panel's), then the extra ones.
+  const tafsirEds = useMemo<TafsirEdition[]>(
+    () => [
+      tafsirEd,
+      ...p.extraTafsirs.filter((id) => id !== tafsirEd.id).map((id) => tafsirById(id)),
+    ],
+    [tafsirEd, p.extraTafsirs],
   );
+  // In the app, editions not downloaded yet show the offer in settings.
+  const pendingTafsirs = tafsirEds.filter((ed) => needsDownload(ed, tafsirDl));
+  const shownTafsirs =
+    p.showTafsir && mode !== "mushaf"
+      ? tafsirEds.filter((ed) => !needsDownload(ed, tafsirDl))
+      : [];
+  const ayahTafsirIds = shownTafsirs.filter((e) => e.kind === "ayah").map((e) => e.id);
+  const groupedTafsirIds = shownTafsirs
+    .filter((e) => e.kind === "grouped")
+    .map((e) => e.id);
+  const ayahTafsirs = useTranslations(ayahTafsirIds);
   const scopeSurahs = useMemo(
     () => [...new Set(scopeVerses.map((v) => v.s))],
     [scopeVerses],
   );
-  const groupedTafsir = useGroupedTafsir(
-    inlineTafsirOn && tafsirEd.kind === "grouped" ? tafsirEd.id : null,
-    scopeSurahs,
-  );
-  const tafsirGroups = useMemo(
-    () =>
-      groupedTafsir.data ? tafsirGroupLookup(scopeVerses, groupedTafsir.data) : null,
-    [groupedTafsir.data, scopeVerses],
-  );
+  const groupedTafsirs = useGroupedTafsirs(groupedTafsirIds, scopeSurahs);
+  const tafsirGroups = useMemo(() => {
+    const m = new Map<string, ReturnType<typeof tafsirGroupLookup>>();
+    groupedTafsirs.forEach((st, id) => {
+      if (st.data) m.set(id, tafsirGroupLookup(scopeVerses, st.data));
+    });
+    return m;
+  }, [groupedTafsirs, scopeVerses]);
+  const tafsirError =
+    ayahTafsirs.find((x) => x.error)?.error ??
+    [...groupedTafsirs.values()].find((x) => x.error)?.error ??
+    null;
 
   // ── Recitation ──
   const scopeRange = useMemo<LoopRange>(
@@ -425,13 +488,31 @@ export function ReaderView({
     if (!hasCursor) setLoopRange(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeRange]);
-  /** Play from `id`; outside the range, the range becomes id..end of scope. */
+  /** Play from `id`; outside the range, the range becomes id..end of scope.
+   *  A hidden player opens. */
   const playFrom = (id: number) => {
+    if (!p.showAudio) p.setShowAudio(true);
     if (id < range.from || id > range.to)
       setLoopRange({ from: id, to: Math.max(id, scopeRange.to) });
     rec.play(id);
   };
   const playingId = rec.cursor?.id;
+  // Word timings of the surah being recited (some reciters only). In the app
+  // they are downloaded with the surah's audio.
+  const playingSurah = playingId ? (verses[playingId - 1]?.s ?? null) : null;
+  const timingUrl = native ? deviceTimingsUrl : undefined;
+  const surahTimings = useWordTimings(
+    reciterId,
+    audioOn ? playingSurah : null,
+    timingUrl,
+  );
+  const timingOf = useCallback(
+    (id: number) => {
+      const v = verses[id - 1];
+      return v && v.s === playingSurah ? surahTimings?.[v.a - 1] : undefined;
+    },
+    [verses, playingSurah, surahTimings],
+  );
   /** The learner edited the range: if the ayah being recited fell outside it,
    *  go to the new range's start now instead of finishing that ayah first. */
   const editRange = (next: LoopRange | null) => {
@@ -441,35 +522,82 @@ export function ReaderView({
   };
 
   // ── Items: ayahs, or mushaf pages ──
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q || mode === "mushaf") return scopeVerses;
-    const arQuery = normalizeArabic(query.trim());
-    const tr = translation.data;
-    return scopeVerses.filter((v) => {
-      if (`${v.s}:${v.a}` === q || String(v.a) === q) return true;
-      const text = tr?.[v.id]?.toLowerCase() ?? "";
-      return text.includes(q) || normalizeArabic(v.ar).includes(arQuery);
-    });
-  }, [scopeVerses, query, mode, translation.data]);
-  const pages = useMemo(
-    () => (mode === "mushaf" ? groupByPage(scopeVerses) : null),
-    [mode, scopeVerses],
+  const filtered = scopeVerses;
+  // A printed layout's pages, once its file is in; flowing pages otherwise.
+  const layoutId = mode === "mushaf" && p.mushafLayout !== "flow" ? p.mushafLayout : null;
+  const layoutState = useMushafLayout(layoutId);
+  const layout = layoutId && layoutState.data?.page ? layoutState.data : null;
+  const wordCount = useMemo(() => wordCounter(verses), [verses]);
+  const layoutPages = useMemo(
+    () => (layout ? pagesFor(layout, scopeRange.from, scopeRange.to) : null),
+    [layout, scopeRange],
   );
-  const count = pages ? pages.length : filtered.length;
+  const pages = useMemo(
+    () => (mode === "mushaf" && !layoutPages ? groupByPage(scopeVerses) : null),
+    [mode, scopeVerses, layoutPages],
+  );
+  const count = layoutPages ? layoutPages.length : pages ? pages.length : filtered.length;
   const indexOfAyah = useCallback(
     (id: number) =>
-      pages
-        ? pages.findIndex((pg) => pg.some((v) => v.id === id))
-        : filtered.findIndex((v) => v.id === id),
-    [pages, filtered],
+      layout && layoutPages
+        ? layoutPages.indexOf(pageOf(layout, id))
+        : pages
+          ? pages.findIndex((pg) => pg.some((v) => v.id === id))
+          : filtered.findIndex((v) => v.id === id),
+    [layout, layoutPages, pages, filtered],
   );
+
+  // ── Search: every hit in the Arabic and the translations shown ──
+  const q = mode === "ayah" ? query.trim() : "";
+  const shownTranslations = useMemo(
+    () => [
+      { id: edition, data: translation.data },
+      ...extraIds.map((id, i) => ({ id, data: extraTr[i]?.data ?? null })),
+    ],
+    [edition, translation.data, extraIds, extraTr],
+  );
+  const matches = useMemo<TextMatch[]>(() => {
+    if (!q) return [];
+    const out: TextMatch[] = [];
+    for (const v of scopeVerses) {
+      if (isAyahRef(q, v.s, v.a)) out.push({ id: v.id, field: "ref", range: null });
+      for (const r of findAllArabic(v.ar, q))
+        out.push({ id: v.id, field: "ar", range: r });
+      for (const tr of shownTranslations) {
+        const text = tr.data?.[v.id];
+        if (text)
+          for (const r of findAllLatin(text, q))
+            out.push({ id: v.id, field: tr.id, range: r });
+      }
+    }
+    return out;
+  }, [q, scopeVerses, shownTranslations]);
+  const [matchAt, setMatchAt] = useState(0);
+  useEffect(() => setMatchAt(0), [q]);
+  const current = matches.length ? matches[Math.min(matchAt, matches.length - 1)] : null;
+  const searchHits = useMemo(() => {
+    if (!matches.length) return null;
+    const by = new Map<number, Map<string, Hits>>();
+    for (const m of matches) {
+      let fields = by.get(m.id);
+      if (!fields) by.set(m.id, (fields = new Map()));
+      let h = fields.get(m.field);
+      if (!h) fields.set(m.field, (h = { ranges: [], current: -1 }));
+      if (m === current) h.current = h.ranges.length;
+      if (m.range) h.ranges.push(m.range);
+      else if (m === current) h.current = 0;
+    }
+    return by;
+  }, [matches, current]);
+  const stepMatch = (d: 1 | -1) =>
+    setMatchAt((i) => (matches.length ? (i + d + matches.length) % matches.length : 0));
 
   const rowVirtualizer = useVirtualizer({
     count,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => (pages ? 720 : 170),
-    getItemKey: (i) => (pages ? `p${pages[i][0].id}` : filtered[i].id),
+    estimateSize: () => (pages || layoutPages ? 720 : 170),
+    getItemKey: (i) =>
+      layoutPages ? `L${layoutPages[i]}` : pages ? `p${pages[i][0].id}` : filtered[i].id,
     overscan: 4,
     // Room under the floating head, and scrolls to a row stop below it.
     paddingStart: headH,
@@ -514,7 +642,9 @@ export function ReaderView({
       // Instant, not smooth: during a smooth scroll the virtualizer skips
       // measuring rows far from the target and never returns to them, so
       // the rows passed on the way overlapped after a long jump.
-      rowVirtualizer.scrollToIndex(idx, { align: pages ? "start" : "center" });
+      rowVirtualizer.scrollToIndex(idx, {
+        align: pages || layoutPages ? "start" : "center",
+      });
     }, 60);
     const settle = setTimeout(() => {
       navSettledRef.current = true;
@@ -523,24 +653,57 @@ export function ReaderView({
       clearTimeout(tm);
       clearTimeout(settle);
     };
-  }, [anchorId, indexOfAyah, rowVirtualizer, pages]);
+  }, [anchorId, indexOfAyah, rowVirtualizer, pages, layoutPages]);
 
-  // Keep the ayah being recited in view.
+  // Bring the search hit stepped to into view (the row, then the word). Keyed
+  // on the hit itself, so reloaded data never pulls the list back to it.
+  const currentKey = current
+    ? `${current.id}:${current.field}:${current.range?.[0] ?? ""}`
+    : "";
+  useEffect(() => {
+    if (!current) return;
+    const idx = indexOfAyah(current.id);
+    if (idx < 0) return;
+    quietScrollUntil.current = Date.now() + 600;
+    rowVirtualizer.scrollToIndex(idx, { align: "center" });
+    const tm = setTimeout(() => {
+      const el = scrollRef.current?.querySelector<HTMLElement>("[data-match-current]");
+      el?.scrollIntoView?.({ block: "center" });
+    }, 80);
+    return () => clearTimeout(tm);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentKey]);
+
+  // Keep the ayah being recited in view: its top (the Arabic), not the end
+  // of a long tafsir under it. Only scrolls when that top is off screen.
   useEffect(() => {
     if (playingId === undefined) return;
     const idx = indexOfAyah(playingId);
-    if (idx >= 0) {
-      quietScrollUntil.current = Date.now() + 400;
-      rowVirtualizer.scrollToIndex(idx, { align: "auto" });
+    if (idx < 0) return;
+    const item = rowVirtualizer.getVirtualItems().find((vi) => vi.index === idx);
+    const sc = scrollRef.current;
+    if (item && sc) {
+      const top = item.start - sc.scrollTop;
+      if (top >= headHRef.current && top < sc.clientHeight - 120) return;
     }
-  }, [playingId, indexOfAyah, rowVirtualizer]);
+    quietScrollUntil.current = Date.now() + 400;
+    rowVirtualizer.scrollToIndex(idx, { align: pages || layoutPages ? "auto" : "start" });
+  }, [playingId, indexOfAyah, rowVirtualizer, pages, layoutPages]);
 
   // Rows are measured lazily, so the total height can grow after reaching the
   // bottom (a long final ayah like 2:282). While pinned to the bottom, follow it.
   const itemFirstAyah = useRef<(i: number) => number | undefined>(() => undefined);
   useEffect(() => {
-    itemFirstAyah.current = (i) => (pages ? pages[i]?.[0].id : filtered[i]?.id);
-  }, [pages, filtered]);
+    itemFirstAyah.current = (i) => {
+      if (layout && layoutPages) {
+        const first = layout.page[layoutPages[i] - 1]?.find(
+          (l: LayoutLine) => l.length === 2 && typeof l[0] === "number",
+        );
+        return first ? (first[0] as number) : undefined;
+      }
+      return pages ? pages[i]?.[0].id : filtered[i]?.id;
+    };
+  }, [pages, filtered, layout, layoutPages]);
   const onListScroll = useCallback(() => {
     const sc = scrollRef.current;
     if (!sc) return;
@@ -611,6 +774,30 @@ export function ReaderView({
     return () => window.removeEventListener("keydown", onKey);
   }, [go, target.value]);
 
+  // A sideways swipe moves to the next (swipe left) or previous (swipe right)
+  // surah, juz, hizb, rukuʿ or page, like ← / →. Not from inputs and sliders,
+  // nor while text is being selected.
+  const swipe = useRef<{ x: number; y: number; at: number } | null>(null);
+  const onSwipeStart = (e: React.TouchEvent) => {
+    const el = e.target as Element;
+    swipe.current =
+      e.touches.length === 1 &&
+      !el.closest("input, textarea, [role='slider'], [data-no-swipe]")
+        ? { x: e.touches[0].clientX, y: e.touches[0].clientY, at: Date.now() }
+        : null;
+  };
+  const onSwipeEnd = (e: React.TouchEvent) => {
+    const st = swipe.current;
+    swipe.current = null;
+    if (!st || Date.now() - st.at > 700) return;
+    if (window.getSelection?.()?.toString()) return;
+    const tch = e.changedTouches[0];
+    const dx = tch.clientX - st.x;
+    const dy = tch.clientY - st.y;
+    if (Math.abs(dx) < 80 || Math.abs(dx) < 2.5 * Math.abs(dy)) return;
+    go(target.value + (dx < 0 ? 1 : -1));
+  };
+
   // A row's "more" menu closes on any press outside it.
   useEffect(() => {
     if (menuFor === null) return;
@@ -638,8 +825,15 @@ export function ReaderView({
   const verseColor = (v: Verse): string =>
     surahColorById(v.s, colorMode, palette, surahMap, v.p);
 
+  // The ayah the reader is on: the one at the top of the screen, else the
+  // chosen one.
+  const hereVerse = verses[(inScope(topId) ? topId! : (selected?.id ?? 1)) - 1];
+
   // ── Title ──
-  const headerSurah = target.scope === "surah" ? surahMap.get(target.value) : undefined;
+  // Reading by surah: that surah. By juz, hizb, rukuʿ or page: the surah
+  // being read (it changes as you scroll), with the division in bold below.
+  const scopeSurah = target.scope === "surah" ? surahMap.get(target.value) : undefined;
+  const headerSurah = scopeSurah ?? (hereVerse ? surahMap.get(hereVerse.s) : undefined);
   const title = headerSurah ? (
     <span className="flex items-baseline gap-2">
       {/* On a phone the head holds six tools: the name alone. */}
@@ -659,15 +853,24 @@ export function ReaderView({
   ) : (
     `${t.scope[target.scope]} ${target.value}`
   );
-  const subtitle = headerSurah
-    ? t.reader.meta(
-        i18n.meaning(headerSurah),
-        i18n.place(headerSurah.type),
-        headerSurah.revelationOrder,
-        headerSurah.ayahCount,
-        n(headerSurah.wordCount),
+  const subtitle = scopeSurah ? (
+    narrow ? null : (
+      t.reader.meta(
+        i18n.meaning(scopeSurah),
+        i18n.place(scopeSurah.type),
+        scopeSurah.revelationOrder,
+        scopeSurah.ayahCount,
+        n(scopeSurah.wordCount),
       )
-    : t.reader.nVerses(scopeVerses.length);
+    )
+  ) : (
+    <>
+      <b className="font-semibold text-ink-muted">
+        {t.scope[target.scope]} {target.value}
+      </b>
+      {!narrow && ` · ${t.reader.nVerses(scopeVerses.length)}`}
+    </>
+  );
 
   // ── Copy ──
   const editionName =
@@ -718,8 +921,34 @@ export function ReaderView({
     } satisfies RowTranslation;
   };
   const translations: RowTranslation[] = [
-    column(edition, translation.data, translation.loading),
+    {
+      ...column(edition, translation.data, translation.loading),
+      notes: footnotes[edition],
+    },
+    ...extraIds.map((id, i) => ({
+      ...column(id, extraTr[i]?.data ?? null, extraTr[i]?.loading ?? true),
+      notes: footnotes[id],
+    })),
   ];
+  const inlineTafsirs: RowTafsir[] = shownTafsirs.map((ed) => {
+    const ai = ayahTafsirIds.indexOf(ed.id);
+    const grouped = groupedTafsirs.get(ed.id);
+    const lookup = tafsirGroups.get(ed.id);
+    return {
+      id: ed.id,
+      label: ed.label,
+      kind: ed.kind,
+      lang: ed.lang,
+      source: ed.source,
+      published: lang === "id" ? ed.published.id : ed.published.en,
+      loading:
+        ed.kind === "ayah"
+          ? (ayahTafsirs[ai]?.loading ?? true)
+          : !lookup && !grouped?.error,
+      ayah: ed.kind === "ayah" ? (ayahTafsirs[ai]?.data ?? null) : null,
+      groupAt: (id, prevId) => (lookup ? tafsirGroupAt(lookup, id, prevId) : null),
+    };
+  });
 
   const rowCtx: RowContext = {
     mode,
@@ -736,18 +965,9 @@ export function ReaderView({
     wordByWord: wordByWordState.data,
     alignCache: alignCache.current,
     glossLang: p.glossLang,
-    inlineTafsir: inlineTafsirOn
-      ? {
-          kind: tafsirEd.kind,
-          lang: tafsirEd.lang,
-          source: tafsirEd.source,
-          published: lang === "id" ? tafsirEd.published.id : tafsirEd.published.en,
-          loading: tafsirEd.kind === "ayah" ? tafsir.loading : groupedTafsir.loading,
-          ayah: tafsir.data,
-          groupAt: (id, prevId) =>
-            tafsirGroups ? tafsirGroupAt(tafsirGroups, id, prevId) : null,
-        }
-      : null,
+    inlineTafsirs,
+    search: searchHits,
+    recited: surahTimings ? { clock: rec.clock, timing: timingOf } : null,
     inlineAsbab:
       p.showAsbab && asbabMap
         ? {
@@ -769,6 +989,7 @@ export function ReaderView({
         : null,
     verseColor,
     audioOn,
+    canPlay: !!reciter,
     playingId,
     inEditedRange: (id) => !!loopRange && id >= range.from && id <= range.to,
     playFrom,
@@ -797,12 +1018,9 @@ export function ReaderView({
     wordByWordState.error ||
     themesState.error ||
     asbabState.error ||
-    tafsir.error ||
-    groupedTafsir.error;
+    tafsirError ||
+    layoutState.error;
 
-  // The ayah the reader is on: the one at the top of the screen, else the
-  // chosen one.
-  const hereVerse = verses[(inScope(topId) ? topId! : (selected?.id ?? 1)) - 1];
   const divisions: ReaderScope[] = (DIVISIONS as readonly ReaderScope[]).includes(
     target.scope,
   )
@@ -825,12 +1043,56 @@ export function ReaderView({
             });
         }}
       />
-      <EditionSelect
-        index={editions}
-        value={edition}
-        onChange={onEditionChange}
-        label={t.reader.translation}
-      />
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-ink-muted">
+          {t.reader.translations}
+        </span>
+        <EditionSelect
+          index={editions}
+          value={edition}
+          onChange={onEditionChange}
+          ariaLabel={t.reader.translation}
+          exclude={p.extraEditions}
+        />
+        {p.extraEditions.map((id, i) => (
+          <div key={id} className="flex items-center gap-1">
+            <EditionSelect
+              className="flex-1"
+              index={editions}
+              value={id}
+              ariaLabel={t.reader.extraTranslation(i + 2)}
+              exclude={[edition, ...p.extraEditions]}
+              onChange={(next) =>
+                p.setExtraEditions(p.extraEditions.map((x) => (x === id ? next : x)))
+              }
+            />
+            <QuietIconButton
+              label={t.reader.remove(
+                editionByIdentifier(editions, id)?.englishName ?? id,
+              )}
+              onClick={() => p.setExtraEditions(p.extraEditions.filter((x) => x !== id))}
+            >
+              <X size={16} />
+            </QuietIconButton>
+          </div>
+        ))}
+        {p.extraEditions.length < MAX_EXTRA && (
+          <button
+            type="button"
+            onClick={() => {
+              const taken = new Set([edition, ...p.extraEditions]);
+              const pick =
+                editions.editions.find(
+                  (e) => e.language === lang && !taken.has(e.identifier),
+                ) ?? editions.editions.find((e) => !taken.has(e.identifier));
+              if (pick) p.setExtraEditions([...p.extraEditions, pick.identifier]);
+            }}
+            className="inline-flex min-h-9 items-center gap-1.5 self-start rounded-lg px-1 text-sm text-illumination hover:bg-surface-sunken touch:min-h-11"
+          >
+            <Plus size={15} aria-hidden /> {t.reader.addTranslation}
+          </button>
+        )}
+      </div>
       <p className="mt-1 text-sm font-semibold text-ink">{t.reader.display}</p>
       <Toggle
         checked={p.showTranslit}
@@ -839,16 +1101,58 @@ export function ReaderView({
       />
       <Toggle checked={p.showTafsir} onChange={p.setShowTafsir} label={t.reader.tafsir} />
       {p.showTafsir && (
-        <Select
-          value={p.tafsirEdition}
-          onChange={p.setTafsirEdition}
-          label={t.reader.tafsirSource}
-          options={tafsirOptions(lang, tafsirDl)}
-        />
+        <div className="flex flex-col gap-1.5">
+          <Select
+            value={p.tafsirEdition}
+            onChange={(id) => {
+              p.setTafsirEdition(id);
+              p.setExtraTafsirs(p.extraTafsirs.filter((x) => x !== id));
+            }}
+            label={t.reader.tafsirSource}
+            options={tafsirOptions(lang, tafsirDl)}
+          />
+          {p.extraTafsirs.map((id, i) => (
+            <div key={id} className="flex items-center gap-1">
+              <Select
+                className="flex-1"
+                value={id}
+                ariaLabel={t.reader.extraTafsir(i + 2)}
+                onChange={(next) =>
+                  p.setExtraTafsirs(p.extraTafsirs.map((x) => (x === id ? next : x)))
+                }
+                options={tafsirOptions(lang, tafsirDl).filter(
+                  (o) =>
+                    o.value === id ||
+                    (o.value !== p.tafsirEdition && !p.extraTafsirs.includes(o.value)),
+                )}
+              />
+              <QuietIconButton
+                label={t.reader.remove(tafsirById(id).label)}
+                onClick={() => p.setExtraTafsirs(p.extraTafsirs.filter((x) => x !== id))}
+              >
+                <X size={16} />
+              </QuietIconButton>
+            </div>
+          ))}
+          {p.extraTafsirs.length < MAX_EXTRA && (
+            <button
+              type="button"
+              onClick={() => {
+                const taken = new Set([p.tafsirEdition, ...p.extraTafsirs]);
+                const pick = tafsirOptions(lang).find((o) => !taken.has(o.value));
+                if (pick) p.setExtraTafsirs([...p.extraTafsirs, pick.value]);
+              }}
+              className="inline-flex min-h-9 items-center gap-1.5 self-start rounded-lg px-1 text-sm text-illumination hover:bg-surface-sunken touch:min-h-11"
+            >
+              <Plus size={15} aria-hidden /> {t.reader.addTafsir}
+            </button>
+          )}
+        </div>
       )}
-      {p.showTafsir && tafsirPending && (
-        <TafsirDownloadOffer ed={tafsirEd} dl={tafsirDl} />
-      )}
+      {p.showTafsir &&
+        pendingTafsirs.map((ed) => (
+          <TafsirDownloadOffer key={ed.id} ed={ed} dl={tafsirDl} />
+        ))}
       <Toggle
         checked={p.showTajweed}
         onChange={p.setShowTajweed}
@@ -867,6 +1171,18 @@ export function ReaderView({
           {t.reader.tajweedRules}
           <ArrowRight size={15} aria-hidden />
         </button>
+      )}
+      <Select<(typeof MUSHAF_LAYOUTS)[number]>
+        label={t.reader.layout}
+        value={p.mushafLayout}
+        onChange={(l) => {
+          p.setMushafLayout(l);
+          if (mode !== "mushaf") p.setMode("mushaf");
+        }}
+        options={MUSHAF_LAYOUTS.map((l) => ({ value: l, label: t.reader.layouts[l] }))}
+      />
+      {mode === "mushaf" && p.mushafLayout !== "flow" && (
+        <p className="-mt-1.5 text-xs text-ink-subtle">{t.reader.layoutNote}</p>
       )}
       <Toggle checked={p.showWords} onChange={p.setShowWords} label={t.reader.wbw} />
       {p.showWords && (
@@ -917,7 +1233,9 @@ export function ReaderView({
                   ? t.reader.failedWhat.themes
                   : asbabState.error
                     ? t.reader.failedWhat.asbab
-                    : t.reader.failedWhat.tafsir,
+                    : layoutState.error
+                      ? t.reader.failedWhat.layout
+                      : t.reader.failedWhat.tafsir,
           )}
         </p>
       )}
@@ -987,7 +1305,7 @@ export function ReaderView({
       >
         <ReaderToolbar
           title={title}
-          subtitle={narrow ? null : subtitle}
+          subtitle={subtitle}
           compact={narrow}
           onBack={onClose}
           onGoTo={() => setGoToOpen(true)}
@@ -997,6 +1315,15 @@ export function ReaderView({
           onSearchOpen={setSearchOpen}
           query={query}
           onQuery={setQuery}
+          matches={
+            q
+              ? {
+                  count: matches.length,
+                  at: Math.min(matchAt, matches.length - 1),
+                  onStep: stepMatch,
+                }
+              : null
+          }
           info={{ on: showInfo, toggle: () => setShowInfo(!showInfo) }}
           player={
             reciter
@@ -1033,6 +1360,8 @@ export function ReaderView({
         <div
           ref={scrollRef}
           onScroll={onListScroll}
+          onTouchStart={onSwipeStart}
+          onTouchEnd={onSwipeEnd}
           className="min-w-0 flex-1 overflow-y-auto px-3 pb-4 pt-1"
         >
           <div className="mx-auto max-w-4xl">
@@ -1052,6 +1381,36 @@ export function ReaderView({
                 </p>
               )}
               {rowVirtualizer.getVirtualItems().map((vi) => {
+                if (layout && layoutPages)
+                  return (
+                    <div
+                      key={vi.key}
+                      ref={rowVirtualizer.measureElement}
+                      data-index={vi.index}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${vi.start}px)`,
+                      }}
+                    >
+                      <MushafLinesPage
+                        layout={layout}
+                        page={layoutPages[vi.index]}
+                        verses={verses}
+                        surahMap={surahMap}
+                        wordCount={wordCount}
+                        inScope={(id) => id >= scopeRange.from && id <= scopeRange.to}
+                        tajweed={p.showTajweed ? tajweedState.data : null}
+                        selectedId={highlightId}
+                        playingId={audioOn ? playingId : undefined}
+                        clock={rec.clock}
+                        timing={timingOf}
+                        onSelect={openContext}
+                      />
+                    </div>
+                  );
                 const page = pages?.[vi.index];
                 const v = page ? page[0] : filtered[vi.index];
                 return (
@@ -1151,6 +1510,7 @@ export function ReaderView({
           onRange={editRange}
           roomy={width >= PLAYER_ROOMY_PX}
           onOpenOptions={openPlayerSheet}
+          onClose={() => p.setShowAudio(false)}
           download={downloadPrompt}
         />
       )}
@@ -1281,6 +1641,7 @@ export function ReaderView({
           onOptions={p.setAudioOpts}
           storage={storage}
           reciterNote={native ? reciterNote : undefined}
+          timed={(id) => TIMED_RECITERS.has(id)}
           onPlay={() => {
             setPlayerSheet(false);
             rec.play(range.from);

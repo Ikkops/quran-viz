@@ -1,0 +1,160 @@
+import { Fragment, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { splitAt, type Range } from "../../data/textSearch";
+import { alignTajweedToWords, type TajweedSegment } from "../../data/tajweed";
+import { splitWords } from "../../data/mushafLayout";
+import { wordAt } from "../../data/wordTimings";
+import type { PlayClock } from "../../data/useRecitation";
+import { useI18n } from "../../i18n/I18nContext";
+import { cx } from "../ui";
+import { TajweedSegs } from "./AyahText";
+
+/** Search hits in one piece of text; `current` is the index of the hit the
+ *  learner stepped to, if it is in this text. */
+export interface Hits {
+  ranges: Range[];
+  current: number;
+}
+
+const HIT = "rounded-sm bg-illumination/20 text-ink";
+const HIT_NOW = "rounded-sm bg-illumination text-white dark:text-paper";
+
+/** Text with its search hits marked. */
+export function HighlightText({ text, hits }: { text: string; hits?: Hits | null }) {
+  if (!hits?.ranges.length) return <>{text}</>;
+  return (
+    <>
+      {splitAt(text, hits.ranges).map(([piece, i], k) =>
+        i < 0 ? (
+          <Fragment key={k}>{piece}</Fragment>
+        ) : (
+          <mark
+            key={k}
+            data-match-current={i === hits.current || undefined}
+            className={i === hits.current ? HIT_NOW : HIT}
+          >
+            {piece}
+          </mark>
+        ),
+      )}
+    </>
+  );
+}
+
+/** A translation with its footnote markers (numbered buttons; a pressed one
+ *  shows its note under the text) and search hits. */
+export function TranslationText({
+  text,
+  notes,
+  hits,
+}: {
+  text: string;
+  notes?: [number, string][];
+  hits?: Hits | null;
+}) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState<number | null>(null);
+  if (!notes?.length) return <HighlightText text={text} hits={hits} />;
+  const parts: ReactNode[] = [];
+  let at = 0;
+  notes.forEach(([off, _note], n) => {
+    const cut = Math.min(Math.max(off, at), text.length);
+    parts.push(
+      <HighlightText
+        key={`t${n}`}
+        text={text.slice(at, cut)}
+        hits={shiftHits(hits, at, cut)}
+      />,
+    );
+    parts.push(
+      <button
+        key={`n${n}`}
+        type="button"
+        onClick={() => setOpen(open === n ? null : n)}
+        aria-expanded={open === n}
+        aria-label={t.reader.footnote(n + 1)}
+        className={cx(
+          "ml-px inline-block -translate-y-[0.45em] rounded-sm px-[0.2em] align-baseline font-ui text-[0.68em] font-semibold leading-none",
+          open === n ? "bg-illumination text-white dark:text-paper" : "text-illumination",
+        )}
+      >
+        {n + 1}
+      </button>,
+    );
+    at = cut;
+  });
+  parts.push(
+    <HighlightText
+      key="end"
+      text={text.slice(at)}
+      hits={shiftHits(hits, at, text.length)}
+    />,
+  );
+  return (
+    <>
+      {parts}
+      {open !== null && notes[open] && (
+        <span className="mt-1.5 block rounded-md border-l-2 border-illumination bg-surface-sunken px-2.5 py-1.5 text-[0.875em] text-ink-muted dark:bg-surface">
+          <span className="mr-1 font-semibold text-illumination">{open + 1}</span>
+          {notes[open][1]}
+        </span>
+      )}
+    </>
+  );
+}
+
+/** Hits that fall inside text[from, to), moved to start at 0. */
+function shiftHits(hits: Hits | null | undefined, from: number, to: number): Hits | null {
+  if (!hits) return null;
+  const ranges: Range[] = [];
+  let current = -1;
+  hits.ranges.forEach(([a, b], i) => {
+    if (b <= from || a >= to) return;
+    if (i === hits.current) current = ranges.length;
+    ranges.push([Math.max(a, from) - from, Math.min(b, to) - from]);
+  });
+  return ranges.length ? { ranges, current } : null;
+}
+
+/** An ayah's Arabic as words, the words being recited lit up (word timings).
+ *  Subscribes to the player clock, so only this row re-renders as it plays. */
+export function RecitedWords({
+  id,
+  ar,
+  tajweed,
+  clock,
+  timing,
+  end,
+}: {
+  id: number;
+  ar: string;
+  tajweed?: string | null;
+  clock: PlayClock;
+  timing: number[] | undefined;
+  end: ReactNode;
+}) {
+  const time = useSyncExternalStore(clock.subscribe, clock.get);
+  const on = time.id === id ? wordAt(timing, time.t * 1000) : null;
+  const words = useMemo(() => splitWords(ar), [ar]);
+  const segs = useMemo<TajweedSegment[][] | null>(
+    () => (tajweed ? alignTajweedToWords(tajweed, words) : null),
+    [tajweed, words],
+  );
+  return (
+    <>
+      {words.map((w, i) => (
+        <Fragment key={i}>
+          {i > 0 && " "}
+          <span
+            className={cx(
+              "rounded-sm transition-colors duration-150 motion-reduce:transition-none",
+              on && i >= on[0] && i < on[1] && "bg-illumination/20",
+            )}
+          >
+            {segs?.[i] ? <TajweedSegs segs={segs[i]} /> : w}
+          </span>
+        </Fragment>
+      ))}
+      {end}
+    </>
+  );
+}

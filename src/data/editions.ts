@@ -232,3 +232,8 @@ export function tafsirById(id: string): TafsirEdition {
   return TAFSIR_EDITIONS.find((t) => t.id === id) ?? TAFSIR_EDITIONS[0];
 }
 export const TRANSLITERATION_EDITION = "en.transliteration";
+/** The transliteration for the UI language: Indonesian spelling (Kemenag,
+ *  from equran.id) when the app is in Indonesian, else the English one. */
+export function transliterationFor(uiLang: string): string {
+  return uiLang === "id" ? "id.transliteration" : TRANSLITERATION_EDITION;
+}

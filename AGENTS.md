@@ -40,6 +40,8 @@ exists, the script gunzips it automatically) **and** `../reference/quran-refs/qu
   server on this mount kept serving the old Tailwind output (old slate ramp, no
   token classes like `text-ink`) while the JS updated, so token-coloured UI
   rendered in the browser's default text colour (white under an OS dark scheme).
+- **Tailwind** has `future.hoverOnlyWhenSupported`: `hover:` applies only where a
+  pointer can hover, so a tapped button on a phone no longer keeps its tint.
 - **Tests** use jsdom + RTL (`vitest.config.ts`, `src/test/setup.ts`).
   `@tanstack/react-virtual` is mocked in tests (jsdom has 0-height container →
   0 virtual rows).
@@ -97,7 +99,23 @@ those editions reach the app only once merged to `main`. Surah names:
 `nameEn` is qul.db `chapters.name_simple` (quran.com spelling, "Al-Fatihah");
 `nameId` comes from the checked-in `scripts/data/surah_names_id.json` (114
 unique names, equran.id spelling: Ghafir, Al-Mujadilah, Al-Insyirah; the ETL
-fails otherwise). Regenerate with
+fails otherwise). Reader extras come from `scripts/fetch_reader_data.py`
+snapshots (`scripts/data/{footnotes,translit,mushaf,timings}/*.json.gz`,
+re-fetch only to refresh; it prints progress) and are written by
+`scripts/reader_data.py` (tests in `scripts/test_reader_data.py`):
+`translations/id.transliteration.json` (equran.id `teksLatin`),
+`footnotes/<edition>.json` (`{ayah id: [[offset, note]]}`: quran.com's
+`<sup foot_note>` markers moved onto the app's own text of `FOOTNOTE_EDITIONS`
+with difflib where the wording differs, never inside a word), `mushaf/<layout>.json`
+(`madinah-1441`, `madinah-1405`, `indopak-15`, `indopak-16`: per page, lines
+as `[ayah id, first word]`, `["s", surah]`, `["b"]`; empty lines before a
+surah's first ayah, across a page break too, become its name and basmala;
+`check_layout` fails the ETL on gaps) and `timings/<reciter>/<surah>.json`
+(quran-align, CC BY 4.0, 12 reciters: per ayah flat `[wordFrom, wordTo,
+startMs, endMs, …]`; the other bitrates of those everyayah sets are the same
+recordings). Words are `split_words` / `splitWords` (pause marks join the
+word before, ۞ the word after); quran.com and quran-align split بَعْدَمَا in
+three ayahs into two words, which `qc_word_map` maps back. Regenerate with
 `npm run build:data` — **never hand-edit files in `public/data/`.**
 
 **Revelation order and ayah-level places.** `surahs[].revelationOrder` (1–114,
@@ -399,7 +417,29 @@ mirip · Akar & topik; each tab lazy-loads its file; per-ayah reverse indexes in
 `data/ayahContext.ts`), `Recitation` (`MiniPlayer` docked at the bottom,
 `RecitationControls` in a sheet), `AyahText` (Arabic with red-ink ۞/۩ and the
 U+06DD ayah-end medallion), `readerShared` (prefs hook, scope helpers). Layouts
-(`qv.reader.mode`): ayah by ayah or mushaf pages (Compare was removed). Only an
+(`qv.reader.mode`): ayah by ayah or mushaf pages (Compare was removed). Mushaf
+pages follow `qv.reader.layout`: a printed layout (`MushafLinesPage`, data in
+`data/mushafLayout.ts`: whole pages, ayahs outside the scope dimmed, each
+line's words spread to the width, the font fitted to the widest line after
+`document.fonts.ready`, short lines centred) or `flow` (the old `MushafPage`,
+grouped by `verses.page`). Search is find-in-text (`data/textSearch.ts`): every
+hit in the Arabic (`findAllArabic`, spelling-tolerant) and in each translation
+shown (`findAllLatin`, case and accents folded), plus `2:255`/`255` as an ayah;
+nothing is filtered out, the field shows `n/total` with ↑/↓ (Enter, Shift+Enter)
+and the stepped-to hit is scrolled to (`[data-match-current]`). Several
+translations (`qv.reader.extraEditions`) and tafsirs (`qv.reader.extraTafsirs`,
+the main `tafsirEdition` is also the context panel's) show under each ayah,
+up to `MAX_EXTRA` extra each, loaded by `useTranslations` /
+`useGroupedTafsirs`. Translator footnotes (`data/footnotes.ts`) are numbered
+markers in the text (`TranslationText`); a pressed one shows its note below.
+Transliteration follows the UI language (`transliterationFor`). Reading by
+juz, hizb, rukuʿ or page, the head's title is the surah at the top and the
+division is the bold subtitle. A sideways swipe on the list (≥ 80 px, mostly
+horizontal, under 0.7 s) goes to the next (left) or previous (right) window,
+like ←/→. Every ayah has a play button whenever a reciter exists; with the
+player hidden it opens it. While a reciter with word timings
+(`data/wordTimings.ts`, `TIMED_RECITERS`) plays, `RecitedWords` (ayah rows)
+and `MushafLinesPage` light up the word being recited from `rec.clock`. Only an
 ayah someone chose is highlighted (`highlightId`: a link's anchor or a tapped
 ayah), never the first ayah on opening. Section themes load in the UI language
 (`themes.json` / `themes-id.json`; Indonesian from the checked-in
@@ -499,7 +539,7 @@ written only when the whole surah is in place. One app-wide queue
 downloaded stops playback and sets `rec.missing`. The `MiniPlayer` then
 becomes the download offer (what, estimated size by word share, progress,
 cancel); the options sheet shows what is on the device, "download all" and
-"delete" (with a confirm). This and the downloadable tafsirs (see the ETL
+"delete" (with a confirm). This, word timings and the downloadable tafsirs (see the ETL
 section) are the app's only network use, and only on the learner's tap.
 
 Settings → Audio storage chooses where audio lives: the two app-private
@@ -558,7 +598,14 @@ by CI (no Android SDK on the dev machine), so check the PR's `apk` job.
   (picking a surah jumps to its first ayah for From, its last for To), "set to
   the playing ayah", reset, and
   repeat ayah / repeat range (0 = ∞) / gap / speed, persisted as
-  `qv.audio.options`. Each verse row gets a "play from here" button; outside the
+  `qv.audio.options`. The player closes itself (X, `qv.reader.audio` off) and its
+options button is the sliders icon (reader settings keep the gear). In the
+app the reciter list puts reciters with audio on the device first (check mark,
+`Select` option `icon`), then a dividing line (`separator`), then the rest;
+reciters with word timings carry a highlighter mark (`trailing`). In the app
+the timings are `words-<surah>.json` in the reciter folder, downloaded after
+the surah's audio or on first play (`deviceTimingsUrl`); `build:android` leaves
+`data/timings` out. Each verse row gets a "play from here" button; outside the
   range it sets the range to that ayah through the end of the scope. The range
   follows the scope until edited and resets on navigation unless a cursor exists.
 - `data/mediaControls.ts` wraps `@capgo/capacitor-media-session`: on Android
@@ -607,7 +654,7 @@ Keys: `qv.structure.tab`, `qv.browse.layout`, `qv.peta.*`, `qv.compare.editions`
 `qv.lastRead`, `qv.welcome` (first run done), `qv.home.tab`, `qv.home.query`, `qv.activity.period`, `qv.reading.goal`, `qv.reading.log`, `qv.audio.options` (recitation repeats/gap/speed), `qv.audio.reciter`, `qv.colorMode` (owned by `App`, shared by dashboard, reader and
 search), `qv.edition` (reader translation), and `qv.reader.*` (gear-menu toggles,
 `tafsirEdition`, `glossLang`, `translationScale`, `infoLang`, `audio`, `mode`,
-`context`, `contextTab`). Theme,
+`context`, `contextTab`, `extraEditions`, `extraTafsirs`, `layout`). Theme,
 Arabic font and the Arabic text scale live in `quranviz.theme` (`ThemeContext`);
 the reader's "Arabic size" slider writes that same `arabicScale`.
 localStorage is per origin, so settings only carry over on the same host:port.

@@ -12,6 +12,10 @@
 // the choice persists as `qv.audio.location`. Paths are absolute file:// URIs,
 // which the Filesystem and FileTransfer plugins accept without a `directory`.
 //
+// Reciters with word timings also get `words-<surah>.json` (from the
+// project's repository, see tafsirStore's REMOTE_DATA) next to the audio, so
+// the word being recited lights up offline.
+//
 // One store for the whole app: the reader and its player sheet read the same
 // state through useAudioDownloads().
 
@@ -26,6 +30,8 @@ import {
   surahAudioFiles,
   type ReciterId,
 } from "./recitation";
+import { REMOTE_DATA } from "./tafsirStore";
+import { TIMED_RECITERS, timingsPath } from "./wordTimings";
 
 /** Running inside the Android app (audio comes from device storage). */
 export const isNativeApp = (): boolean => Capacitor.isNativePlatform();
@@ -299,6 +305,35 @@ async function fetchFile(reciter: ReciterId, name: string): Promise<number> {
   return got;
 }
 
+/** URL of a surah's word timings on the device, downloading the small file
+ *  first if it isn't there (surahs downloaded before timings existed). Null
+ *  for reciters without timings or when it can't be had. */
+export async function deviceTimingsUrl(
+  reciter: string,
+  surah: number,
+): Promise<string | null> {
+  if (!TIMED_RECITERS.has(reciter)) return null;
+  await init();
+  const path = `${folder(reciter)}/words-${surah}.json`;
+  if ((await sizeOf(path)) === 0) {
+    try {
+      await Filesystem.mkdir({ path: folder(reciter), recursive: true }).catch(
+        () => undefined,
+      );
+      await FileTransfer.downloadFile({
+        url: REMOTE_DATA + timingsPath(reciter, surah),
+        path,
+        connectTimeout: 15_000,
+        readTimeout: 30_000,
+      });
+    } catch {
+      await Filesystem.deleteFile({ path }).catch(() => undefined);
+      return null;
+    }
+  }
+  return Capacitor.convertFileSrc(path);
+}
+
 let stopRequested = false;
 let running = false;
 
@@ -339,6 +374,8 @@ async function run() {
         break;
       }
       if (stopRequested) break;
+      // Word timings ride along; without them the audio still plays.
+      await deviceTimingsUrl(reciter, job.surah);
       const m = await loadManifest(reciter);
       await saveManifest(reciter, { ...m, [job.surah]: bytes });
     }

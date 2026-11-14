@@ -1,7 +1,9 @@
 import { useMemo, useState, useSyncExternalStore } from "react";
 import {
-  ChevronUp,
+  CircleCheck,
   Crosshair,
+  Highlighter,
+  SlidersHorizontal,
   Download,
   Trash2,
   X,
@@ -311,6 +313,7 @@ export function MiniPlayer({
   onRange,
   roomy,
   onOpenOptions,
+  onClose,
   download,
 }: {
   rec: Recitation;
@@ -324,6 +327,8 @@ export function MiniPlayer({
   /** Wide enough for the range ends beside the seek bar. */
   roomy: boolean;
   onOpenOptions: () => void;
+  /** Hide the player (it stops). */
+  onClose: () => void;
   /** Android app: offer or show the download of this view's audio. */
   download?: AudioDownloadPrompt | null;
 }) {
@@ -412,7 +417,10 @@ export function MiniPlayer({
           </>
         )}
         <QuietIconButton label={a.options} onClick={onOpenOptions}>
-          <ChevronUp size={19} />
+          <SlidersHorizontal size={18} />
+        </QuietIconButton>
+        <QuietIconButton label={a.closePlayer} onClick={onClose}>
+          <X size={18} />
         </QuietIconButton>
       </div>
     );
@@ -521,13 +529,20 @@ export function MiniPlayer({
             <SkipForward size={18} />
           </QuietIconButton>
           <QuietIconButton label={a.options} onClick={onOpenOptions}>
-            <ChevronUp size={19} />
+            <SlidersHorizontal size={18} />
           </QuietIconButton>
           {roomy && cur && (
             <p className="ml-auto min-w-0 truncate pr-1 text-xs text-ink-subtle">
               {reciterName}
             </p>
           )}
+          <QuietIconButton
+            label={a.closePlayer}
+            onClick={onClose}
+            className={roomy && cur ? undefined : "ml-auto"}
+          >
+            <X size={18} />
+          </QuietIconButton>
         </div>
       </div>
       {!roomy && (
@@ -560,6 +575,7 @@ export function RecitationControls({
   onOptions,
   storage,
   reciterNote,
+  timed,
   onPlay,
   onCancel,
 }: {
@@ -581,6 +597,8 @@ export function RecitationControls({
   storage?: AudioStorage | null;
   /** Android app: what is on the device for a reciter ("12 surahs"). */
   reciterNote?: (id: string) => string | null;
+  /** Reciters with word timings (each word lights up as it is recited). */
+  timed?: (id: string) => boolean;
   /** Start the range from its beginning with these options. */
   onPlay: () => void;
   /** Put the options back as they were when the sheet opened. */
@@ -598,6 +616,32 @@ export function RecitationControls({
   const cur = rec.cursor;
   const set = <K extends keyof RecitationOptions>(k: K, v: RecitationOptions[K]) =>
     onOptions({ ...options, [k]: v });
+  // In the app, reciters with audio on the device come first (marked), then a
+  // line, then the rest; the catalogue order holds inside each part.
+  const reciterChoices = useMemo(() => {
+    const notes = reciters.map((r) => ({ r, note: reciterNote?.(r.id) ?? null }));
+    const have = notes.filter((x) => x.note);
+    const rest = notes.filter((x) => !x.note);
+    return [...have, ...rest].map(({ r, note }, i) => ({
+      value: r.id,
+      label: [a.reciterOption(r), note].filter(Boolean).join(" · "),
+      icon: reciterNote ? (
+        note ? (
+          <CircleCheck size={15} className="text-madani" aria-label={a.onDeviceMark} />
+        ) : null
+      ) : undefined,
+      trailing: timed?.(r.id) ? (
+        <Highlighter
+          size={14}
+          className="shrink-0 text-ink-subtle"
+          aria-label={a.wordTimed}
+        >
+          <title>{a.wordTimed}</title>
+        </Highlighter>
+      ) : undefined,
+      separator: have.length > 0 && i === have.length,
+    }));
+  }, [reciters, reciterNote, timed, a]);
 
   return (
     <div className="flex flex-col gap-4 p-4">
@@ -624,10 +668,7 @@ export function RecitationControls({
         value={reciter}
         onChange={onReciter}
         searchable={reciters.length > 8}
-        options={reciters.map((r) => ({
-          value: r.id,
-          label: [a.reciterOption(r), reciterNote?.(r.id)].filter(Boolean).join(" · "),
-        }))}
+        options={reciterChoices}
       />
 
       <div className="flex flex-col gap-3">

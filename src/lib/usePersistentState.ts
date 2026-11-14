@@ -60,4 +60,13 @@ export const persisted = {
       typeof raw === "number" && Number.isFinite(raw)
         ? Math.min(max, Math.max(min, raw))
         : undefined,
+  /** Distinct strings, at most `max`, only `allowed` ones when given. */
+  stringList:
+    (max: number, allowed?: readonly string[]) =>
+    (raw: unknown): string[] | undefined =>
+      Array.isArray(raw)
+        ? [...new Set(raw.filter((x): x is string => typeof x === "string"))]
+            .filter((x) => !allowed || allowed.includes(x))
+            .slice(0, max)
+        : undefined,
 };

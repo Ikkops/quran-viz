@@ -24,6 +24,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import reader_data  # noqa: E402
 import topics as topics_mod  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]            # quran-viz/
@@ -49,6 +50,8 @@ HADITH_DB = REPO / "reference" / "quran-refs" / "hadith.db"
 
 # QUL Indonesian translations exported as extra editions:
 # QUL edition -> (identifier, name, englishName).
+# Editions with translator footnotes (scripts/data/footnotes/ snapshots).
+FOOTNOTE_EDITIONS = ["id.kemenag-qul", "id.kfc-qul", "id.sabiq-qul", "en.sahih"]
 QUL_TRANSLATIONS = {
     "kemenag": ("id.kemenag-qul", "Kemenag RI (revisi)",
                 "Kemenag RI, revised (QUL)"),
@@ -1034,6 +1037,14 @@ def main() -> None:
     write_json(OUT / "meta.json", meta)
     step(f"meta.json: {meta['totals']}")
 
+    # Reader extras from scripts/fetch_reader_data.py snapshots.
+    n = reader_data.export_translit(OUT, write_json)
+    step(f"translations/id.transliteration.json: {n} ayahs")
+    notes = reader_data.export_footnotes(OUT, write_json, FOOTNOTE_EDITIONS)
+    step("footnotes/: " + ", ".join(f"{k} {c} notes ({e} ayahs exact)" for k, (c, e) in notes.items()))
+    step("mushaf/: " + ", ".join(reader_data.export_mushaf(OUT, write_json, verses, has_basmala)))
+    step(f"timings/: {len(reader_data.export_timings(OUT, write_json, verses))} reciters")
+
     # --- sanity checks: fail loudly if the source DB drifted unexpectedly ---
     assert len(verses) == max_ayah_id, (
         f"verse count {len(verses)} != max ayah id {max_ayah_id}"
@@ -1061,7 +1072,7 @@ def main() -> None:
 
 
 # Progress lines for the background-task band: "n/total · (pct%) · what · eta m:ss".
-ETL_STEPS = 23  # step() calls in a full run (tajweed/wordbyword/morphology count)
+ETL_STEPS = 27  # step() calls in a full run (tajweed/wordbyword/morphology count)
 _etl_start = datetime.now(timezone.utc)
 _etl_done = 0
 

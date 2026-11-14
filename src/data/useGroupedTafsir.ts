@@ -72,3 +72,44 @@ export function useGroupedTafsir(
 
   return state;
 }
+
+/** Several passage-grouped tafsirs for the surahs in view, keyed by ident. */
+export function useGroupedTafsirs(
+  idents: string[],
+  surahIds: number[],
+): Map<string, GroupedTafsirState> {
+  const key = `${idents.join(",")}|${surahIds.join(",")}`;
+  const [state, setState] = useState<Map<string, GroupedTafsirState>>(new Map());
+  useEffect(() => {
+    let alive = true;
+    const next = new Map<string, GroupedTafsirState>();
+    for (const ident of idents)
+      next.set(ident, { data: null, loading: surahIds.length > 0, error: null });
+    setState(next);
+    for (const ident of idents) {
+      if (surahIds.length === 0) continue;
+      Promise.all(surahIds.map((s) => loadSurah(ident, s).then((r) => [s, r] as const)))
+        .then((entries) => {
+          if (!alive) return;
+          setState((m) =>
+            new Map(m).set(ident, {
+              data: new Map(entries),
+              loading: false,
+              error: null,
+            }),
+          );
+        })
+        .catch((e) => {
+          if (!alive) return;
+          setState((m) =>
+            new Map(m).set(ident, { data: null, loading: false, error: String(e) }),
+          );
+        });
+    }
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  return state;
+}

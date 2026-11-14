@@ -7,6 +7,7 @@ import {
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
 import { Check, ChevronDown, Search } from "lucide-react";
@@ -19,6 +20,12 @@ export interface SelectOption<T> {
    *  appearance). */
   group?: string;
   disabled?: boolean;
+  /** Shown before the label (a status mark). */
+  icon?: ReactNode;
+  /** Shown after the label (feature marks). */
+  trailing?: ReactNode;
+  /** A dividing line above this option. */
+  separator?: boolean;
 }
 
 const join = (...p: (string | false | null | undefined)[]) => p.filter(Boolean).join(" ");
@@ -279,10 +286,12 @@ export function Select<T extends string | number>({
   // Group headings in order of first appearance.
   const rows: (
     | { kind: "group"; label: string }
+    | { kind: "sep"; i: number }
     | { kind: "opt"; o: SelectOption<T>; i: number }
   )[] = [];
   let lastGroup: string | undefined;
   shown.forEach((o, i) => {
+    if (o.separator && i > 0) rows.push({ kind: "sep", i });
     if (o.group && o.group !== lastGroup) rows.push({ kind: "group", label: o.group });
     lastGroup = o.group;
     rows.push({ kind: "opt", o, i });
@@ -341,7 +350,13 @@ export function Select<T extends string | number>({
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1"
         >
           {rows.map((r) =>
-            r.kind === "group" ? (
+            r.kind === "sep" ? (
+              <li
+                key={`s-${r.i}`}
+                role="separator"
+                className="mx-3 my-1 border-t border-line"
+              />
+            ) : r.kind === "group" ? (
               <li
                 key={`g-${r.label}`}
                 role="presentation"
@@ -367,7 +382,11 @@ export function Select<T extends string | number>({
                   r.o.disabled && "cursor-not-allowed opacity-40",
                 )}
               >
+                {r.o.icon !== undefined && (
+                  <span className="flex w-4 shrink-0 justify-center">{r.o.icon}</span>
+                )}
                 <span className="min-w-0 flex-1">{r.o.label}</span>
+                {r.o.trailing}
                 <Check
                   size={15}
                   aria-hidden
