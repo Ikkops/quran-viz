@@ -49,13 +49,13 @@ export function HorizontalBarChart<T extends Record<string, unknown>>({
   return (
     <ResponsiveContainer width="100%" height="100%">
       <BarChart data={data} layout="vertical" margin={margin} accessibilityLayer>
-        <XAxis type="number" tick={{ fontSize: 11, fill: ac }} />
+        <XAxis type="number" tick={{ fontSize: 12, fill: ac }} />
         <YAxis
           type="category"
           dataKey={categoryKey}
           width={categoryWidth}
           interval={0}
-          tick={{ fontSize: 11, fill: ac, ...tickStyle }}
+          tick={{ fontSize: 12, fill: ac, ...tickStyle }}
         />
         <Tooltip content={tooltip} cursor={{ fill: CURSOR_FILL }} />
         <Bar

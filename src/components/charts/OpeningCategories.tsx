@@ -58,7 +58,7 @@ export function OpeningCategories({
           >
             <XAxis
               type="number"
-              tick={{ fontSize: 11, fill: axisColor(ctx.dark) }}
+              tick={{ fontSize: 12, fill: axisColor(ctx.dark) }}
               allowDecimals={false}
             />
             <YAxis
@@ -66,7 +66,7 @@ export function OpeningCategories({
               dataKey="label"
               width={170}
               interval={0}
-              tick={{ fontSize: 11, fill: axisColor(ctx.dark) }}
+              tick={{ fontSize: 12, fill: axisColor(ctx.dark) }}
             />
             <Tooltip
               content={<GenericTooltip unit={t.charts.surahsClick} />}
@@ -104,14 +104,14 @@ export function OpeningCategories({
                 backgroundColor: FAWATIH_COLORS[selected] ?? FAWATIH_COLORS.Unknown,
               }}
             />
-            <h4 className="text-sm font-semibold text-ink">
+            <h4 className="text-heading text-ink">
               {category(selected)} · {t.charts.surahsN(members.length)}
             </h4>
             <button
               type="button"
               onClick={() => onSelect(null)}
               aria-label={t.charts.closeList}
-              className="ml-auto rounded-md p-1 text-ink-subtle hover:bg-surface-sunken hover:text-ink-muted dark:hover:bg-line"
+              className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-surface-sunken hover:text-ink touch:min-h-11 touch:min-w-11"
             >
               <X size={15} />
             </button>

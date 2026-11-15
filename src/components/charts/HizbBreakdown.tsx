@@ -43,7 +43,7 @@ export function HizbBreakdown({ verses, ctx }: { verses: Verse[]; ctx: ChartCont
           tick={{ fontSize: 9, fill: axisColor(ctx.dark) }}
           interval={rows.length > 30 ? 1 : 0}
         />
-        <YAxis tick={{ fontSize: 11, fill: axisColor(ctx.dark) }} />
+        <YAxis tick={{ fontSize: 12, fill: axisColor(ctx.dark) }} />
         <Tooltip
           content={<GenericTooltip unit={t.tooltip.units.words} />}
           cursor={{ fill: CURSOR_FILL }}

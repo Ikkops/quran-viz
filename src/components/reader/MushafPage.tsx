@@ -4,6 +4,8 @@ import { useI18n } from "../../i18n/I18nContext";
 import { cx } from "../ui";
 import { AyahText } from "./AyahText";
 import { Basmala } from "./VerseRow";
+import { SurahBanner } from "./SurahBanner";
+import { rectAt, rectOf, type PickRect } from "./wordPick";
 
 /** Split a page's verses where a new surah starts. */
 function bySurah(verses: Verse[]): Verse[][] {
@@ -19,7 +21,7 @@ function bySurah(verses: Verse[]): Verse[][] {
 /**
  * One page of the mushaf: the ayahs run on as continuous text, each closed by
  * its medallion, with the page's juz and hizb in the head margin and the page
- * number at the foot. Tapping an ayah selects it (and opens its context).
+ * number at the foot. Tapping an ayah opens its popup by the tapped spot.
  */
 export function MushafPage({
   verses,
@@ -27,14 +29,14 @@ export function MushafPage({
   tajweed,
   selectedId,
   playingId,
-  onSelect,
+  onAyah,
 }: {
   verses: Verse[];
   surahMap: Map<number, Surah>;
   tajweed: (string | null)[] | null;
   selectedId: number | undefined;
   playingId: number | undefined;
-  onSelect: (id: number) => void;
+  onAyah: (id: number, rect: PickRect) => void;
 }) {
   const { t } = useI18n();
   const first = verses[0];
@@ -42,15 +44,15 @@ export function MushafPage({
   const onKey = (id: number) => (e: KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      onSelect(id);
+      onAyah(id, rectOf(e.currentTarget));
     }
   };
   return (
     <figure
       aria-label={t.reader.page(first.page)}
-      className="mx-auto my-4 max-w-[44rem] rounded-lg border border-line bg-surface px-5 pb-3 pt-2 sm:px-8"
+      className="mx-auto my-4 max-w-[44rem] rounded-xl border border-line bg-surface px-5 pb-3 pt-2 shadow-soft sm:px-8"
     >
-      <div className="mb-1 flex items-baseline justify-between gap-3 border-b border-line pb-1 text-xs text-ink-subtle">
+      <div className="mb-1 flex items-baseline justify-between gap-3 border-b border-line/70 pb-1.5 text-xs text-ink-subtle">
         <span className="tabular-nums">
           {t.scope.juz} {first.juz} · {t.scope.hizb} {first.hizb}
         </span>
@@ -61,14 +63,7 @@ export function MushafPage({
         return (
           <Fragment key={run[0].id}>
             {run[0].a === 1 && s && (
-              <div className="my-3 rounded-md border border-line bg-surface-sunken py-1.5 text-center dark:bg-paper">
-                <span lang="ar" dir="rtl" className="font-arabic text-xl text-ink">
-                  {s.nameAr}
-                </span>
-                <span className="ml-2 text-sm text-ink-muted">
-                  {s.number}. {s.name}
-                </span>
-              </div>
+              <SurahBanner s={s} className="my-3 h-[2em] text-2xl" />
             )}
             {run[0].a === 1 && s?.hasBismillah && <Basmala />}
             <p
@@ -84,7 +79,9 @@ export function MushafPage({
                     data-ayah={v.id}
                     aria-label={t.reader.selectAyah(`${v.s}:${v.a}`)}
                     aria-pressed={selectedId === v.id}
-                    onClick={() => onSelect(v.id)}
+                    onClick={(e) =>
+                      onAyah(v.id, rectAt(e.currentTarget, e.clientX, e.clientY))
+                    }
                     onKeyDown={onKey(v.id)}
                     className={cx(
                       "cursor-pointer rounded-sm transition-colors hover:bg-illumination/10",
@@ -100,7 +97,7 @@ export function MushafPage({
           </Fragment>
         );
       })}
-      <figcaption className="mt-1 border-t border-line pt-1 text-center text-xs tabular-nums text-ink-subtle">
+      <figcaption className="mt-2 text-center text-xs tabular-nums text-ink-subtle">
         {first.page}
       </figcaption>
     </figure>

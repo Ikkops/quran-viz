@@ -11,10 +11,9 @@ import {
 } from "../../data/audioStore";
 import { formatBytes } from "../../data/recitation";
 import { useI18n } from "../../i18n/I18nContext";
+import { Button } from "../ui";
 
 const NONE: readonly string[] = [];
-const btn =
-  "inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-ink-subtle px-3 text-sm font-medium text-ink hover:bg-surface-sunken disabled:opacity-50 touch:min-h-11";
 
 /**
  * Where recitation audio is kept (Android app): the app's own storage, its
@@ -77,40 +76,28 @@ export function AudioStorageSettings() {
       {note && <p className="text-rubric">{note}</p>}
 
       {granted === false ? (
-        <div className="flex flex-col items-start gap-2 rounded-lg bg-surface-sunken p-3">
+        <div className="flex flex-col items-start gap-2">
           <p className="text-ink-muted">{a.needAccess}</p>
-          <button
-            type="button"
-            className={btn}
-            onClick={() => void requestFolderAccess()}
-          >
-            {a.grant}
-          </button>
+          <Button onClick={() => void requestFolderAccess()}>{a.grant}</Button>
         </div>
       ) : (
-        <button
-          type="button"
-          className={`${btn} self-start`}
+        <Button
+          className="self-start"
+          icon={<FolderOpen size={16} aria-hidden />}
           disabled={busy || granted === null}
           onClick={() => void choose()}
         >
-          <FolderOpen size={16} aria-hidden /> {a.choose}
-        </button>
+          {a.choose}
+        </Button>
       )}
 
       <div className="flex flex-wrap gap-2">
         {s.volumes
           .filter((v) => v.id !== s.location?.id)
           .map((v) => (
-            <button
-              key={v.id}
-              type="button"
-              className={btn}
-              disabled={busy}
-              onClick={() => void moveAudioTo(v.id)}
-            >
+            <Button key={v.id} disabled={busy} onClick={() => void moveAudioTo(v.id)}>
               {a.useVolume(nameOf(v))}
-            </button>
+            </Button>
           ))}
       </div>
       <p className="text-xs text-ink-subtle">{a.help}</p>

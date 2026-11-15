@@ -180,7 +180,7 @@ export function RootExplorer({
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t.charts.findRoot}
               aria-label={t.charts.findRootAria}
-              className="w-44 rounded-lg min-h-10 touch:min-h-11 border border-line bg-surface px-2.5 py-1.5 text-sm text-ink"
+              className="w-44 h-9 rounded border border-line bg-surface px-2.5 text-sm text-ink placeholder:text-ink-subtle touch:min-h-11"
             />
             <SegmentedControl<Measure>
               value={measure}
@@ -218,10 +218,10 @@ export function RootExplorer({
                 onClick={() => setSelectedBw(r.bw)}
                 title={`${r.bw} · ${r.gloss} · ${t.charts.occurrences(n(r.v.length))}`}
                 className={cx(
-                  "rounded-full border px-2.5 py-0.5 font-arabic text-base transition",
+                  "rounded border px-2.5 py-0.5 font-arabic text-base transition-colors touch:min-h-11",
                   r.bw === selected.bw
                     ? "border-transparent text-white"
-                    : "border-line text-ink hover:bg-surface-sunken dark:border-ink-subtle/50 dark:hover:bg-surface",
+                    : "border-line text-ink hover:bg-surface-sunken",
                 )}
                 style={
                   r.bw === selected.bw ? { backgroundColor: ctx.primary } : undefined
@@ -253,18 +253,18 @@ export function RootExplorer({
               >
                 <XAxis
                   dataKey="s"
-                  tick={{ fontSize: 10, fill: ac }}
+                  tick={{ fontSize: 12, fill: ac }}
                   interval={surahRows.length > 40 ? 9 : 0}
                   label={{
                     value: t.common.surah,
                     position: "insideBottom",
                     offset: -12,
-                    fontSize: 11,
+                    fontSize: 12,
                     fill: ac,
                   }}
                 />
                 <YAxis
-                  tick={{ fontSize: 11, fill: ac }}
+                  tick={{ fontSize: 12, fill: ac }}
                   allowDecimals={measure === "density"}
                 />
                 <Tooltip content={<SurahRowTooltip />} cursor={{ fill: CURSOR_FILL }} />

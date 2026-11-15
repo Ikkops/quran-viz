@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from "react";
-import { ChevronDown, RotateCcw, X } from "lucide-react";
+import { Check, ChevronDown, RotateCcw, X } from "lucide-react";
 import {
   SORT_LABELS,
   type FilterMode,
@@ -12,7 +12,7 @@ import type { VizUses } from "../../views/vizDefs";
 import type { ColorMode } from "../charts/common";
 import { useI18n } from "../../i18n/I18nContext";
 import { useDismiss } from "../../lib/useDismiss";
-import { cx, Select } from "../ui";
+import { Button, cx, Select } from "../ui";
 
 /** One filter as a chip: its current value, a popover to change it, and a
  *  clear button while it differs from the default. */
@@ -35,10 +35,10 @@ function Chip({
     <div ref={wrap} className="relative">
       <div
         className={cx(
-          "inline-flex h-9 touch:min-h-11 items-center rounded-full border text-sm transition-colors",
+          "inline-flex h-8 items-center rounded-lg border text-sm font-medium transition-colors touch:min-h-11",
           active
-            ? "border-illumination/50 bg-illumination/10 text-ink"
-            : "border-line text-ink-muted hover:text-ink",
+            ? "border-illumination/40 bg-illumination/10 text-ink"
+            : "border-line bg-surface text-ink-muted hover:bg-surface-sunken hover:text-ink",
         )}
       >
         <button
@@ -47,8 +47,8 @@ function Chip({
           aria-haspopup="true"
           onClick={() => setOpen(!open)}
           className={cx(
-            "inline-flex h-full items-center gap-1 whitespace-nowrap pl-3",
-            active && onClear ? "pr-1" : "pr-2.5",
+            "inline-flex h-full items-center gap-1 whitespace-nowrap pl-2.5",
+            active && onClear ? "pr-1" : "pr-2",
           )}
         >
           {label}
@@ -59,14 +59,14 @@ function Chip({
             type="button"
             onClick={onClear}
             aria-label={t.dashboard.removeFilter(label)}
-            className="mr-1 inline-flex h-7 w-7 items-center justify-center rounded-full text-ink-muted hover:bg-illumination/15 hover:text-ink"
+            className="mr-1 inline-flex h-6 w-6 items-center justify-center rounded text-ink-muted hover:bg-illumination/15 hover:text-ink touch:mr-0 touch:h-full touch:min-w-11"
           >
             <X size={14} aria-hidden />
           </button>
         )}
       </div>
       {open && (
-        <div className="absolute left-0 top-full z-30 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-surface p-3 shadow-float">
+        <div className="absolute left-0 top-full z-30 mt-1 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-surface p-1 shadow-float">
           {children(() => setOpen(false))}
         </div>
       )}
@@ -93,20 +93,16 @@ function Options<T extends string>({
           aria-pressed={o.value === value}
           onClick={() => onPick(o.value)}
           className={cx(
-            "flex h-10 touch:min-h-11 items-center gap-2 rounded-lg px-2 text-left text-sm",
-            o.value === value
-              ? "bg-surface-sunken font-medium text-ink dark:bg-paper"
-              : "text-ink-muted hover:bg-surface-sunken/60 hover:text-ink",
+            "flex min-h-9 items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-colors hover:bg-surface-sunken touch:min-h-11",
+            o.value === value ? "font-medium text-illumination" : "text-ink",
           )}
         >
-          <span
+          <span className="min-w-0 flex-1">{o.label}</span>
+          <Check
+            size={15}
             aria-hidden
-            className={cx(
-              "h-2 w-2 shrink-0 rounded-full",
-              o.value === value ? "bg-illumination" : "bg-transparent",
-            )}
+            className={cx("shrink-0", o.value !== value && "invisible")}
           />
-          {o.label}
         </button>
       ))}
     </div>
@@ -177,7 +173,7 @@ export function FilterBar({
           onClear={() => onFilter({ ...filter, mode: "all" })}
         >
           {() => (
-            <div className="space-y-3">
+            <div className="space-y-1">
               <Options<FilterMode>
                 value={filter.mode}
                 onPick={(mode) => onFilter({ ...filter, mode })}
@@ -188,7 +184,7 @@ export function FilterBar({
                 ]}
               />
               {filter.mode === "surah" && (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 px-1.5 pb-1.5 pt-1">
                   <Select
                     label={t.controls.fromSurah}
                     value={filter.surahRange[0]}
@@ -212,7 +208,7 @@ export function FilterBar({
                 </div>
               )}
               {filter.mode === "juz" && (
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 px-1.5 pb-1.5 pt-1">
                   <Select
                     label={t.controls.juzFrom}
                     value={filter.juzRange[0]}
@@ -257,7 +253,7 @@ export function FilterBar({
                   label: placeLabels[p],
                 }))}
               />
-              <p className="mt-2 px-1 text-xs leading-snug text-ink-subtle">
+              <p className="mx-1 mt-1 border-t border-line px-1.5 pb-1.5 pt-2 text-xs leading-snug text-ink-subtle">
                 {t.controls.placeTitle}
               </p>
             </>
@@ -334,13 +330,14 @@ export function FilterBar({
       )}
 
       {dirty && (
-        <button
-          type="button"
+        <Button
+          variant="quiet"
+          size="sm"
           onClick={onReset}
-          className="inline-flex h-9 touch:min-h-11 items-center gap-1.5 rounded-full px-2.5 text-sm text-ink-muted hover:text-ink"
+          icon={<RotateCcw size={14} aria-hidden />}
         >
-          <RotateCcw size={14} aria-hidden /> {t.controls.reset}
-        </button>
+          {t.controls.reset}
+        </Button>
       )}
     </div>
   );

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { LayoutGrid, List, Search, SlidersHorizontal } from "lucide-react";
+import { LayoutGrid, List, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
 import type { ChronologyData, QuranData, RevelationType, Surah } from "../../types/quran";
 import { exceptionsBySurah, surahMapOf } from "../../data/selectors";
 import { divisionCards, type DivisionCard } from "../../data/sections";
@@ -12,7 +12,7 @@ import { normalizeArabic } from "../../data/arabic";
 import { persisted, usePersistentState } from "../../lib/usePersistentState";
 import { useTheme } from "../../theme/ThemeContext";
 import { useI18n } from "../../i18n/I18nContext";
-import { SegmentedControl, Select, cx } from "../ui";
+import { Button, Card, SegmentedControl, Select, cx } from "../ui";
 import { SurahCard } from "../cards/SurahCard";
 import { placeColor, type ReaderTarget } from "../charts/common";
 import { DivisionList, type SurahSort } from "../peta/SurahList";
@@ -140,7 +140,7 @@ export function QuranIndex({
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t.browse.filterPh}
               aria-label={t.browse.filterAria}
-              className="min-h-10 w-full rounded-lg border border-line bg-surface pl-9 pr-3 text-sm text-ink placeholder:text-ink-subtle touch:min-h-11"
+              className="min-h-10 w-full rounded border border-line bg-surface pl-9 pr-3 text-sm text-ink placeholder:text-ink-subtle touch:min-h-11"
             />
           </label>
         )}
@@ -168,7 +168,7 @@ export function QuranIndex({
       </div>
 
       {optionsOpen && (
-        <div className="flex flex-wrap items-end gap-3 rounded-lg border border-line bg-surface p-3">
+        <Card className="flex flex-wrap items-end gap-3 p-4">
           {kind === "surah" && (
             <>
               <div className="w-44">
@@ -214,8 +214,21 @@ export function QuranIndex({
               },
             ]}
           />
+          {changed && (
+            <Button
+              variant="quiet"
+              icon={<RotateCcw size={14} aria-hidden />}
+              onClick={() => {
+                setSort("mushaf");
+                setType("all");
+                setLayout("list");
+              }}
+            >
+              {t.controls.reset}
+            </Button>
+          )}
           <p className="basis-full text-xs text-ink-subtle">{note}</p>
-        </div>
+        </Card>
       )}
 
       {kind === "surah" && (
@@ -246,7 +259,7 @@ export function QuranIndex({
               <div
                 className={
                   chronoState.error
-                    ? "flex flex-col items-center gap-2 py-10 text-sm text-rose-500"
+                    ? "flex flex-col items-center gap-2 py-10 text-sm text-rubric"
                     : "py-10 text-center text-sm text-ink-subtle"
                 }
                 role={chronoState.error ? "alert" : "status"}
@@ -255,18 +268,14 @@ export function QuranIndex({
                   ? t.common.failedToLoad(chronoState.error)
                   : t.browse.timelineLoading}
                 {chronoState.error && (
-                  <button
-                    type="button"
-                    onClick={chronoState.retry}
-                    className="rounded-lg border border-ink-subtle px-3 py-1 text-xs font-medium text-ink-muted hover:bg-paper dark:hover:bg-surface"
-                  >
+                  <Button size="sm" onClick={chronoState.retry}>
                     {t.common.retry}
-                  </button>
+                  </Button>
                 )}
               </div>
             )
           ) : layout === "list" ? (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-x-8">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-x-6">
               {surahs.map((x) => (
                 <SurahRow
                   key={x.id}
@@ -276,7 +285,7 @@ export function QuranIndex({
               ))}
             </div>
           ) : (
-            <div className="grid gap-2.5 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
+            <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
               {surahs.map((s) => (
                 <SurahCard
                   key={s.id}
@@ -302,7 +311,7 @@ export function QuranIndex({
         />
       )}
       {kind !== "surah" && layout === "cards" && (
-        <div className="grid gap-2.5 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
+        <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
           {(kind === "juz" ? juzCards : manzilCards).map((c) => (
             <DivisionCardView
               key={c.n}
@@ -323,7 +332,7 @@ export function QuranIndex({
   );
 }
 
-const GRID = "grid gap-2.5 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]";
+const GRID = "grid gap-3 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]";
 
 /** Surah cards grouped by phase → period → marker event (curated chronology). */
 function Timeline({
@@ -395,7 +404,7 @@ function Timeline({
                   style={{ borderColor: `${color}55` }}
                 >
                   <span
-                    className="absolute -left-[7px] top-1 h-3 w-3 rounded-full ring-2 ring-white dark:ring-paper"
+                    className="absolute -left-[7px] top-1 h-3 w-3 rounded-full ring-2 ring-paper"
                     style={{ backgroundColor: color }}
                     aria-hidden
                   />
@@ -480,11 +489,11 @@ function DivisionCardView({
     <button
       type="button"
       onClick={onOpen}
-      className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-3 text-left transition hover:-translate-y-0.5 hover:border-ink-subtle/50 hover:shadow-md focus-visible:outline focus-visible:outline-2 dark:bg-surface/60 dark:hover:border-ink-muted"
+      className="flex flex-col gap-2 rounded-xl border border-line bg-surface p-4 text-left shadow-soft transition-colors hover:border-ink-subtle/60 dark:hover:border-ink-muted"
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="font-semibold text-ink">
+          <div className="text-heading text-ink">
             {t.scope[kind]} {card.n}
           </div>
           <div className="text-xs tabular-nums text-ink-muted dark:text-ink-subtle">
@@ -506,7 +515,7 @@ function DivisionCardView({
               width: `${(x.ayahs / card.ayahs) * 100}%`,
               backgroundColor: surahColor(x.s),
             }}
-            className="border-r border-white/60 last:border-r-0 dark:border-surface/60"
+            className="border-r border-surface last:border-r-0"
           />
         ))}
       </div>
@@ -514,7 +523,7 @@ function DivisionCardView({
         {shown.map((x) => (
           <span
             key={x.s}
-            className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-xs text-ink-muted dark:bg-line"
+            className="rounded bg-surface-sunken px-1.5 py-0.5 text-xs text-ink-muted dark:bg-line"
           >
             {x.s}. {surahName(x.s)}
           </span>

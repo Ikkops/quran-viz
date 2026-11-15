@@ -57,6 +57,7 @@ import type { GlossLang } from "../../data/useWordByWord";
 import { surahMapOf } from "../../data/selectors";
 import type { Palette } from "../../theme/palettes";
 import {
+  Button,
   cx,
   QuietIconButton,
   SegmentedControl,
@@ -109,7 +110,10 @@ import {
 } from "./VerseRow";
 import { MushafPage } from "./MushafPage";
 import { WordDetailPage, WordPopover } from "./WordDetail";
-import { pickOf, type WordPick } from "./wordPick";
+import { pickOf, type AyahPick, type PickRect, type WordPick } from "./wordPick";
+import { AyahPopover } from "./AyahPopover";
+import { ayahInView, shouldFollow } from "../../lib/ayahInView";
+import { popupRoot, rootZoom } from "../ui/popup";
 import { VerseContextPanel, type ExploreTarget } from "./VerseContextPanel";
 import {
   copyToClipboard,
@@ -121,6 +125,9 @@ import {
   tafsirOptions,
   useReaderPrefs,
 } from "./readerShared";
+
+/** End-of-scope buttons: a long surah name wraps instead of overflowing a phone. */
+const END_NAV = "h-auto min-h-9 max-w-full !whitespace-normal py-2 text-center";
 
 /** Reader width (CSS px, after zoom) below which the tools go icon-only. */
 const NARROW_PX = 560;
@@ -226,6 +233,8 @@ export function ReaderView({
   // A tapped word (its popup), and the word whose details page is open.
   const [wordPick, setWordPick] = useState<WordPick | null>(null);
   const [wordDetail, setWordDetail] = useState<{ id: number; w: number } | null>(null);
+  // A tapped ayah in the mushaf layouts (its popup: reference and translation).
+  const [ayahPick, setAyahPick] = useState<AyahPick | null>(null);
 
   const surahMap = useMemo(() => surahMapOf(surahs), [surahs]);
   const scopeVerses = useMemo(
@@ -260,7 +269,7 @@ export function ReaderView({
     () => (asbabState.data ? asbabByFirstAyah(asbabState.data) : null),
     [asbabState.data],
   );
-  const translation = useTranslation(mode === "ayah" ? edition : null);
+  const translation = useTranslation(mode === "ayah" || ayahPick ? edition : null);
   // Further translations under the main one.
   const extraIds = useMemo(
     () =>
@@ -323,9 +332,15 @@ export function ReaderView({
     const v = verses[id - 1];
     return v ? wordsAt(v.s, v.a) : undefined;
   };
+  // One popup at a time: a word's or an ayah's.
   const onWord = (id: number, w: number, el: Element) => {
     setMenuFor(null);
+    setAyahPick(null);
     setWordPick(pickOf(id, w, el));
+  };
+  const onAyah = (id: number, rect: PickRect) => {
+    setWordPick(null);
+    setAyahPick({ id, rect });
   };
   const tafsirGroups = useMemo(() => {
     const m = new Map<string, ReturnType<typeof tafsirGroupLookup>>();
@@ -698,21 +713,80 @@ export function ReaderView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentKey]);
 
-  // Keep the ayah being recited in view: its top (the Arabic), not the end
-  // of a long tafsir under it. Only scrolls when that top is off screen.
-  useEffect(() => {
-    if (playingId === undefined) return;
-    const idx = indexOfAyah(playingId);
-    if (idx < 0) return;
-    const item = rowVirtualizer.getVirtualItems().find((vi) => vi.index === idx);
+  // ── Following the recitation ──
+  // The ayah's own boxes (its row, its span in the flow mushaf, its words in
+  // the printed one), and the band of the list below the floating head.
+  const ayahRects = (id: number): DOMRect[] => {
     const sc = scrollRef.current;
-    if (item && sc) {
-      const top = item.start - sc.scrollTop;
-      if (top >= headHRef.current && top < sc.clientHeight - 120) return;
+    if (!sc) return [];
+    return [...sc.querySelectorAll(`[data-ayah="${id}"]`)].flatMap((el) =>
+      mode === "ayah" ? [el.getBoundingClientRect()] : [...el.getClientRects()],
+    );
+  };
+  const listBand = () => {
+    const sc = scrollRef.current!.getBoundingClientRect();
+    const head = headRef.current?.getBoundingClientRect();
+    return { top: Math.max(sc.top, head?.bottom ?? sc.top), bottom: sc.bottom };
+  };
+  const inView = (id: number) =>
+    !!scrollRef.current && ayahInView(ayahRects(id), listBand(), mode === "ayah");
+  // Scroll to an ayah: its row; in the mushaf its page, then the ayah itself
+  // near the top of the band once the page is drawn (a page can be taller
+  // than the screen). Instant, like the anchor jumps.
+  const bringTry = useRef(0);
+  const scrollToAyah = (id: number) => {
+    const idx = indexOfAyah(id);
+    if (idx < 0) return;
+    quietScrollUntil.current = Date.now() + 700;
+    if (mode === "ayah") {
+      rowVirtualizer.scrollToIndex(idx, { align: "start" });
+      return;
     }
-    quietScrollUntil.current = Date.now() + 400;
-    rowVirtualizer.scrollToIndex(idx, { align: pages || layoutPages ? "auto" : "start" });
-  }, [playingId, indexOfAyah, rowVirtualizer, pages, layoutPages]);
+    if (!ayahRects(id).length) rowVirtualizer.scrollToIndex(idx, { align: "start" });
+    const run = ++bringTry.current;
+    let tries = 12;
+    const step = () => {
+      const sc = scrollRef.current;
+      if (run !== bringTry.current || !sc) return;
+      const rects = ayahRects(id);
+      if (!rects.length) {
+        if (--tries > 0) requestAnimationFrame(step);
+        return;
+      }
+      const b = listBand();
+      const top = Math.min(...rects.map((r) => r.top));
+      quietScrollUntil.current = Date.now() + 400;
+      // Rects are in screen px; scrollTop in the zoomed root's px.
+      sc.scrollTop += (top - b.top - (b.bottom - b.top) * 0.15) / rootZoom(popupRoot());
+    };
+    requestAnimationFrame(() => requestAnimationFrame(step));
+  };
+  // A new ayah: no scroll while it is in view; else follow only a learner who
+  // was following (the previous ayah was in view, or nothing played before).
+  // One who scrolled away to read is left there.
+  const prevPlaying = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const prev = prevPlaying.current;
+    prevPlaying.current = playingId;
+    if (playingId === undefined || prev === playingId) return;
+    if (shouldFollow(inView(playingId), prev === undefined ? null : inView(prev)))
+      scrollToAyah(playingId);
+    // Only a change of ayah moves the list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playingId]);
+  /** The player's "go to the ayah being recited": always scrolls; outside the
+   *  scope, opens it there. */
+  const goToPlaying = () => {
+    if (playingId === undefined) return;
+    if (indexOfAyah(playingId) >= 0) return scrollToAyah(playingId);
+    const v = verses[playingId - 1];
+    if (v)
+      onNavigate({
+        scope: target.scope,
+        value: scopeField(v, target.scope),
+        anchor: playingId,
+      });
+  };
 
   // Rows are measured lazily, so the total height can grow after reaching the
   // bottom (a long final ayah like 2:282). While pinned to the bottom, follow it.
@@ -843,6 +917,7 @@ export function ReaderView({
   const openContext = (id: number) => {
     setSelectedId(id);
     setWordPick(null);
+    setAyahPick(null);
     setContextSheet(true);
   };
 
@@ -1050,7 +1125,7 @@ export function ReaderView({
     ? [...DIVISIONS]
     : [...DIVISIONS, target.scope];
   const settings = (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-5">
       <Select<ReaderScope>
         label={t.reader.divideBy}
         value={target.scope}
@@ -1067,9 +1142,7 @@ export function ReaderView({
         }}
       />
       <div className="flex flex-col gap-1.5">
-        <span className="text-xs font-medium text-ink-muted">
-          {t.reader.translations}
-        </span>
+        <span className="text-eyebrow text-ink-muted">{t.reader.translations}</span>
         <EditionSelect
           index={editions}
           value={edition}
@@ -1110,134 +1183,156 @@ export function ReaderView({
                 ) ?? editions.editions.find((e) => !taken.has(e.identifier));
               if (pick) p.setExtraEditions([...p.extraEditions, pick.identifier]);
             }}
-            className="inline-flex min-h-9 items-center gap-1.5 self-start rounded-lg px-1 text-sm text-illumination hover:bg-surface-sunken touch:min-h-11"
+            className="-mx-1 inline-flex min-h-9 items-center gap-1.5 self-start rounded-md px-1.5 text-sm font-medium text-illumination transition-colors hover:bg-surface-sunken touch:min-h-11"
           >
             <Plus size={15} aria-hidden /> {t.reader.addTranslation}
           </button>
         )}
       </div>
-      <p className="mt-1 text-sm font-semibold text-ink">{t.reader.display}</p>
-      <Toggle
-        checked={p.showTranslit}
-        onChange={p.setShowTranslit}
-        label={t.reader.transliteration}
-      />
-      <Toggle checked={p.showTafsir} onChange={p.setShowTafsir} label={t.reader.tafsir} />
-      {p.showTafsir && (
-        <div className="flex flex-col gap-1.5">
-          <Select
-            value={p.tafsirEdition}
-            onChange={(id) => {
-              p.setTafsirEdition(id);
-              p.setExtraTafsirs(p.extraTafsirs.filter((x) => x !== id));
-            }}
-            label={t.reader.tafsirSource}
-            options={tafsirOptions(lang, tafsirDl)}
-          />
-          {p.extraTafsirs.map((id, i) => (
-            <div key={id} className="flex items-center gap-1">
-              <Select
-                className="flex-1"
-                value={id}
-                ariaLabel={t.reader.extraTafsir(i + 2)}
-                onChange={(next) =>
-                  p.setExtraTafsirs(p.extraTafsirs.map((x) => (x === id ? next : x)))
-                }
-                options={tafsirOptions(lang, tafsirDl).filter(
-                  (o) =>
-                    o.value === id ||
-                    (o.value !== p.tafsirEdition && !p.extraTafsirs.includes(o.value)),
-                )}
-              />
-              <QuietIconButton
-                label={t.reader.remove(tafsirById(id).label)}
-                onClick={() => p.setExtraTafsirs(p.extraTafsirs.filter((x) => x !== id))}
+      <div className="flex flex-col">
+        <p className="mb-1 text-eyebrow text-ink-subtle">{t.reader.display}</p>
+        <Toggle
+          checked={p.showTranslit}
+          onChange={p.setShowTranslit}
+          label={t.reader.transliteration}
+        />
+        <Toggle
+          checked={p.showTafsir}
+          onChange={p.setShowTafsir}
+          label={t.reader.tafsir}
+        />
+        {p.showTafsir && (
+          <div className="flex flex-col gap-1.5 pb-2">
+            <Select
+              value={p.tafsirEdition}
+              onChange={(id) => {
+                p.setTafsirEdition(id);
+                p.setExtraTafsirs(p.extraTafsirs.filter((x) => x !== id));
+              }}
+              label={t.reader.tafsirSource}
+              options={tafsirOptions(lang, tafsirDl)}
+            />
+            {p.extraTafsirs.map((id, i) => (
+              <div key={id} className="flex items-center gap-1">
+                <Select
+                  className="flex-1"
+                  value={id}
+                  ariaLabel={t.reader.extraTafsir(i + 2)}
+                  onChange={(next) =>
+                    p.setExtraTafsirs(p.extraTafsirs.map((x) => (x === id ? next : x)))
+                  }
+                  options={tafsirOptions(lang, tafsirDl).filter(
+                    (o) =>
+                      o.value === id ||
+                      (o.value !== p.tafsirEdition && !p.extraTafsirs.includes(o.value)),
+                  )}
+                />
+                <QuietIconButton
+                  label={t.reader.remove(tafsirById(id).label)}
+                  onClick={() =>
+                    p.setExtraTafsirs(p.extraTafsirs.filter((x) => x !== id))
+                  }
+                >
+                  <X size={16} />
+                </QuietIconButton>
+              </div>
+            ))}
+            {p.extraTafsirs.length < MAX_EXTRA && (
+              <button
+                type="button"
+                onClick={() => {
+                  const taken = new Set([p.tafsirEdition, ...p.extraTafsirs]);
+                  const pick = tafsirOptions(lang).find((o) => !taken.has(o.value));
+                  if (pick) p.setExtraTafsirs([...p.extraTafsirs, pick.value]);
+                }}
+                className="-mx-1 inline-flex min-h-9 items-center gap-1.5 self-start rounded-md px-1.5 text-sm font-medium text-illumination transition-colors hover:bg-surface-sunken touch:min-h-11"
               >
-                <X size={16} />
-              </QuietIconButton>
+                <Plus size={15} aria-hidden /> {t.reader.addTafsir}
+              </button>
+            )}
+          </div>
+        )}
+        {p.showTafsir &&
+          pendingTafsirs.map((ed) => (
+            <div key={ed.id} className="pb-2">
+              <TafsirDownloadOffer ed={ed} dl={tafsirDl} />
             </div>
           ))}
-          {p.extraTafsirs.length < MAX_EXTRA && (
-            <button
-              type="button"
-              onClick={() => {
-                const taken = new Set([p.tafsirEdition, ...p.extraTafsirs]);
-                const pick = tafsirOptions(lang).find((o) => !taken.has(o.value));
-                if (pick) p.setExtraTafsirs([...p.extraTafsirs, pick.value]);
-              }}
-              className="inline-flex min-h-9 items-center gap-1.5 self-start rounded-lg px-1 text-sm text-illumination hover:bg-surface-sunken touch:min-h-11"
-            >
-              <Plus size={15} aria-hidden /> {t.reader.addTafsir}
-            </button>
+        <Toggle
+          checked={p.showTajweed}
+          onChange={p.setShowTajweed}
+          label={t.reader.tajweed}
+        />
+        {p.showTajweed && (
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            onClick={() => {
+              setSettingsOpen(false);
+              setTajweedRules(true);
+            }}
+            className="-mx-1 inline-flex min-h-10 items-center justify-between gap-2 rounded-md px-1 text-left text-sm font-medium text-illumination transition-colors hover:bg-surface-sunken touch:min-h-11"
+          >
+            {t.reader.tajweedRules}
+            <ArrowRight size={15} aria-hidden />
+          </button>
+        )}
+        <div className="py-2">
+          <Select<(typeof MUSHAF_LAYOUTS)[number]>
+            label={t.reader.layout}
+            value={p.mushafLayout}
+            onChange={(l) => {
+              p.setMushafLayout(l);
+              if (mode !== "mushaf") p.setMode("mushaf");
+            }}
+            options={MUSHAF_LAYOUTS.map((l) => ({
+              value: l,
+              label: t.reader.layouts[l],
+            }))}
+          />
+          {mode === "mushaf" && p.mushafLayout !== "flow" && (
+            <p className="mt-1.5 text-xs text-ink-subtle">{t.reader.layoutNote}</p>
           )}
         </div>
-      )}
-      {p.showTafsir &&
-        pendingTafsirs.map((ed) => (
-          <TafsirDownloadOffer key={ed.id} ed={ed} dl={tafsirDl} />
-        ))}
-      <Toggle
-        checked={p.showTajweed}
-        onChange={p.setShowTajweed}
-        label={t.reader.tajweed}
-      />
-      {p.showTajweed && (
-        <button
-          type="button"
-          aria-haspopup="dialog"
-          onClick={() => {
-            setSettingsOpen(false);
-            setTajweedRules(true);
-          }}
-          className="-mt-1 inline-flex min-h-10 items-center justify-between gap-2 rounded-lg px-1 text-left text-sm text-illumination hover:bg-surface-sunken touch:min-h-11"
-        >
-          {t.reader.tajweedRules}
-          <ArrowRight size={15} aria-hidden />
-        </button>
-      )}
-      <Select<(typeof MUSHAF_LAYOUTS)[number]>
-        label={t.reader.layout}
-        value={p.mushafLayout}
-        onChange={(l) => {
-          p.setMushafLayout(l);
-          if (mode !== "mushaf") p.setMode("mushaf");
-        }}
-        options={MUSHAF_LAYOUTS.map((l) => ({ value: l, label: t.reader.layouts[l] }))}
-      />
-      {mode === "mushaf" && p.mushafLayout !== "flow" && (
-        <p className="-mt-1.5 text-xs text-ink-subtle">{t.reader.layoutNote}</p>
-      )}
-      <Toggle checked={p.showWords} onChange={p.setShowWords} label={t.reader.wbw} />
-      {p.showWords && (
-        <Select<GlossLang>
-          value={p.glossLang}
-          onChange={p.setGlossLang}
-          label={t.reader.glossLang}
-          options={[
-            { value: "en", label: t.reader.glossEn },
-            { value: "id", label: t.reader.glossId },
-          ]}
+        <Toggle checked={p.showWords} onChange={p.setShowWords} label={t.reader.wbw} />
+        {p.showWords && (
+          <div className="pb-2">
+            <Select<GlossLang>
+              value={p.glossLang}
+              onChange={p.setGlossLang}
+              label={t.reader.glossLang}
+              options={[
+                { value: "en", label: t.reader.glossEn },
+                { value: "id", label: t.reader.glossId },
+              ]}
+            />
+          </div>
+        )}
+        <Toggle
+          checked={p.showThemes}
+          onChange={p.setShowThemes}
+          label={t.reader.themes}
         />
-      )}
-      <Toggle checked={p.showThemes} onChange={p.setShowThemes} label={t.reader.themes} />
-      <Toggle checked={p.showAsbab} onChange={p.setShowAsbab} label={t.reader.asbab} />
-      <hr className="border-line" />
-      <Slider
-        label={t.reader.arabicSize}
-        min={50}
-        max={200}
-        step={5}
-        value={Math.round(arabicScale * 100)}
-        onChange={(e) => onArabicScale(Number(e.target.value) / 100)}
-      />
-      <Slider
-        label={t.reader.trSize}
-        min={50}
-        max={200}
-        step={5}
-        value={Math.round(p.translationScale * 100)}
-        onChange={(e) => p.setTranslationScale(Number(e.target.value) / 100)}
-      />
+        <Toggle checked={p.showAsbab} onChange={p.setShowAsbab} label={t.reader.asbab} />
+      </div>
+      <div className="flex flex-col gap-3">
+        <Slider
+          label={t.reader.arabicSize}
+          min={50}
+          max={200}
+          step={5}
+          value={Math.round(arabicScale * 100)}
+          onChange={(e) => onArabicScale(Number(e.target.value) / 100)}
+        />
+        <Slider
+          label={t.reader.trSize}
+          min={50}
+          max={200}
+          step={5}
+          value={Math.round(p.translationScale * 100)}
+          onChange={(e) => p.setTranslationScale(Number(e.target.value) / 100)}
+        />
+      </div>
       {loadError && (
         <p className="text-sm text-rubric" role="alert">
           {t.reader.failed(
@@ -1417,7 +1512,7 @@ export function ReaderView({
                         wordCount={wordCount}
                         inScope={(id) => id >= scopeRange.from && id <= scopeRange.to}
                         tajweed={p.showTajweed ? tajweedState.data : null}
-                        selectedId={contextSheet ? highlightId : undefined}
+                        selectedId={contextSheet ? highlightId : ayahPick?.id}
                         pickedWord={wordPick ?? wordDetail}
                         playingId={audioOn ? playingId : undefined}
                         clock={rec.clock}
@@ -1426,6 +1521,7 @@ export function ReaderView({
                         glosses={p.showWords ? wordsOf : null}
                         glossLang={p.glossLang}
                         onWord={onWord}
+                        onAyah={onAyah}
                       />
                     </div>
                   );
@@ -1451,9 +1547,9 @@ export function ReaderView({
                         verses={page}
                         surahMap={surahMap}
                         tajweed={p.showTajweed ? tajweedState.data : null}
-                        selectedId={contextSheet ? highlightId : undefined}
+                        selectedId={contextSheet ? highlightId : ayahPick?.id}
                         playingId={audioOn ? playingId : undefined}
-                        onSelect={openContext}
+                        onAyah={onAyah}
                       />
                     ) : (
                       <VerseRow
@@ -1467,38 +1563,36 @@ export function ReaderView({
               })}
             </div>
             {!query.trim() && count > 0 && (prevTarget || nextTarget || nextRevealed) && (
-              <div className="flex flex-wrap items-center justify-center gap-2 pb-2 pt-4">
+              <div className="flex flex-wrap items-center justify-center gap-2 pb-4 pt-6">
                 {prevTarget && (
-                  <button
-                    type="button"
+                  <Button
                     onClick={() => onNavigate(prevTarget)}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-line px-4 py-2.5 text-sm text-ink-muted touch:min-h-11 hover:bg-surface-sunken"
+                    icon={<ArrowLeft size={16} aria-hidden />}
+                    className={END_NAV}
                   >
-                    <ArrowLeft size={15} aria-hidden />
                     {t.reader.prev(t.scope[target.scope])}
-                  </button>
+                  </Button>
                 )}
                 {nextTarget && (
-                  <button
-                    type="button"
+                  <Button
+                    variant="primary"
                     onClick={() => onNavigate(nextTarget)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-illumination px-4 py-2.5 text-sm font-semibold text-white touch:min-h-11 dark:text-paper"
+                    className={END_NAV}
                   >
                     {t.reader.continueTo(t.scope[target.scope], nextTarget.value)}
                     {target.scope === "surah" && surahMap.get(nextTarget.value)
                       ? ` · ${surahMap.get(nextTarget.value)!.name}`
                       : ""}
-                    <ArrowRight size={15} aria-hidden />
-                  </button>
+                    <ArrowRight size={16} aria-hidden />
+                  </Button>
                 )}
                 {nextRevealed && (
-                  <button
-                    type="button"
+                  <Button
                     onClick={() => onNavigate({ scope: "surah", value: nextRevealed.id })}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-line px-4 py-2.5 text-sm text-ink-muted touch:min-h-11 hover:bg-surface-sunken"
+                    className={END_NAV}
                   >
                     {t.reader.nextRevealed(nextRevealed.id, nextRevealed.name)}
-                  </button>
+                  </Button>
                 )}
               </div>
             )}
@@ -1518,6 +1612,7 @@ export function ReaderView({
           onRange={editRange}
           roomy={width >= PLAYER_ROOMY_PX}
           onOpenOptions={openPlayerSheet}
+          onLocate={goToPlaying}
           onClose={() => p.setShowAudio(false)}
           download={downloadPrompt}
         />
@@ -1541,7 +1636,7 @@ export function ReaderView({
           verse={verses[wordPick.id - 1]}
           info={wordsOf(wordPick.id)?.[wordPick.w]}
           loading={!wordsOf(wordPick.id)}
-          glossLang={lang === "id" ? "id" : "en"}
+          glossLang={p.glossLang}
           canPlay={!!reciter}
           onMore={() => {
             setWordDetail({ id: wordPick.id, w: wordPick.w });
@@ -1553,6 +1648,26 @@ export function ReaderView({
           }}
           onContext={() => openContext(wordPick.id)}
           onClose={() => setWordPick(null)}
+        />
+      )}
+
+      {ayahPick && verses[ayahPick.id - 1] && (
+        <AyahPopover
+          pick={ayahPick}
+          title={refOf(ayahPick.id)}
+          text={translation.data?.[ayahPick.id]}
+          loading={!translation.data && !translation.error}
+          lang={editionByIdentifier(editions, edition)?.language ?? "en"}
+          rtl={isRtl(editionByIdentifier(editions, edition)?.language ?? "en")}
+          scale={p.translationScale}
+          holdHint={!!layout}
+          canPlay={!!reciter}
+          onPlay={() => {
+            setAyahPick(null);
+            playFrom(ayahPick.id);
+          }}
+          onContext={() => openContext(ayahPick.id)}
+          onClose={() => setAyahPick(null)}
         />
       )}
 

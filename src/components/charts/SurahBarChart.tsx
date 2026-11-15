@@ -77,7 +77,7 @@ export function SurahBarChart({
       >
         {horizontal ? (
           <>
-            <XAxis type="number" tick={{ fontSize: 11, fill: ac }} />
+            <XAxis type="number" tick={{ fontSize: 12, fill: ac }} />
             <YAxis
               type="category"
               dataKey="name"
@@ -96,7 +96,7 @@ export function SurahBarChart({
               textAnchor="end"
               height={70}
             />
-            <YAxis tick={{ fontSize: 11, fill: ac }} />
+            <YAxis tick={{ fontSize: 12, fill: ac }} />
           </>
         )}
         <Tooltip

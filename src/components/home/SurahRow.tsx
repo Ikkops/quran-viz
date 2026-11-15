@@ -43,14 +43,15 @@ export function SurahNameArt({ s, className }: { s: Surah; className?: string })
 }
 
 /** One surah in the index: number, name in the accent colour, its meaning and
- *  place, and the calligraphic name; a hairline closes the row. */
+ *  place, and the calligraphic name; an inset hairline closes the row. */
 export function SurahRow({ s, onOpen }: { s: Surah; onOpen: () => void }) {
   const i = useI18n();
   return (
     <button
       type="button"
       onClick={onOpen}
-      className="flex min-h-[3.75rem] items-center gap-3 border-b border-line px-1 py-2 text-left transition-colors hover:bg-surface-sunken dark:hover:bg-surface"
+      // The hairline is inset (after:) so the rounded hover tint never bends it.
+      className="relative flex min-h-[3.75rem] items-center gap-3 rounded-md px-2 py-2 text-left transition-colors after:absolute after:inset-x-2 after:bottom-0 after:h-px after:bg-line hover:bg-surface-sunken dark:hover:bg-surface"
     >
       <span className="w-8 shrink-0 text-center text-base tabular-nums text-ink-muted">
         {s.id}

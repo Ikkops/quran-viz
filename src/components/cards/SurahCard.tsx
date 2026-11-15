@@ -75,7 +75,7 @@ export function SurahCard({
     <button
       type="button"
       onClick={onOpen}
-      className="group flex flex-col gap-2 rounded-xl border border-line bg-surface p-3 text-left transition hover:-translate-y-0.5 hover:border-ink-subtle/50 hover:shadow-md focus-visible:outline focus-visible:outline-2 dark:bg-surface/60 dark:hover:border-ink-muted"
+      className="group flex flex-col gap-2 rounded-xl border border-line bg-surface p-4 text-left shadow-soft transition-colors hover:border-ink-subtle/60 dark:hover:border-ink-muted"
     >
       <div className="flex items-start gap-2.5">
         <span
@@ -85,7 +85,7 @@ export function SurahCard({
           {surah.id}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-semibold text-ink">{surah.name}</div>
+          <div className="truncate text-heading text-ink">{surah.name}</div>
           <div className="truncate text-xs text-ink-muted dark:text-ink-subtle">
             {i.meaning(surah)}
           </div>
@@ -96,18 +96,18 @@ export function SurahCard({
       </div>
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
         <span
-          className="rounded-full px-1.5 py-0.5 font-medium"
+          className="rounded px-1.5 py-0.5 font-medium"
           style={{ backgroundColor: `${color}22`, color }}
         >
           {i.place(surah.type)}
         </span>
-        <span className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-ink-muted dark:bg-line">
+        <span className="rounded bg-surface-sunken px-1.5 py-0.5 text-ink-muted dark:bg-line">
           {t.card.revealed(surah.revelationOrder)}
         </span>
         {(Array.isArray(extra) ? extra : extra ? [extra] : []).map((x) => (
           <span
             key={x}
-            className="rounded-full bg-surface-sunken px-1.5 py-0.5 text-ink-muted dark:bg-line"
+            className="rounded bg-surface-sunken px-1.5 py-0.5 text-ink-muted dark:bg-line"
           >
             {x}
           </span>

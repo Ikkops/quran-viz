@@ -253,13 +253,25 @@ an id.
   with `vh`: the app root has CSS `zoom` (Interface scale), which multiplies
   `vh`. Elsewhere use `calc(N*var(--zvh))` (`--zvh` is set on the app root).
 - `cx(...parts)` — className join helper. Import from `../ui`.
+- `Button` — `variant` `primary` (lapis fill, one per view or sheet) |
+  `secondary` (default: surface + hairline) | `quiet` (no fill, sunken tint on
+  hover); `size` `md` (36px) | `sm` (32px), both `touch:min-h-11`; optional
+  leading `icon`; native button props pass through (`type` defaults to
+  `button`); full width via `className="w-full"`. Use it instead of hand-rolled
+  `bg-illumination … text-white dark:text-paper` strings. `IconButton` is a
+  secondary `Button` kept for its callers; icon-only quiet buttons are
+  `QuietIconButton`.
+- `Card` — surface, `rounded-xl`, hairline, `shadow-soft`; callers set the
+  padding (`p-4`). No translucent `dark:bg-surface/60`, no `dark:shadow-none`.
 - `SegmentedControl`, `Toggle` (`role="switch"` + `aria-checked`, 44px row),
   `Select`, `Badge`, `Card`, `SectionTitle` (an `h2`; the app title is the `h1`),
   `IconButton`, `Slider`, `Skeleton`, `ModalHeader` (its heading names the dialog
   through `aria-labelledby` unless the `Modal` has `ariaLabel`; its close button
   is labelled). Open `Modal`s form a stack: only the topmost handles Escape and
   the focus trap, so About opened over Welcome closes on its own. `SegmentedControl` never
-  grows wider than its container; a long strip scrolls sideways on phones.
+  grows wider than its container; a long strip scrolls sideways on phones;
+  `fullWidth` makes the strip fill its container with the options sharing the
+  width (Activity's tabs).
 - `Select` (`ui/Select.tsx`) — the app's dropdown; there are no native
   `<select>`s (their Android/browser pickers did not fit the app). Props:
   `options: { value, label, group? }[]`, `onChange(value)`, `label` or
@@ -272,7 +284,10 @@ an id.
   list (capture-phase listener), so the sheet or popover around it stays open;
   `useDismiss`, the reader's ←/→, app shortcuts and Android back all treat
   `[data-select-popup]` / a focused combobox accordingly.
-- `Sheet` — `side` is `bottom`, `top` or `right`. Its effect depends on `open`
+- `Sheet` — `side` is `bottom`, `top` or `right`; 16px radius on the free
+  corners, a decorative grab handle on bottom sheets, the title in `text-title`
+  over a hairline. The body has no padding: callers pad their content
+  (`px-4`, usually `py-3`) to match the header. Its effect depends on `open`
   only (`onClose` through a ref): callers pass inline `onClose`s, and re-running
   the effect on every parent render used to pull focus out of a focused input,
   so Android's keyboard closed the moment it opened (bookmark name field).
@@ -287,7 +302,18 @@ are mirrored as RGB-channel variables in `src/index.css` (`:root` and `.dark`);
 `surface`/`surface-sunken`, `line`, `ink`/`ink-muted`/`ink-subtle`, `makki`,
 `madani`, `hijra`, `illumination`, `rubric` (opacity works: `bg-makki/10`) and
 the fonts as `font-ui` / `font-reading`. Makki/Madani/Hijra colours mean place of
-revelation only. Fonts are self-hosted through Fontsource in `src/fonts.ts`
+revelation only. **Design direction** (DESIGN.md): Notion's calm, content-first
+base with Linear's precision for data, controls and dark themes. Use the type
+steps `text-display` / `text-title` / `text-heading` / `text-eyebrow` (rem
+`fontSize` entries carrying line height, tracking and weight; body stays
+`text-base`/`text-sm`), `shadow-soft` for cards (a CSS variable: a faint
+layered shadow on light themes, a top-edge highlight under `.dark`) and
+`shadow-float` only for what floats, the radius roles (`rounded` 4 chips and
+fields, `rounded-md` 6 rows and options, `rounded-lg` 8 buttons, `rounded-xl`
+12 cards and popovers, `rounded-2xl` 16 sheets and dialogs), and `Button` /
+`Card` / `SegmentedControl` rather than ad-hoc class strings. The focus ring
+is global (`:focus-visible` in `index.css`, 2px lapis at 65%, offset 2px):
+don't add per-component rings. Fonts are self-hosted through Fontsource in `src/fonts.ts`
 (never Google Fonts: the APK must render offline); a new Qur'an font must cover
 U+06D6–U+06ED and be added there and to `ARABIC_FONTS`. The default is KFGQPC
 Uthmanic Script HAFS (`src/assets/fonts/UthmanicHafs1Ver18.ttf`, shipped
@@ -337,8 +363,10 @@ also go in DESIGN.md's frontmatter and Tajweed table.
 **Dashboard** (`views/DashboardView.tsx`, `components/dashboard/`). Each chart
 is a question with a computed one-line answer. `QuestionList` (the charts as
 questions, grouped) sits beside the chart when the dashboard is ≥ 900px wide
-(measured with `useElementWidth`), else the question heading opens it in a
-`Sheet`. `FilterBar` shows the filters a chart `uses` as chips with popovers
+(measured with `useElementWidth`). Narrower, a switcher row sits above the
+question: an "All charts" button opens `QuestionList` in a `Sheet`, and a
+`‹ n / total ›` stepper moves through `VIZ_DEFS` in order, wrapping, via
+`pickViz`. The question heading itself is plain text. `FilterBar` shows the filters a chart `uses` as chips with popovers
 (range, which ayahs, sort, colour, bars); a non-default chip has its own clear
 button, and Reset appears once anything differs. `MarkReadout` is the pinned
 readout for a tapped mark or a histogram bucket (count plus the first ayahs).
@@ -358,7 +386,10 @@ import in `lib/export.ts`. Keep heavy imports out of `App.tsx` and the shell.
 read" (below), a today/streak line that opens Activity, then the index
 (`components/home/QuranIndex.tsx`, the old Map index): surahs, juz or manzils
 (`qv.browse.kind`), a surah filter (`qv.browse.query`), and sort / Makki-Madani
-/ list-or-cards behind one "Sort and filter" button (`qv.browse.sort|type|layout`).
+/ list-or-cards behind one "Sort and filter" button (`qv.browse.sort|type|layout`);
+that options panel ends with a Reset (FilterBar's look, `t.controls.reset`),
+shown while sort/place/layout differ from `mushaf`/`all`/`list`; it leaves the
+search and the surah/juz/manzil choice alone.
 Surah rows (`SurahRow.tsx`): number, name in the accent colour, meaning, a
 place icon (`PlaceIcon`: Kaaba = Makki, dome = Madani), and the calligraphic
 name drawn by the "Surah Names" ligature font from the three-digit number
@@ -370,14 +401,19 @@ once it has stayed 3 s (or the ayah being recited) through `onRead`;
 `recordRead` moves the newest entry while the ayah is in the same surah within
 `STRETCH_REACH` (40) ayahs, else starts a new entry, and keeps one entry per
 surah (max 10). Home shows the newest `qv.lastRead.count` (1/3/5/10, default 5,
-set in Settings). The old `qv.lastRead` target seeds the list once.
+set in Settings) as one sideways-scrolling row, newest first in the accent
+style: `w-44 shrink-0 snap-start` cards in a `scrollbar-none` snap row that
+bleeds past `main`'s `px-4` with `-mx-4 px-4`. The old `qv.lastRead` target seeds the list once.
 
 **Activity** (`views/ActivityView.tsx`, view id `activity`, `qv.activity.tab`):
 Statistics (`components/home/ActivityPanel.tsx`: today, current and longest
 streak, total time, bars per week, month, year or all time
 (`qv.activity.period`), daily goal `qv.reading.goal`; maths in
 `data/readingLog.ts`, store in `lib/readingStore.ts`, `useReadingTimer(reading)`
-in `App`) and Bookmarks (`components/marks/MarksPanel.tsx`).
+in `App`) and Bookmarks (`components/marks/MarksPanel.tsx`). The tabs are one `TABS` array in
+`ActivityView.tsx` (`id`, `label(t)`, `render(props)`); `ActivityTab` and the
+stored-value check derive from it, so a new tab is one entry plus its label in
+both i18n files.
 
 **Pins and collections** (`lib/marks.ts`, pure, tested; `qv.marks`, owned by
 `App`). A pin has a name, a colour and at most one ayah, and moves when set on
@@ -439,11 +475,29 @@ pages follow `qv.reader.layout`: a printed layout (`MushafLinesPage`, data in
 `data/mushafLayout.ts`: whole pages, ayahs outside the scope dimmed, each
 line's words spread to the width, the font fitted to the widest line after
 `document.fonts.ready`, short lines centred) or `flow` (the old `MushafPage`,
-grouped by `verses.page`). Tapping a word (ayah rows through `AyahWords`,
-printed mushaf pages) opens `WordPopover` (`WordDetail.tsx`, portalled into
-`#app-root` beside the word: the word, transliteration, meaning in the UI
-language, root, play, ayah context); its "Click for more" opens
-`WordDetailPage` in a bottom sheet (meanings, grammar worded by
+grouped by `verses.page`). Both mushaf layouts open a surah with `SurahBanner`
+(the printed banner in tokens only, sized in em, `role="img"`, shapes
+`aria-hidden`). Printed bands: every word except a line's last grows into the
+space after it (`grow`, same layout as `justify-between`; `pe-[0.25em]` on
+centred lines), so an ayah's highlight (selected or popover open, recited,
+edited range) is one band over the outer spans, rounded at the run's ends;
+the run's last word draws it on its own text. The recited word and the picked
+word sit on the inner `data-ayah` span, and the font fitting measures those
+inner spans. Popovers: in both mushaf layouts a tap opens `AyahPopover`
+(reference, the main edition's translation, play, context, and in the printed
+layout a "press and hold" hint); a 450 ms hold within 10 px on a printed word
+opens `WordPopover` (scroll/swipe cancels, the click after it is swallowed,
+words are `select-none` with the touch callout and `contextmenu` suppressed);
+Enter/Space = ayah, Shift+Enter = word. Both share `PopoverCard` (portal,
+zoom-corrected placement, `useDismiss`). The ayah-by-ayah layout still opens a
+word on tap (`AyahWords`). The main translation loads in mushaf mode only while
+an ayah popover is open. `WordPopover` (`WordDetail.tsx`: the word,
+transliteration, meaning, root, play, ayah context): its bold meaning follows
+the word-by-word language (`glossLang`, which defaults to the UI language
+until chosen), not the UI language; its "Click for more" opens
+`WordDetailPage` in a bottom sheet (padded `px-4` like other sheet bodies,
+centred at `max-w-2xl`, shared heading / definition-list / 44px row styles;
+meanings, grammar worded by
 `describeTags` from `t.word`, lemma, root and the lemmas from it, every
 occurrence of the lemma, linking to the ayah). Word data (`data/words.ts`,
 `useSurahWords`) loads per surah only for word by word or once a word is
@@ -451,7 +505,18 @@ tapped. Word by word in ayah rows uses the same data (so the recited word
 lights there too); on printed mushaf pages it puts each word's meaning under
 it (a `w-0 min-w-full` gloss that never widens the word, so the line fitting
 holds). The mushaf highlights the ayah whose context is open only while the
-sheet is open, and tints the player's edited range faintly. Search is find-in-text (`data/textSearch.ts`): every
+sheet is open, and tints the player's edited range faintly. In ayah-by-ayah
+view a crossed division boundary is a rounded `bg-illumination/10` strip with
+centred `text-illumination` labels. Following the recitation goes by the
+ayah's own boxes (`[data-ayah]` on the row, the flow-mushaf span, or each
+printed word's inner span): `ayahInView` / `shouldFollow` in
+`lib/ayahInView.ts` (pure, tested) count a row by its top or by covering the
+band, a word/line by its middle, inside the scroller below the head. On a new
+ayah the list does not move while that ayah is in view; it scrolls only if the
+previous ayah was in view (or nothing was playing), so a learner who scrolled
+away is left there. In the mushaf, `scrollToAyah` gets the page with
+`scrollToIndex`, then sets `scrollTop` so the ayah's first line sits 15% down
+the band, correcting for `rootZoom`. Search is find-in-text (`data/textSearch.ts`): every
 hit in the Arabic (`findAllArabic`, spelling-tolerant) and in each translation
 shown (`findAllLatin`, case and accents folded), plus `2:255`/`255` as an ayah;
 nothing is filtered out, the field shows `n/total` with ↑/↓ (Enter, Shift+Enter)
@@ -484,9 +549,20 @@ the reader's own scrolls (anchor jumps, following the recitation) never hide it,
 and it stays while search, settings or any sheet is open. Settings start with
 "Read by" (surah, juz, hizb, rukuʿ, page; `qv.reader.scope`), which reopens the
 current ayah in that division; Home's last-read links use it
-(`preferredDivision`). Tajweed colours have no legend in settings: "Tajweed
-rules" opens `TajweedRules` (each rule, a line on it, a real example word from
-`TAJWEED_EXAMPLES`). Root and
+(`preferredDivision`). Tajweed colours have no legend in settings
+(`TAJWEED_LEGEND` is gone): "Tajweed rules" opens `TajweedRules`, which starts
+with the stop signs (`data/waqf.ts` `WAQF_SIGNS`: the mark, a rubric or
+illumination disc, its count in `verses.json`; `waqf.test.ts` recounts:
+muʿānaqah counts pairs, U+06DC counts as saktah only when it stands alone
+after a space, not over ص inside a word), then the rules in `TAJWEED_GROUPS`
+order (nun sukun/tanwin, mim sukun, ghunnah, qalqalah, alif lam and letters
+not read, mad, idgham of two letters), each with trigger letters in the rule's
+colour, `t.tajweedTrigger` / `t.tajweedHelp` wording and its
+`TAJWEED_EXAMPLES` word; `tajweed.test.ts` checks all 17 codes appear exactly
+once. Colours follow the common Indonesian chart (ghunnah brown-orange, ikhfa
+red, idgham-with-ghunnah purple, idgham-without grey, iqlab blue, qalqalah
+green), madd in teal/cyan and rose/magenta, silent letters warm greys; `c`
+shares `f`'s colour and `w` shares `a`'s on purpose (`SHARED_COLORS`). Root and
 topic links go to `#dashboard?v=root-explorer&root=<bw>` /
 `?v=topic-explorer&topic=<key>`; `App` remounts the dashboard so it reads them.
 Anchor jumps scroll instantly: during a smooth scroll the virtualizer skips
@@ -616,8 +692,10 @@ by CI (no Android SDK on the dev machine), so check the PR's `apk` job.
 - `components/reader/Recitation.tsx`: `MiniPlayer` docked under the reader.
   Row one is the seek bar (time into the range, estimated range length)
   between the range's two ends as `− ref +` steppers (start left, end right);
-  row two is the transport with play centred: repeat, restart ayah, previous,
-  play, next, options. Below `PLAYER_ROOMY_PX` (560) the steppers drop to a
+  row two is the transport with play centred: repeat, restart, previous, play,
+  next, go to the playing ayah (`LocateFixed`, disabled with no cursor; scrolls
+  to it, or `onNavigate`s when it is outside the scope), options. On phones the
+  side columns are `minmax(min-content,1fr)`. Below `PLAYER_ROOMY_PX` (560) the steppers drop to a
   third row. The repeat button steps `ayahRepeat` through `REPEAT_CHOICES`
   (stored as plays: 1, 2, 3, 4, 6, 12, 0 = ∞; worded as repetitions: none, 1×,
   2×, 3×, 5×, 11×, ∞) and is tinted when on. The seek bar reads
@@ -630,7 +708,7 @@ by CI (no Android SDK on the dev machine), so check the PR's `apk` job.
   `RecitationControls`
   in the options sheet starts with Play (start the range now, close) and
   Cancel (put range, options and reciter back as they were when it opened;
-  the sheet's own close keeps the changes), then: reciter select (name · origin · bitrate), From/To as surah + ayah dropdowns between −/+ steppers
+  the sheet's own close keeps the changes), then: reciter select (name · bitrate; `origin` stays in the data only), From/To as surah + ayah dropdowns between −/+ steppers
   (picking a surah jumps to its first ayah for From, its last for To), "set to
   the playing ayah", reset, and
   repeat ayah / repeat range (0 = ∞) / gap / speed, persisted as

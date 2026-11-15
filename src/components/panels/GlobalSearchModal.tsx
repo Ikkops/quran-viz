@@ -13,7 +13,8 @@ import { useI18n } from "../../i18n/I18nContext";
 import { isLatinQuery } from "../../data/searchEdition";
 
 const MAX_RESULTS = 200;
-const MARK = "rounded bg-amber-200/70 px-0.5 dark:bg-amber-500/30";
+// The reader's find-in-text tint (reader/MarkedText.tsx), so a hit looks the same in both.
+const MARK = "rounded-sm bg-illumination/20 px-0.5 text-ink";
 
 /** Highlight the first spelling-tolerant match of `qKey` within Uthmani `text`. */
 function highlightArabic(text: string, qKey: string): ReactNode {
@@ -151,13 +152,13 @@ export function GlobalSearchModal({
             }}
             placeholder={t.search.placeholder}
             aria-label={t.search.queryAria}
-            className="w-full rounded-lg border border-line bg-surface py-2.5 pl-9 pr-10 text-base text-ink"
+            className="w-full rounded border border-line bg-surface py-2.5 pl-9 pr-10 text-base text-ink placeholder:text-ink-subtle"
           />
           {query && (
             <button
               onClick={() => setQuery("")}
               aria-label={t.search.clear}
-              className="absolute right-1 top-1 inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-subtle hover:bg-surface-sunken hover:text-ink"
+              className="absolute right-1 top-1 inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-subtle hover:bg-surface-sunken hover:text-ink touch:right-0 touch:top-0 touch:h-11 touch:w-11"
             >
               <X size={14} aria-hidden />
             </button>
@@ -184,7 +185,7 @@ export function GlobalSearchModal({
         {refVerse && (
           <button
             onClick={() => openVerse(refVerse)}
-            className="mb-2 flex w-full items-center gap-2 rounded-lg bg-surface-sunken px-3 py-2 text-left text-sm font-medium text-ink hover:bg-line dark:bg-surface"
+            className="mb-2 flex min-h-11 w-full items-center gap-2 rounded-md bg-surface-sunken px-3 py-2 text-left text-sm font-medium text-ink hover:bg-line dark:bg-surface"
           >
             <ArrowRight size={15} aria-hidden />
             {t.search.goTo(
@@ -200,7 +201,7 @@ export function GlobalSearchModal({
             <button
               key={verse.id}
               onClick={() => openVerse(verse)}
-              className="mb-1 flex w-full items-start gap-3 rounded-lg px-2 py-2 text-right hover:bg-surface-sunken dark:hover:bg-surface"
+              className="flex w-full items-start gap-3 rounded-md px-2 py-2.5 text-right transition-colors hover:bg-surface-sunken dark:hover:bg-surface"
             >
               <Badge color={color}>
                 {verse.s}:{verse.a}

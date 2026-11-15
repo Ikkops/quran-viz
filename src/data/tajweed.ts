@@ -170,10 +170,15 @@ export interface TajweedRule {
   dark: string;
 }
 
-/** code → { rule name, colours }. Grouped by family for a readable legend:
- *  madd runs amber → deep red, ghunnah is green, idghām cool grey, ikhfāʾ
- *  blue, and letters that aren't pronounced warm grey. Every colour keeps at
- *  least 4.5:1 against all three surfaces of its theme (`tajweed.test.ts`).
+/** code → { rule name, colours }. The six families of common printed
+ *  Indonesian tajweed charts (sampled from one): ghunnah brown-orange, ikhfāʾ
+ *  red (`f` and `c` share it), idghām with ghunnah purple (`a` and `w` share
+ *  it), idghām without ghunnah grey (`d`, `b` in the same family, cooler),
+ *  iqlāb blue, qalqalah green. The chart has no madd or silent-letter
+ *  colours, so madd takes the hues the six leave free: teal / cyan for the
+ *  two-count madds (`n`, `p`), rose / magenta for the long obligatory ones
+ *  (`o`, `m`); unpronounced letters are warm greys. Every colour keeps 4.5:1
+ *  on its base theme's three surfaces and 3:1 on the others (`tajweed.test.ts`).
  *
  *  What each code marks was checked against the edition itself: `c` is always
  *  mīm sākinah before bāʾ (ikhfāʾ shafawī), `w` mīm into mīm (idghām shafawī),
@@ -181,61 +186,88 @@ export interface TajweedRule {
  *  long vowel before hamza in the word or the next, `p` a long vowel before a
  *  stop. */
 export const RULE_COLORS: Record<string, TajweedRule> = {
+  // Nūn sākinah / tanwīn and mīm sākinah
+  a: { name: "Idghām with ghunnah", color: "#9A38A9", dark: "#D79BE0" },
+  u: { name: "Idghām without ghunnah", color: "#6C6C6C", dark: "#A8A8A8" },
+  i: { name: "Iqlāb (conversion)", color: "#3264C5", dark: "#8AB0F5" },
+  f: { name: "Ikhfāʾ Ḥaqīqī (hiding)", color: "#B70100", dark: "#FF7A70" },
+  c: { name: "Ikhfāʾ Shafawī (mīm before bāʾ)", color: "#B70100", dark: "#FF7A70" },
+  w: { name: "Idghām Shafawī (mīm into mīm)", color: "#9A38A9", dark: "#D79BE0" },
+  // Ghunnah, qalqalah
+  g: { name: "Ghunnah (nasalization)", color: "#A35200", dark: "#F0A04B" },
+  q: { name: "Qalqalah (echo)", color: "#267500", dark: "#7ED957" },
+  // Silent / connecting
+  l: { name: "Lām Shamsiyyah (assimilated lām)", color: "#5E554C", dark: "#DCD5CD" },
+  h: {
+    name: "Hamzat al-Waṣl (silent connecting hamza)",
+    color: "#77685C",
+    dark: "#B8ADA2",
+  },
+  s: { name: "Silent (not pronounced)", color: "#82664E", dark: "#CDB197" },
   // Madd (prolongation), short → long
-  n: { name: "Natural prolongation (Madd Ṭabīʿī)", color: "#9A5200", dark: "#FBBF24" },
+  n: { name: "Natural prolongation (Madd Ṭabīʿī)", color: "#007A6D", dark: "#4FD1C5" },
   p: {
     name: "Prolongation at a stop (Madd ʿĀriḍ li-s-Sukūn)",
-    color: "#B93A08",
-    dark: "#FB923C",
+    color: "#0C7594",
+    dark: "#67C8E8",
   },
   o: {
     name: "Prolongation before hamza (Madd Wājib / Munfaṣil)",
-    color: "#BE185D",
-    dark: "#FDA4AF",
+    color: "#CC236C",
+    dark: "#F58AB4",
   },
-  m: { name: "Necessary prolongation (Madd Lāzim)", color: "#7F1D1D", dark: "#F26060" },
-  // Ghunnah / idghām (nasalization & merging)
-  g: { name: "Ghunnah (nasalization)", color: "#137A39", dark: "#4ADE80" },
-  a: { name: "Idghām with ghunnah", color: "#47750C", dark: "#A3E635" },
-  u: { name: "Idghām without ghunnah", color: "#5F6878", dark: "#9CA3AF" },
-  w: { name: "Idghām Shafawī (mīm into mīm)", color: "#4B5563", dark: "#B8BEC9" },
-  d: { name: "Idghām Mutajānisayn", color: "#374151", dark: "#D1D5DB" },
-  b: { name: "Idghām Mutaqāribayn", color: "#334155", dark: "#CBD5E1" },
-  // Ikhfāʾ / iqlāb / qalqalah
-  f: { name: "Ikhfāʾ (hiding)", color: "#0369A1", dark: "#38BDF8" },
-  c: { name: "Ikhfāʾ Shafawī (mīm before bāʾ)", color: "#1D4ED8", dark: "#93C5FD" },
-  i: { name: "Iqlāb (conversion)", color: "#7C3AED", dark: "#A78BFA" },
-  q: { name: "Qalqalah (echo)", color: "#0F766E", dark: "#2DD4BF" },
-  // Silent / connecting
-  h: {
-    name: "Hamzat al-Waṣl (silent connecting hamza)",
-    color: "#6E6660",
-    dark: "#A8A29E",
-  },
-  s: { name: "Silent (not pronounced)", color: "#80644F", dark: "#C4A88E" },
-  l: { name: "Lām Shamsiyyah (assimilated lām)", color: "#57534E", dark: "#D6D3D1" },
+  m: { name: "Necessary prolongation (Madd Lāzim)", color: "#A0156F", dark: "#F26BC4" },
+  // Idghām of two letters
+  d: { name: "Idghām Mutajānisayn", color: "#5E6672", dark: "#B4BCC8" },
+  b: { name: "Idghām Mutaqāribayn", color: "#4C5563", dark: "#C8CFDA" },
 };
 
-/** Ordered list for the legend (groups kept together). */
-export const TAJWEED_LEGEND: ({ code: string } & TajweedRule)[] = [
-  "n",
-  "p",
-  "o",
-  "m",
-  "g",
-  "a",
-  "u",
-  "w",
-  "d",
-  "b",
-  "f",
-  "c",
-  "i",
-  "q",
-  "h",
-  "s",
-  "l",
-].map((code) => ({ code, ...RULE_COLORS[code] }));
+/** Codes that share one colour on purpose (the chart lists them together). */
+export const SHARED_COLORS: [string, string][] = [
+  ["c", "f"],
+  ["w", "a"],
+];
+
+export interface TajweedGroup {
+  /** Key into `t.tajweedGroups` (heading, and a "not coloured" note when the
+   *  group has a standard member the edition leaves plain). */
+  key: string;
+  /** Rule codes in teaching order; `letters` are the trigger letters, spaced. */
+  rules: { code: string; letters?: string }[];
+}
+
+/** The Tajweed rules page, in the order Indonesian tajweed books teach it
+ *  (simple and frequent first). Every code appears exactly once. */
+export const TAJWEED_GROUPS: TajweedGroup[] = [
+  {
+    key: "nun",
+    rules: [
+      { code: "a", letters: "ي ن م و" },
+      { code: "u", letters: "ل ر" },
+      { code: "i", letters: "ب" },
+      { code: "f", letters: "ت ث ج د ذ ز س ش ص ض ط ظ ف ق ك" },
+    ],
+  },
+  {
+    key: "mim",
+    rules: [
+      { code: "c", letters: "ب" },
+      { code: "w", letters: "م" },
+    ],
+  },
+  { key: "ghunnah", rules: [{ code: "g", letters: "نّ مّ" }] },
+  { key: "qalqalah", rules: [{ code: "q", letters: "ق ط ب ج د" }] },
+  {
+    key: "alifLam",
+    rules: [
+      { code: "l", letters: "ت ث د ذ ر ز س ش ص ض ط ظ ل ن" },
+      { code: "h" },
+      { code: "s" },
+    ],
+  },
+  { key: "mad", rules: [{ code: "n" }, { code: "p" }, { code: "o" }, { code: "m" }] },
+  { key: "twoLetters", rules: [{ code: "d" }, { code: "b" }] },
+];
 
 /** One real example per rule for the Tajweed rules page: the reference and the
  *  word(s) in the edition's own markup, only that rule's span kept. Taken from

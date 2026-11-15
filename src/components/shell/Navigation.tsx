@@ -56,7 +56,7 @@ export function TopBar(p: NavProps) {
     <header className="sticky top-0 z-30 border-b border-line bg-paper/90 pt-[env(safe-area-inset-top)] backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center gap-2.5 px-4 py-1.5">
         <BrandMark />
-        <h1 className="min-w-0 flex-1 truncate text-base font-semibold text-ink">
+        <h1 className="min-w-0 flex-1 truncate text-title text-ink">
           {p.view === "home" ? t.app.titleShort : t.app.views[p.view]}
         </h1>
         {p.ready && (
@@ -91,12 +91,24 @@ function TabButton({
       type="button"
       onClick={onClick}
       aria-current={current ? "page" : undefined}
+      // The current tab: a lapis-tinted pill behind the icon and a bold label,
+      // so it reads without relying on colour alone.
       className={cx(
-        "flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-xs transition-colors",
-        current ? "font-semibold text-illumination" : "text-ink-subtle hover:text-ink",
+        "group flex min-h-[3.5rem] min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-xs transition-colors",
+        current ? "font-semibold text-ink" : "text-ink-subtle hover:text-ink",
       )}
     >
-      {icon}
+      <span
+        aria-hidden
+        className={cx(
+          "flex h-7 w-14 items-center justify-center rounded-full transition-colors",
+          current
+            ? "bg-illumination/15 text-illumination"
+            : "group-hover:bg-surface-sunken",
+        )}
+      >
+        {icon}
+      </span>
       <span className="max-w-full truncate">{label}</span>
     </button>
   );

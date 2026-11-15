@@ -3,6 +3,7 @@ import {
   CircleCheck,
   Crosshair,
   Highlighter,
+  LocateFixed,
   SlidersHorizontal,
   Download,
   Trash2,
@@ -35,7 +36,7 @@ import type {
   ReciterIndex,
 } from "../../data/useRecitation";
 import { useI18n } from "../../i18n/I18nContext";
-import { cx, QuietIconButton, Select } from "../ui";
+import { Button, cx, QuietIconButton, Select } from "../ui";
 
 /** The Android app's per-surah audio download, as the player shows it. */
 export interface AudioDownloadPrompt {
@@ -116,7 +117,7 @@ function RangeEnd({
   if (!v || !surah) return null;
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-sm text-ink-muted">{label}</span>
+      <span className="text-eyebrow text-ink-muted">{label}</span>
       <div className="flex items-center gap-1">
         <QuietIconButton label={a.earlier(label)} onClick={() => onShift(-1)}>
           <Minus size={15} />
@@ -258,7 +259,7 @@ function RangeStepper({
   const { t } = useI18n();
   const a = t.reader.audio;
   const btn =
-    "inline-flex h-8 w-8 items-center justify-center text-ink-muted hover:bg-surface-sunken hover:text-ink touch:h-11 touch:w-9";
+    "inline-flex h-8 w-8 items-center justify-center text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink touch:h-11 touch:w-9";
   return (
     <div
       role="group"
@@ -278,7 +279,7 @@ function RangeStepper({
         type="button"
         onClick={onOpen}
         title={a.pickEnd(label)}
-        className="h-8 min-w-[2.75rem] px-0.5 text-center text-xs font-semibold tabular-nums text-ink hover:bg-surface-sunken touch:h-11"
+        className="h-8 min-w-[2.75rem] border-x border-line px-1 text-center text-xs font-semibold tabular-nums text-ink transition-colors hover:bg-surface-sunken touch:h-11"
       >
         <span className="sr-only">{label} </span>
         {text}
@@ -300,7 +301,7 @@ function RangeStepper({
  * The player docked under the reader (DESIGN.md "Float"). The seek bar sits
  * between the two ends of the range (start on the left, end on the right);
  * under it, the transport with play in the middle: repeat, restart ayah,
- * previous, play, next, options. On a phone the range ends drop to a third row.
+ * previous, play, next, go to the playing ayah, options. On a phone the range ends drop to a third row.
  */
 export function MiniPlayer({
   rec,
@@ -313,6 +314,7 @@ export function MiniPlayer({
   onRange,
   roomy,
   onOpenOptions,
+  onLocate,
   onClose,
   download,
 }: {
@@ -327,6 +329,8 @@ export function MiniPlayer({
   /** Wide enough for the range ends beside the seek bar. */
   roomy: boolean;
   onOpenOptions: () => void;
+  /** Scroll the reader to the ayah being recited. */
+  onLocate?: () => void;
   /** Hide the player (it stops). */
   onClose: () => void;
   /** Android app: offer or show the download of this view's audio. */
@@ -335,6 +339,11 @@ export function MiniPlayer({
   const { t } = useI18n();
   const a = t.reader.audio;
   const cur = rec.cursor;
+  const locate = onLocate && (
+    <QuietIconButton label={a.goToPlaying} onClick={onLocate} disabled={!cur}>
+      <LocateFixed size={18} />
+    </QuietIconButton>
+  );
   // Nothing to play here yet: the bar becomes the download offer.
   const offer =
     download &&
@@ -346,7 +355,7 @@ export function MiniPlayer({
       <div
         role="region"
         aria-label={a.bar}
-        className="flex shrink-0 items-center gap-2 border-t border-line bg-surface px-3 py-1.5"
+        className="flex shrink-0 items-center gap-2 border-t border-line bg-surface px-3 py-2 shadow-float"
       >
         {download.active ? (
           <>
@@ -405,17 +414,17 @@ export function MiniPlayer({
               </p>
             </div>
             {download.needed && (
-              <button
-                type="button"
+              <Button
+                variant="primary"
                 onClick={download.onStart}
-                className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-illumination px-3 text-sm font-semibold text-white touch:min-h-11 dark:text-paper"
+                icon={<Download size={16} aria-hidden />}
               >
-                <Download size={16} aria-hidden />
                 {a.download}
-              </button>
+              </Button>
             )}
           </>
         )}
+        {locate}
         <QuietIconButton label={a.options} onClick={onOpenOptions}>
           <SlidersHorizontal size={18} />
         </QuietIconButton>
@@ -467,7 +476,7 @@ export function MiniPlayer({
     <div
       role="region"
       aria-label={a.bar}
-      className="flex shrink-0 flex-col gap-0.5 border-t border-line bg-surface px-2 py-1"
+      className="flex shrink-0 flex-col gap-1 border-t border-line bg-surface px-2 py-1.5 shadow-float"
     >
       <div className="flex items-center gap-1.5">
         {roomy && fromStep}
@@ -475,9 +484,17 @@ export function MiniPlayer({
         {roomy && toStep}
       </div>
       {/* The side columns share the leftover width equally, so play sits in
-          the middle of the bar. */}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-1">
-        <div className="flex min-w-0 items-center justify-end gap-0.5">
+          the middle of the bar. On a phone the buttons sit edge to edge and a
+          side never shrinks below its buttons (the right one holds four). */}
+      <div
+        className={cx(
+          "grid items-center",
+          roomy
+            ? "grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-1"
+            : "grid-cols-[minmax(min-content,1fr)_auto_minmax(min-content,1fr)] gap-0.5",
+        )}
+      >
+        <div className={cx("flex min-w-0 items-center justify-end", roomy && "gap-0.5")}>
           {roomy && (
             <p className="mr-auto min-w-0 truncate pl-1 text-sm" aria-live="polite">
               {status}
@@ -520,14 +537,15 @@ export function MiniPlayer({
           onClick={rec.toggle}
           aria-label={rec.playing ? a.pause : a.play}
           title={rec.playing ? a.pause : a.play}
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-illumination text-white dark:text-paper"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-illumination text-white transition-colors hover:bg-illumination/90 dark:text-paper"
         >
           {rec.playing ? <Pause size={20} /> : <Play size={20} className="ml-0.5" />}
         </button>
-        <div className="flex min-w-0 items-center gap-0.5">
+        <div className={cx("flex min-w-0 items-center", roomy && "gap-0.5")}>
           <QuietIconButton label={a.nextAyah} onClick={() => rec.step(1)}>
             <SkipForward size={18} />
           </QuietIconButton>
+          {locate}
           <QuietIconButton label={a.options} onClick={onOpenOptions}>
             <SlidersHorizontal size={18} />
           </QuietIconButton>
@@ -644,23 +662,19 @@ export function RecitationControls({
   }, [reciters, reciterNote, timed, a]);
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="sticky top-0 z-10 -mx-4 -mt-4 flex gap-2 border-b border-line bg-surface px-4 py-3">
-        <button
-          type="button"
+    <div className="flex flex-col gap-5 px-4 pb-4">
+      <div className="sticky top-0 z-10 -mx-4 flex gap-2 border-b border-line bg-surface px-4 py-3">
+        <Button
+          variant="primary"
           onClick={onPlay}
-          className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-illumination px-3 text-sm font-semibold text-white touch:min-h-11 dark:text-paper"
+          icon={<Play size={16} aria-hidden />}
+          className="flex-1"
         >
-          <Play size={16} aria-hidden /> {a.playNow}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          title={a.cancelHint}
-          className="inline-flex min-h-10 items-center justify-center rounded-lg border border-ink-subtle px-4 text-sm font-medium text-ink hover:bg-surface-sunken touch:min-h-11"
-        >
+          {a.playNow}
+        </Button>
+        <Button onClick={onCancel} title={a.cancelHint} className="px-4">
           {a.cancel}
-        </button>
+        </Button>
       </div>
       <Select
         size="sm"
@@ -700,7 +714,7 @@ export function RecitationControls({
           <button
             type="button"
             onClick={onResetRange}
-            className="inline-flex items-center gap-1.5 self-start rounded-lg px-2 py-1.5 text-sm text-illumination hover:bg-surface-sunken"
+            className="-mx-1 inline-flex min-h-9 items-center gap-1.5 self-start rounded-md px-1.5 text-sm font-medium text-illumination transition-colors hover:bg-surface-sunken touch:min-h-11"
           >
             <RotateCcw size={14} aria-hidden /> {a.resetRange}
           </button>
@@ -739,27 +753,26 @@ export function RecitationControls({
       </div>
 
       {storage && (
-        <section className="flex flex-col gap-2 border-t border-line pt-4">
-          <h3 className="text-sm font-semibold text-ink">{a.storageTitle}</h3>
+        <section className="flex flex-col gap-2 border-t border-line pt-5">
+          <h3 className="text-heading text-ink">{a.storageTitle}</h3>
           <p className="text-sm tabular-nums text-ink-muted">
             {a.onDevice(storage.surahs, storage.size)}
           </p>
           <div className="flex flex-wrap gap-2">
             {storage.surahs < 114 && (
-              <button
-                type="button"
+              <Button
                 onClick={storage.onDownloadAll}
                 disabled={storage.busy}
-                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-ink-subtle px-3 text-sm font-medium text-ink hover:bg-surface-sunken disabled:opacity-50 touch:min-h-11"
+                icon={<Download size={16} aria-hidden />}
               >
-                <Download size={15} aria-hidden /> {a.downloadAll(storage.allSize)}
-              </button>
+                {a.downloadAll(storage.allSize)}
+              </Button>
             )}
             {storage.surahs > 0 && (
               <button
                 type="button"
                 onClick={storage.onDeleteAll}
-                className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-rubric hover:bg-surface-sunken touch:min-h-11"
+                className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-rubric transition-colors hover:bg-surface-sunken touch:min-h-11"
               >
                 <Trash2 size={15} aria-hidden /> {a.deleteAll}
               </button>

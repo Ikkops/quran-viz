@@ -32,7 +32,7 @@ export function DataTable({
   return (
     <div className="h-full w-full overflow-auto rounded-lg border border-line">
       <table
-        className="w-full border-collapse text-sm"
+        className="w-full border-collapse text-sm tabular-nums"
         aria-label={t.dashboard.tableAria}
       >
         <thead className="sticky top-0 bg-surface text-left shadow-[0_1px_0_rgb(var(--line))]">
@@ -41,7 +41,7 @@ export function DataTable({
               <th
                 key={k}
                 scope="col"
-                className={`whitespace-nowrap px-3 py-2 font-medium text-ink-subtle ${numeric(rows[0][k]) ? "text-right" : ""}`}
+                className={`whitespace-nowrap px-3 py-2 text-eyebrow text-ink-subtle ${numeric(rows[0][k]) ? "text-right" : ""}`}
               >
                 {t.table.cols[k] ?? k.replace(/_/g, " ")}
               </th>
@@ -52,7 +52,7 @@ export function DataTable({
           {shown.map((row, i) => {
             const target = targetOf(row);
             return (
-              <tr key={i} className="border-t border-line/70 hover:bg-surface-sunken/60">
+              <tr key={i} className="border-t border-line hover:bg-surface-sunken">
                 {keys.map((k, j) => {
                   const v = row[k];
                   const text = cell(v);
@@ -68,7 +68,7 @@ export function DataTable({
                         <button
                           type="button"
                           onClick={() => onOpen(target)}
-                          className="font-medium text-illumination hover:underline"
+                          className="text-left font-medium text-illumination underline-offset-2 hover:underline touch:min-h-11"
                         >
                           {text}
                         </button>

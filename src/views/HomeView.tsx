@@ -5,7 +5,7 @@ import { currentStreak, dayDate, dayKey } from "../data/readingLog";
 import { useReadingGoal, useReadingLog } from "../lib/readingStore";
 import type { ReadStretch } from "../lib/lastRead";
 import { useI18n } from "../i18n/I18nContext";
-import { cx } from "../components/ui";
+import { Button, cx } from "../components/ui";
 import { QuranIndex } from "../components/home/QuranIndex";
 import { preferredDivision, scopeField } from "../components/reader/readerShared";
 
@@ -67,75 +67,80 @@ export function HomeView({
   const ago = useWhen();
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-5">
-      <section aria-label={h.lastRead} className="flex flex-col gap-2">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink-subtle">
-          <History size={15} aria-hidden /> {h.lastRead}
-        </h2>
-        {lastReads.length === 0 ? (
-          <button
-            type="button"
-            onClick={() => onOpen({ scope: "surah", value: 1 })}
-            className="flex items-center gap-3 self-start rounded-xl bg-illumination px-4 py-3 text-left text-white transition-opacity hover:opacity-90 dark:text-paper"
-          >
-            <BookOpen size={20} aria-hidden className="shrink-0" />
-            <span>
-              <span className="block text-base font-semibold">{t.app.startReading}</span>
-              <span className="block text-sm opacity-90">
+    <div className="mx-auto flex max-w-5xl flex-col gap-8">
+      {/* Where reading starts: carry on (or begin), then today against the goal. */}
+      <div className="flex flex-col gap-4">
+        <section aria-label={h.lastRead} className="flex flex-col gap-2">
+          <h2 className="flex items-center gap-1.5 text-eyebrow text-ink-subtle">
+            <History size={14} aria-hidden /> {h.lastRead}
+          </h2>
+          {lastReads.length === 0 ? (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+              <Button
+                variant="primary"
+                icon={<BookOpen size={16} aria-hidden />}
+                onClick={() => onOpen({ scope: "surah", value: 1 })}
+              >
+                {t.app.startReading}
+              </Button>
+              <span className="text-sm text-ink-muted">
                 {h.startAt(data.surahs[0]?.name ?? "")}
               </span>
-            </span>
-          </button>
-        ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,11rem),1fr))] gap-2">
-            {lastReads.map((e, i) => {
-              const v = data.verses[e.id - 1];
-              const s = data.surahs.find((x) => x.id === e.s);
-              if (!v || !s) return null;
-              return (
-                <button
-                  key={e.s}
-                  type="button"
-                  onClick={() => onOpen(lastReadTarget(e))}
-                  className={cx(
-                    "flex min-h-[3.25rem] flex-col justify-center rounded-xl border px-3 py-2 text-left transition-colors",
-                    i === 0
-                      ? "border-illumination bg-illumination/10 hover:bg-illumination/15"
-                      : "border-line bg-surface hover:border-ink-subtle",
-                  )}
-                >
-                  <span className="truncate text-base font-semibold text-ink">
-                    {s.name}{" "}
-                    <span className="font-normal tabular-nums text-ink-muted">
-                      {v.s}:{v.a}
+            </div>
+          ) : (
+            // One row that scrolls sideways, bleeding past main's px-4 so a cut-off card shows there is more.
+            <div className="scrollbar-none -mx-4 flex snap-x snap-mandatory scroll-px-4 gap-2 overflow-x-auto px-4">
+              {lastReads.map((e, i) => {
+                const v = data.verses[e.id - 1];
+                const s = data.surahs.find((x) => x.id === e.s);
+                if (!v || !s) return null;
+                return (
+                  <button
+                    key={e.s}
+                    type="button"
+                    onClick={() => onOpen(lastReadTarget(e))}
+                    className={cx(
+                      "flex min-h-[3.25rem] w-44 shrink-0 snap-start flex-col justify-center gap-0.5 rounded-lg border px-3 py-2 text-left transition-colors",
+                      i === 0
+                        ? "border-illumination bg-illumination/10 hover:bg-illumination/15"
+                        : "border-line bg-surface hover:bg-surface-sunken",
+                    )}
+                  >
+                    <span className="truncate text-heading text-ink">
+                      {s.name}{" "}
+                      <span className="font-normal tabular-nums text-ink-muted">
+                        {v.s}:{v.a}
+                      </span>
                     </span>
-                  </span>
-                  <span className="truncate text-xs text-ink-subtle">{ago(e.at)}</span>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <button
-        type="button"
-        onClick={onActivity}
-        className="flex items-center gap-3 rounded-xl border border-line bg-surface px-4 py-2.5 text-left transition-colors hover:border-ink-subtle"
-      >
-        <Flame
-          size={20}
-          aria-hidden
-          className={cx(
-            "shrink-0",
-            todaySec >= goal * 60 ? "text-illumination" : "text-ink-subtle",
+                    <span className="truncate text-xs text-ink-subtle">{ago(e.at)}</span>
+                  </button>
+                );
+              })}
+            </div>
           )}
-        />
-        <span className="min-w-0 flex-1 text-base font-semibold tabular-nums text-ink">
-          {h.todayLine(t.activity.duration(todaySec), goal)}
-        </span>
-        <span className="shrink-0 text-sm text-ink-muted">{h.streakLine(n(streak))}</span>
-      </button>
+        </section>
+
+        <button
+          type="button"
+          onClick={onActivity}
+          className="flex min-h-11 items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-left shadow-soft transition-colors hover:bg-surface-sunken"
+        >
+          <Flame
+            size={20}
+            aria-hidden
+            className={cx(
+              "shrink-0",
+              todaySec >= goal * 60 ? "text-illumination" : "text-ink-subtle",
+            )}
+          />
+          <span className="min-w-0 flex-1 text-heading tabular-nums text-ink">
+            {h.todayLine(t.activity.duration(todaySec), goal)}
+          </span>
+          <span className="shrink-0 text-sm tabular-nums text-ink-muted">
+            {h.streakLine(n(streak))}
+          </span>
+        </button>
+      </div>
 
       <QuranIndex data={data} onOpen={onOpen} onSearch={onSearch} />
     </div>

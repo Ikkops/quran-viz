@@ -39,16 +39,16 @@ export function LengthHistogram({
       >
         <XAxis
           dataKey="label"
-          tick={{ fontSize: 10, fill: axisColor(ctx.dark) }}
+          tick={{ fontSize: 12, fill: axisColor(ctx.dark) }}
           label={{
             value: t.charts.wordsPerVerse,
             position: "insideBottom",
             offset: -10,
-            fontSize: 11,
+            fontSize: 12,
             fill: axisColor(ctx.dark),
           }}
         />
-        <YAxis tick={{ fontSize: 11, fill: axisColor(ctx.dark) }} />
+        <YAxis tick={{ fontSize: 12, fill: axisColor(ctx.dark) }} />
         <Tooltip
           content={<GenericTooltip unit={t.tooltip.units.verses} />}
           cursor={{ fill: CURSOR_FILL }}

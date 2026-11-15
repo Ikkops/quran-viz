@@ -73,14 +73,15 @@ function Stat({
   done?: boolean;
 }) {
   return (
-    <div className="min-w-0 rounded-lg border border-line bg-surface px-3 py-2.5">
-      <p className="truncate text-xs text-ink-subtle">{label}</p>
-      <p className="mt-0.5 flex items-center gap-1.5 text-xl font-semibold tabular-nums text-ink">
-        <span className="truncate">{value}</span>
-        {done && <Check size={17} className="shrink-0 text-illumination" aria-hidden />}
+    <Card className="min-w-0 px-4 py-3">
+      <p className="truncate text-eyebrow text-ink-subtle">{label}</p>
+      {/* Wraps rather than truncates: "12 jam 34 mnt" is wider than a phone tile. */}
+      <p className="mt-1 flex items-center gap-1.5 text-display tabular-nums text-ink">
+        <span className="min-w-0">{value}</span>
+        {done && <Check size={20} className="shrink-0 text-illumination" aria-hidden />}
       </p>
-      {note && <p className="truncate text-xs text-ink-muted">{note}</p>}
-    </div>
+      {note && <p className="mt-0.5 text-xs text-ink-muted">{note}</p>}
+    </Card>
   );
 }
 
@@ -128,7 +129,7 @@ function Bars({
               aria-pressed={picked === i}
               aria-label={describe(b)}
               title={describe(b)}
-              className="group flex h-full min-w-0 flex-1 items-end rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-illumination"
+              className="group flex h-full min-w-0 flex-1 items-end rounded-sm"
             >
               <span
                 className={cx(
@@ -213,7 +214,7 @@ export function ActivityPanel({
 
   return (
     <section aria-label={a.title} className="flex flex-col gap-4">
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-2">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3">
         <Stat
           label={a.today}
           value={a.duration(todaySec)}
@@ -225,8 +226,8 @@ export function ActivityPanel({
         <Stat label={a.total} value={a.duration(allSeconds)} note={a.daysRead(allDays)} />
       </div>
 
-      <Card className="flex flex-col gap-3 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <Card className="flex flex-col gap-4 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <SegmentedControl<ActivityPeriod>
             ariaLabel={a.period}
             value={period}
@@ -288,9 +289,11 @@ export function ActivityPanel({
         </p>
       </Card>
 
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <div className="flex items-center gap-2 text-sm text-ink-muted">
-          <span aria-hidden>{a.goal}</span>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex items-center gap-2">
+          <span aria-hidden className="text-eyebrow text-ink-subtle">
+            {a.goal}
+          </span>
           <Select
             className="w-36"
             ariaLabel={a.goal}

@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, ChevronDown, Download, FileSpreadsheet, Table2 } from "lucide-react";
+import {
+  BarChart3,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileSpreadsheet,
+  LayoutGrid,
+  Table2,
+} from "lucide-react";
 import type { QuranData } from "../types/quran";
 import {
   aggregateBySurah,
@@ -19,7 +27,7 @@ import { useI18n } from "../i18n/I18nContext";
 import { downloadCsv, exportElementToPng } from "../lib/export";
 import { parseHash, serializeHash } from "../lib/hash";
 import { rootSurahCounts, topRootsInScope } from "../data/roots";
-import { Card, IconButton, SegmentedControl, Sheet, cx } from "../components/ui";
+import { Button, Card, SegmentedControl, Sheet, cx } from "../components/ui";
 import { QuestionList } from "../components/dashboard/QuestionMenu";
 import { FilterBar } from "../components/dashboard/FilterBar";
 import { MarkReadout, type Pinned } from "../components/dashboard/MarkReadout";
@@ -615,43 +623,69 @@ export function DashboardView({
 
   const question = t.viz.labels[viz];
   const Icon = def.icon;
+  const vizIndex = VIZ_IDS.indexOf(viz);
+  const stepViz = (d: number) =>
+    pickViz(VIZ_IDS[(vizIndex + d + VIZ_IDS.length) % VIZ_IDS.length]);
 
   return (
     // The question menu sits beside the chart from MENU_PX of dashboard width
     // (measured, not a media query: CSS zoom leaves those reading the window).
     <div ref={rootRef} className="flex items-start gap-4">
       {sideMenu && (
-        <Card className="sticky top-4 w-[17rem] shrink-0 p-3">
+        <Card className="sticky top-4 w-[17rem] shrink-0 p-2">
           <QuestionList defs={VIZ_DEFS} value={viz} onChange={pickViz} />
         </Card>
       )}
 
       <Card className="min-w-0 flex-1 p-4">
         <div className="mb-3 flex flex-wrap items-start gap-x-4 gap-y-2">
+          {!sideMenu && (
+            <div className="flex basis-full items-center gap-2">
+              <Button
+                onClick={() => setMenuOpen(true)}
+                aria-haspopup="dialog"
+                icon={<LayoutGrid size={16} aria-hidden />}
+              >
+                {t.dashboard.allCharts}
+              </Button>
+              <div className="flex items-center gap-0.5 text-sm font-medium tabular-nums text-ink-muted">
+                <Button
+                  variant="quiet"
+                  onClick={() => stepViz(-1)}
+                  aria-label={t.dashboard.prevChart}
+                  title={t.dashboard.prevChart}
+                  className="w-9 px-0 touch:min-w-11"
+                >
+                  <ChevronLeft size={18} aria-hidden />
+                </Button>
+                <span className="min-w-[3.5rem] text-center">
+                  {n(vizIndex + 1)} / {n(VIZ_DEFS.length)}
+                </span>
+                <Button
+                  variant="quiet"
+                  onClick={() => stepViz(1)}
+                  aria-label={t.dashboard.nextChart}
+                  title={t.dashboard.nextChart}
+                  className="w-9 px-0 touch:min-w-11"
+                >
+                  <ChevronRight size={18} aria-hidden />
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="min-w-0 flex-[1_1_20rem]">
-            <h2 className="font-ui text-xl font-semibold leading-snug text-ink">
+            <h2 className="text-title text-ink">
               {sideMenu ? (
                 question
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setMenuOpen(true)}
-                  aria-haspopup="dialog"
-                  title={t.dashboard.changeChart}
-                  className="inline-flex items-start gap-2 text-left hover:text-illumination"
-                >
+                <span className="inline-flex items-start gap-2">
                   <Icon
-                    size={20}
+                    size={18}
                     aria-hidden
                     className="mt-1 shrink-0 text-illumination"
                   />
                   <span>{question}</span>
-                  <ChevronDown
-                    size={18}
-                    aria-hidden
-                    className="mt-1.5 shrink-0 text-ink-subtle"
-                  />
-                </button>
+                </span>
               )}
             </h2>
             <p
@@ -664,27 +698,35 @@ export function DashboardView({
           </div>
           <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
             {headerControls}
-            <IconButton
+            <Button
               onClick={() => setShowTable(!showTable)}
               title={showTable ? t.dashboard.showChart : t.dashboard.showData}
               aria-pressed={showTable}
+              icon={
+                showTable ? (
+                  <BarChart3 size={16} aria-hidden />
+                ) : (
+                  <Table2 size={16} aria-hidden />
+                )
+              }
             >
-              {showTable ? <BarChart3 size={15} /> : <Table2 size={15} />}
               {showTable ? t.dashboard.showChart : t.dashboard.showData}
-            </IconButton>
-            <IconButton
+            </Button>
+            <Button
               onClick={handleExport}
               title={t.dashboard.png}
               disabled={showTable}
+              icon={<Download size={16} aria-hidden />}
             >
-              <Download size={15} /> PNG
-            </IconButton>
-            <IconButton
+              PNG
+            </Button>
+            <Button
               onClick={() => void downloadCsv(csvRows(), `quran-${viz}`)}
               title={t.dashboard.csv}
+              icon={<FileSpreadsheet size={16} aria-hidden />}
             >
-              <FileSpreadsheet size={15} /> CSV
-            </IconButton>
+              CSV
+            </Button>
           </div>
         </div>
 
@@ -752,7 +794,10 @@ export function DashboardView({
         side={width < 560 ? "bottom" : "right"}
         closeLabel={t.common.close}
       >
-        <QuestionList defs={VIZ_DEFS} value={viz} onChange={pickViz} />
+        {/* Rows inset 8px, so their text lines up with the header's 16px. */}
+        <div className="px-2 py-3">
+          <QuestionList defs={VIZ_DEFS} value={viz} onChange={pickViz} />
+        </div>
       </Sheet>
     </div>
   );
@@ -887,13 +932,9 @@ function LoadState({ error, onRetry }: { error: string | null; onRetry?: () => v
     >
       {error ? t.common.failedToLoad(error) : t.common.loading}
       {error && onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          className="rounded-lg border border-ink-subtle px-3 py-1 text-xs font-medium text-ink-muted hover:bg-paper dark:hover:bg-surface"
-        >
+        <Button size="sm" onClick={onRetry}>
           {t.common.retry}
-        </button>
+        </Button>
       )}
     </div>
   );

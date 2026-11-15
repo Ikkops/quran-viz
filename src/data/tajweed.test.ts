@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { DARK_TOKENS, LIGHT_TOKENS, THEMES } from "../theme/tokens";
-import { RULE_COLORS, parseTajweed, tajweedColor } from "./tajweed";
+import {
+  RULE_COLORS,
+  SHARED_COLORS,
+  TAJWEED_EXAMPLES,
+  TAJWEED_GROUPS,
+  parseTajweed,
+  tajweedColor,
+} from "./tajweed";
 
 describe("parseTajweed (extra)", () => {
   it("preserves whitespace between segments", () => {
@@ -53,14 +60,34 @@ describe("tajweed colours", () => {
     },
   );
 
-  it("gives each rule its own colour in each theme", () => {
+  it("gives each rule its own colour, except the pairs that share one", () => {
+    const shared = new Map(SHARED_COLORS);
     for (const key of ["color", "dark"] as const) {
-      const colors = Object.values(RULE_COLORS).map((r) => r[key]);
+      for (const [a, b] of SHARED_COLORS)
+        expect(RULE_COLORS[a][key]).toBe(RULE_COLORS[b][key]);
+      const colors = Object.keys(RULE_COLORS)
+        .filter((code) => !shared.has(code))
+        .map((code) => RULE_COLORS[code][key]);
       expect(new Set(colors).size).toBe(colors.length);
     }
   });
 
   it("returns undefined for an unknown rule", () => {
     expect(tajweedColor("zz", false)).toBeUndefined();
+  });
+});
+
+describe("tajweed groups", () => {
+  it("list every rule code exactly once, each with an example", () => {
+    const codes = TAJWEED_GROUPS.flatMap((g) => g.rules.map((r) => r.code));
+    expect([...codes].sort()).toEqual(Object.keys(RULE_COLORS).sort());
+    for (const code of codes) expect(TAJWEED_EXAMPLES[code], code).toBeDefined();
+  });
+
+  it("keep each example to its own rule", () => {
+    for (const [code, ex] of Object.entries(TAJWEED_EXAMPLES)) {
+      const rules = parseTajweed(ex.marked).flatMap((s) => (s.rule ? [s.rule] : []));
+      expect(rules, code).toEqual([code]);
+    }
   });
 });

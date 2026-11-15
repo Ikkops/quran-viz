@@ -28,6 +28,29 @@ export default {
       boxShadow: {
         // DESIGN.md "Float": only for things above content (sheets, popovers, player).
         float: "0 8px 24px -8px rgb(27 34 48 / 0.18)",
+        // DESIGN.md "Soft": cards and lifted options. A layered whisper on light
+        // themes; on dark ones (`.dark`) only a top-edge highlight (index.css).
+        soft: "var(--shadow-soft)",
+      },
+      // DESIGN.md type steps (rem, so the Interface scale applies). Body text
+      // stays text-base / text-sm.
+      fontSize: {
+        display: [
+          "1.625rem",
+          { lineHeight: "1.2", letterSpacing: "-0.02em", fontWeight: "700" },
+        ],
+        title: [
+          "1.25rem",
+          { lineHeight: "1.3", letterSpacing: "-0.01em", fontWeight: "600" },
+        ],
+        heading: [
+          "1rem",
+          { lineHeight: "1.4", letterSpacing: "-0.005em", fontWeight: "600" },
+        ],
+        eyebrow: [
+          "0.75rem",
+          { lineHeight: "1.33", letterSpacing: "0.01em", fontWeight: "600" },
+        ],
       },
       fontFamily: {
         amiri: ["Amiri", "serif"],
