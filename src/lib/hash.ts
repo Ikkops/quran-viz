@@ -7,7 +7,7 @@ import {
 
 /** Top-level views. ("compare" became a reader layout; old links open the dashboard.) */
 /** "home" is where the app opens: last read and the index. The old "browse"
- *  (Map) view is now the dashboard's Map tab: `#browse` opens it. */
+ *  (Map) view is now the dashboard's `map` view: `#browse` opens it. */
 export type View = "home" | "dashboard" | "structure" | "activity" | "settings";
 export const VIEWS: readonly View[] = [
   "home",

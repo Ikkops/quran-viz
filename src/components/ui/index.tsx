@@ -23,6 +23,7 @@ import {
   velocity,
   type DragSample,
 } from "../../lib/drag";
+import { tick } from "../../lib/haptics";
 import { popupRoot, rootZoom } from "./popup";
 
 export { Select, type SelectOption } from "./Select";
@@ -522,10 +523,10 @@ const FOCUSABLE =
  * A panel docked to the bottom edge (phones) or the right edge (wider layouts),
  * over a dimmed page: the reader's ayah context and player options. Escape,
  * the backdrop and Android back (a synthetic Escape) close it, and a bottom
- * sheet can be dragged down by its handle, header or unscrolled content; each
- * plays the exit before `onClose`. Focus moves in on open and returns on
- * close. The body has no padding of its own: callers
- * pad their content (`px-4 py-3`, the header's inset).
+ * (top) sheet can be dragged down (up) by its header or by content scrolled
+ * to its start (end); each plays the exit before `onClose`. Focus moves in on
+ * open and returns on close. The body has no padding of its own: callers pad
+ * their content (`px-4 py-3`, the header's inset).
  */
 export function Sheet({
   open,
@@ -559,6 +560,8 @@ export function Sheet({
     const panel = panelRef.current;
     const backdrop = backdropRef.current;
     const reduced = prefersReducedMotion();
+    // Reduced motion: a tap's close fades; a drag's close finishes the slide, shorter.
+    const fade = reduced && !fromPx;
     const off =
       side === "bottom"
         ? "translateY(100%)"
@@ -566,14 +569,14 @@ export function Sheet({
           ? "translateY(-100%)"
           : "translateX(100%)";
     const options: KeyframeAnimationOptions = {
-      duration: reduced ? 120 : 180,
+      duration: fade ? 120 : reduced ? 80 : 180,
       easing: EASE_IN,
       fill: "forwards",
     };
     const dim = backdrop?.style.opacity || "1";
     const a = animateTo(
       panel,
-      reduced
+      fade
         ? [{ opacity: 1 }, { opacity: 0 }]
         : [
             { transform: fromPx ? `translateY(${fromPx}px)` : "none" },
@@ -634,26 +637,31 @@ export function Sheet({
     };
   }, [open]);
 
-  // A bottom sheet follows a finger dragging it down and closes when let go
-  // far enough or flicked. The drag starts from the handle and header, or from
-  // the content while nothing in it is scrolled; otherwise the content scrolls.
+  // A bottom (top) sheet follows a finger dragging it down (up) and closes when
+  // let go far enough or flicked. The drag starts from the handle and header,
+  // or from the content while every scroller in it is at its top (bottom);
+  // otherwise the content scrolls. Under reduced motion the finger is still
+  // followed: only what plays after release is shorter.
   useEffect(() => {
     const panel = panelRef.current;
-    if (!open || side !== "bottom" || !panel) return;
+    if (!open || side === "right" || !panel) return;
+    // +1: dragging down closes (bottom sheet); -1: dragging up (top sheet).
+    const sign = side === "bottom" ? 1 : -1;
     let st: {
       x: number;
       y: number;
       free: boolean;
       dragging: boolean;
+      /** Signed offset in the root's px, toward the closing edge. */
       dy: number;
+      past: boolean;
       samples: DragSample[];
     } | null = null;
-    const follow = !prefersReducedMotion();
+    const dim = (dy: number) => Math.max(0, 1 - Math.abs(dy) / panel.offsetHeight);
     const place = (dy: number) => {
-      if (!follow) return;
       panel.style.transform = dy ? `translateY(${dy}px)` : "";
       const b = backdropRef.current;
-      if (b) b.style.opacity = dy ? String(Math.max(0, 1 - dy / panel.offsetHeight)) : "";
+      if (b) b.style.opacity = dy ? String(dim(dy)) : "";
     };
     const onStart = (e: TouchEvent) => {
       st = null;
@@ -662,9 +670,23 @@ export function Sheet({
       if (el.closest("input, textarea, [role='slider'], [data-select-popup]")) return;
       let free = true;
       for (let n: Element | null = el; n && n !== panel; n = n.parentElement)
-        if (n.scrollTop > 0) free = false;
+        if (
+          sign > 0
+            ? n.scrollTop > 0
+            : n.scrollTop + n.clientHeight < n.scrollHeight - 1 &&
+              /auto|scroll/.test(getComputedStyle(n).overflowY)
+        )
+          free = false;
       const t = e.touches[0];
-      st = { x: t.clientX, y: t.clientY, free, dragging: false, dy: 0, samples: [] };
+      st = {
+        x: t.clientX,
+        y: t.clientY,
+        free,
+        dragging: false,
+        dy: 0,
+        past: false,
+        samples: [],
+      };
     };
     const onMove = (e: TouchEvent) => {
       if (!st) return;
@@ -675,10 +697,15 @@ export function Sheet({
         const axis = axisLock(dx, dy);
         if (!axis) {
           // Hold the browser's own scroll off while this may become a drag.
-          if (st.free && dy > 0 && e.cancelable) e.preventDefault();
+          if (st.free && dy * sign > 0 && e.cancelable) e.preventDefault();
           return;
         }
-        if (axis !== "y" || dy < 0 || !st.free || window.getSelection?.()?.toString()) {
+        if (
+          axis !== "y" ||
+          dy * sign < 0 ||
+          !st.free ||
+          window.getSelection?.()?.toString()
+        ) {
           st = null;
           return;
         }
@@ -686,33 +713,32 @@ export function Sheet({
       }
       if (e.cancelable) e.preventDefault();
       // The app root is zoomed: a px inside it is `zoom` px of the finger's.
-      st.dy = Math.max(0, dy) / rootZoom(popupRoot());
+      st.dy = (sign * Math.max(0, dy * sign)) / rootZoom(popupRoot());
       st.samples.push({ p: t.clientY, t: e.timeStamp });
+      // Same 30% as `commits`: a tap where letting go would close the sheet.
+      const past = Math.abs(st.dy) > panel.offsetHeight * 0.3;
+      if (past !== st.past) tick();
+      st.past = past;
       place(st.dy);
     };
     const onEnd = () => {
       const s = st;
       st = null;
       if (!s?.dragging) return;
-      const v = velocity(s.samples) / rootZoom(popupRoot());
-      if (commits(s.dy, panel.offsetHeight, v)) {
-        closeRef.current(follow ? s.dy : 0);
+      const v = (sign * velocity(s.samples)) / rootZoom(popupRoot());
+      if (commits(Math.abs(s.dy), panel.offsetHeight, v)) {
+        closeRef.current(s.dy);
         place(0);
         return;
       }
       place(0);
-      if (!follow) return;
-      const back = { duration: 200, easing: EASE_OUT };
+      const back = { duration: prefersReducedMotion() ? 80 : 200, easing: EASE_OUT };
       animateTo(
         panel,
         [{ transform: `translateY(${s.dy}px)` }, { transform: "none" }],
         back,
       );
-      animateTo(
-        backdropRef.current,
-        [{ opacity: Math.max(0, 1 - s.dy / panel.offsetHeight) }, { opacity: 1 }],
-        back,
-      );
+      animateTo(backdropRef.current, [{ opacity: dim(s.dy) }, { opacity: 1 }], back);
     };
     panel.addEventListener("touchstart", onStart, { passive: true });
     panel.addEventListener("touchmove", onMove, { passive: false });
@@ -760,7 +786,7 @@ export function Sheet({
         <div
           className={cx(
             "flex shrink-0 items-center justify-between gap-3 border-b border-line py-1.5 pl-4 pr-1.5",
-            side === "bottom" && "touch-none",
+            side !== "right" && "touch-none",
           )}
         >
           <h2 className="min-w-0 truncate text-title text-ink">{title}</h2>

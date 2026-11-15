@@ -6,6 +6,7 @@ import {
   Cloud,
   Flag,
   Hash,
+  Map as MapIcon,
   Network,
   Ruler,
   Shapes,
@@ -32,7 +33,8 @@ export type VizId =
   | "roots"
   | "root-explorer"
   | "pos"
-  | "topic-explorer";
+  | "topic-explorer"
+  | "map";
 
 /** Which dashboard controls a view responds to; the rest are hidden. */
 export interface VizUses {
@@ -45,7 +47,7 @@ export interface VizUses {
 export interface VizDef {
   value: VizId;
   label: string;
-  group: "Surahs" | "Verses" | "Vocabulary" | "Topics";
+  group: "Surahs" | "Verses" | "Vocabulary" | "Topics" | "Map";
   icon: LucideIcon;
   uses: VizUses;
   /** The view lays itself out (controls, chart, lists) and grows with its
@@ -135,6 +137,14 @@ export const VIZ_DEFS: VizDef[] = [
     uses: { range: true },
     autoHeight: true,
   },
+  {
+    value: "map",
+    label: "Mushaf map",
+    group: "Map",
+    icon: MapIcon,
+    uses: {},
+    autoHeight: true,
+  },
 ];
 
 export const VIZ_BY_ID = Object.fromEntries(VIZ_DEFS.map((d) => [d.value, d])) as Record<
@@ -173,10 +183,16 @@ export function migrateViz(raw: unknown): {
   return { viz: "length" };
 }
 
+const OLD_TAB_KEY = "qv.dashboard.tab";
+
 /** One-time rewrite of legacy keys in localStorage, before the dashboard
  *  reads them. Safe to call on every mount. */
 export function migrateStoredViz(): void {
   try {
+    // The dashboard's old Charts | Map tabs: the Map is now the `map` view.
+    if (window.localStorage.getItem(OLD_TAB_KEY) === JSON.stringify("map"))
+      window.localStorage.setItem("qv.viz", JSON.stringify("map"));
+    window.localStorage.removeItem(OLD_TAB_KEY);
     const stored = window.localStorage.getItem("qv.viz");
     if (stored === null) return;
     const m = migrateViz(JSON.parse(stored));
@@ -229,6 +245,8 @@ export function paramsToDashboard(
 ): Partial<DashboardLinkState> {
   const out: Partial<DashboardLinkState> = {};
   if (p.v && p.v in VIZ_BY_ID) out.viz = p.v as VizId;
+  // `tab=map`: the old Map tab (`#browse` still parses to it).
+  else if (p.tab === "map") out.viz = "map";
   if (p.m && METRICS.some((m) => m.value === p.m)) out.metric = p.m as Metric;
   if (p.c === "ar" || p.c === "en") out.cloudLang = p.c;
   if (p.root && LINK_KEY.test(p.root)) out.root = p.root;

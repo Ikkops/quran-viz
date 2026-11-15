@@ -13,6 +13,7 @@ import { SHORTCUTS } from "../lib/shortcuts";
 import { isNativeApp } from "../data/audioStore";
 import type { Surah } from "../types/quran";
 import { AudioStorageSettings } from "../components/settings/AudioStorageSettings";
+import { ReminderSettings } from "../components/settings/ReminderSettings";
 
 export interface ChartSettings {
   bucketSize: number;
@@ -45,8 +46,8 @@ function Row({ label, children }: { label?: string; children: ReactNode }) {
   );
 }
 
-/** Settings: language, theme, Qur'an text, last read, audio folder (in the
- *  Android app), charts, keyboard shortcuts, about. */
+/** Settings: language, theme, Qur'an text, last read, audio folder and
+ *  reminders (in the Android app), charts, keyboard shortcuts, about. */
 export function SettingsView({
   surahs,
   settings,
@@ -250,6 +251,14 @@ export function SettingsView({
         <Section title={t.settings.audioStorage}>
           <div>
             <AudioStorageSettings surahs={surahs} />
+          </div>
+        </Section>
+      )}
+
+      {isNativeApp() && (
+        <Section title={t.settings.reminders.title}>
+          <div>
+            <ReminderSettings />
           </div>
         </Section>
       )}

@@ -368,13 +368,19 @@ A gutter track (8px radius, 2px inset, faint hairline); the selected option is l
 
 ### Motion
 Motion only says where things go; the Peta Mushaf reveal stays the one orchestrated moment.
-- What is under the finger follows it 1:1 (a sheet dragged down, the reader's text swiped
-  sideways). Let go early, it springs back; at the first or last window it only gives a little.
-- A sheet leaves toward the edge it came from. A reader window leaves in the direction of
-  travel and the next arrives from the other side.
+- What is under the finger follows it 1:1 (a sheet dragged toward its edge; the reader's
+  window, a Dashboard chart, a Structure or Activity tab swiped sideways). Mid-swipe the
+  neighbour is already in view beside the current pane. Let go early, it springs back; where
+  there is no neighbour it only gives a little.
+- A sheet leaves toward the edge it came from. A swiped pane leaves in the direction of
+  travel with its neighbour following it in; a window reached by ←/→ or a button arrives
+  from the side it lies on.
+- In the Android app a light haptic tick marks the point where letting go commits.
 - Arrivals decelerate, `cubic-bezier(0.16, 1, 0.3, 1)`, 240–280 ms. Exits are shorter,
   150–200 ms, ease-in. No bounce. Only `transform` and `opacity`.
-- Reduced motion: nothing slides; sheets and windows change with a 120 ms fade.
+- Reduced motion: what the finger drives still follows it; only what plays by itself
+  shortens (80 ms after release, a 120 ms fade for a sheet or window that opens or closes
+  on its own).
 
 ### Tab bar
 Five tabs, labels always visible, ≥56px targets. The current tab has a lapis-tinted pill behind

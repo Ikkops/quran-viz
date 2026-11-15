@@ -227,6 +227,8 @@ export const id: Messages = {
     startAt: (name) => `Dari ${name}`,
     todayLine: (time, goal) => `Hari ini: ${time} dari ${goal} mnt`,
     streakLine: (n) => `Beruntun: ${n} hari`,
+    pinsAt: (ayahs) => `Pin di ayat ${ayahs}`,
+    savedCount: (_count, n) => `${n} ayat di koleksi`,
   },
 
   activity: {
@@ -256,6 +258,28 @@ export const id: Messages = {
     empty: "Belum ada. Waktu dihitung selama pembaca terbuka dan dipakai.",
     goal: "Target harian",
     how: "Waktu dihitung selama pembaca terbuka dan Anda membaca atau mendengarkan. Data hanya tersimpan di perangkat ini.",
+  },
+
+  khatam: {
+    title: "Target khatam",
+    explain:
+      "Pilih tanggal untuk mengkhatamkan Al-Qur'an, lalu lihat berapa halaman yang perlu dibaca tiap hari.",
+    date: "Selesai pada",
+    set: "Pasang target",
+    save: "Simpan",
+    cancel: "Batal",
+    change: "Ubah",
+    remove: "Hapus",
+    finishBy: (date: string) => `Selesai pada ${date}`,
+    pagesLeft: (_count: number, n: string) => `Sisa ${n} halaman`,
+    perDay: (_count: number, n: string) => `${n} halaman sehari`,
+    today: (_count: number, n: string) => `Hari ini: ${n} halaman`,
+    todayDone: "Jatah hari ini selesai",
+    behind: (_count: number, n: string) => `Tertinggal ${n} halaman`,
+    onTrack: "Sesuai jadwal",
+    overdue: "Lewat dari tanggal target",
+    done: "Khatam, alhamdulillah",
+    progress: "Kemajuan menuju khatam",
   },
 
   ui: {
@@ -289,6 +313,17 @@ export const id: Messages = {
       confirm:
         "Ganti semua yang ada di perangkat ini (penanda, hafalan, aktivitas membaca, pengaturan) dengan cadangan ini?",
       bad: "Berkas itu bukan cadangan quran-viz.",
+    },
+    reminders: {
+      title: "Pengingat",
+      reading: "Target baca harian",
+      hifdh: "Muraja'ah hafalan",
+      time: "Jam",
+      blocked: "Notifikasi diblokir. Izinkan di setelan sistem untuk memakai pengingat.",
+      readingTitle: "Waktunya membaca Al-Qur'an",
+      readingBody: (min: number) => `Target hari ini: ${min} menit.`,
+      hifdhTitle: "Muraja'ah hafalan",
+      hifdhBody: (n: number) => `${n} halaman menunggu muraja'ah.`,
     },
     audioStorage: "Penyimpanan audio",
     audio: {
@@ -393,6 +428,7 @@ export const id: Messages = {
       Verses: "Ayat",
       Vocabulary: "Kosakata",
       Topics: "Topik",
+      Map: "Peta",
     },
     labels: {
       length: "Panjang surah",
@@ -406,6 +442,7 @@ export const id: Messages = {
       "root-explorer": "Penjelajah akar kata",
       pos: "Jenis kata",
       "topic-explorer": "Penjelajah topik",
+      map: "Peta mushaf",
     },
     metrics: {
       wordCount: "Kata",
@@ -416,9 +453,7 @@ export const id: Messages = {
   },
 
   dashboard: {
-    sections: "Bagian dasbor",
     charts: "Grafik",
-    map: "Peta",
     allCharts: "Semua grafik",
     prevChart: "Grafik sebelumnya",
     nextChart: "Grafik berikutnya",
@@ -506,6 +541,8 @@ export const id: Messages = {
       `${name}: ${n} ayat di ${surahs} surah, terbanyak di ${top} (${k}).`,
     pickTopic: "Pilih sebuah topik di bawah untuk melihat di mana ia muncul.",
     pos: (a, pa, b, pb) => `${a}: ${pa} dari semua segmen; ${b}: ${pb}.`,
+    map: (surahs, ayahs, marked, markedText) =>
+      `${surahs} surah, ${ayahs} ayat; ${marked ? markedText : "belum ada"} yang diberi pin atau penanda.`,
     none: "Tidak ada apa pun dalam cakupan ini.",
   },
 
@@ -641,7 +678,6 @@ export const id: Messages = {
 
   peta: {
     bookmarks: "Pin dan penanda",
-    title: "Peta Mushaf",
     subtitle:
       "Seluruh 6.236 ayat dalam urutan mushaf, satu baris per juz; lebar tiap ayat sesuai panjang teksnya.",
     mapLabel: "Peta mushaf: tombol panah berpindah antar-ayat, Enter membuka pembaca",
@@ -791,6 +827,14 @@ export const id: Messages = {
       `· skor ${score} · ${words} kata sama · klik untuk membaca`,
     arcHint:
       "Arahkan kursor ke busur untuk melihat pasangannya; klik surah di pita untuk memfokuskannya. Sumber:",
+  },
+
+  nowPlaying: {
+    label: "Sedang diputar",
+    pause: "Jeda",
+    play: "Putar",
+    stop: "Hentikan",
+    open: "Buka di pembaca",
   },
 
   search: {
@@ -1001,6 +1045,13 @@ export const id: Messages = {
       chain: "Sambung bertahap (1, 2, 1–2, 3, 1–3…)",
       chainHelp:
         "Setiap ayat baru diputar dengan ulangannya, lalu semua yang sudah dilalui diputar sekali. Atur jarak sepanjang ayat untuk menirukannya.",
+      sleep: "Timer tidur",
+      sleepOff: "Mati",
+      sleepMinutes: (n) => `${n} menit`,
+      sleepSurah: "Akhir surah",
+      sleepLeft: (n) => `${n} mnt`,
+      sleepIn: (n) => `Berhenti dalam ${n} mnt`,
+      sleepAtSurahEnd: "Berhenti di akhir surah",
       restart: "Ulangi ayat ini dari awal",
       repeatButton: (v) => `Ulangi tiap ayat: ${v}`,
       seek: "Posisi dalam rentang",

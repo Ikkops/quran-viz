@@ -1,6 +1,15 @@
 import type { Hifdh } from "../lib/hifdh";
 import { useHifdhPlan } from "../components/hifdh/plan";
-import { ListChecks, BookOpen, Flame, History } from "lucide-react";
+import { useMemo } from "react";
+import {
+  ListChecks,
+  BookOpen,
+  Flame,
+  History,
+  Bookmark as BookmarkIcon,
+  Pin as PinIcon,
+} from "lucide-react";
+import type { Marks, Pin } from "../lib/marks";
 import type { QuranData } from "../types/quran";
 import type { ReaderTarget } from "../components/charts/common";
 import { currentStreak, dayDate, dayKey } from "../data/readingLog";
@@ -9,6 +18,7 @@ import type { ReadStretch } from "../lib/lastRead";
 import { useI18n } from "../i18n/I18nContext";
 import { Button, cx } from "../components/ui";
 import { QuranIndex } from "../components/home/QuranIndex";
+import { KhatamRow } from "../components/home/Khatam";
 import { preferredDivision, scopeField } from "../components/reader/readerShared";
 
 /** When a stretch was last read: "today, 14:05", "yesterday, 21:30",
@@ -45,6 +55,7 @@ export function HomeView({
   onActivity,
   hifdh,
   onHifdhPlan,
+  marks,
 }: {
   data: QuranData;
   /** Where recent reading stopped, newest first (already cut to the setting). */
@@ -55,6 +66,8 @@ export function HomeView({
   /** What the learner has memorised, and the way to today's plan. */
   hifdh: Hifdh;
   onHifdhPlan: () => void;
+  /** Pins and collections, shown on the last-read cards of their surah. */
+  marks: Marks;
 }) {
   const { t, n } = useI18n();
   const h = t.home;
@@ -72,6 +85,26 @@ export function HomeView({
       : { scope: d, value: scopeField(v, d), anchor: e.id };
   };
   const ago = useWhen();
+  // Per surah: its placed pins (by ayah) and how many of its ayahs are saved.
+  const marksBySurah = useMemo(() => {
+    const out = new Map<number, { pins: (Pin & { a: number })[]; saved: number }>();
+    const entry = (s: number) => {
+      let e = out.get(s);
+      if (!e) out.set(s, (e = { pins: [], saved: 0 }));
+      return e;
+    };
+    for (const p of marks.pins) {
+      const v = p.ayah ? data.verses[p.ayah - 1] : undefined;
+      if (v) entry(v.s).pins.push({ ...p, a: v.a });
+    }
+    const saved = new Set(marks.collections.flatMap((c) => c.items.map((i) => i.id)));
+    for (const id of saved) {
+      const v = data.verses[id - 1];
+      if (v) entry(v.s).saved++;
+    }
+    for (const e of out.values()) e.pins.sort((x, y) => x.a - y.a);
+    return out;
+  }, [marks, data.verses]);
   const { plan } = useHifdhPlan(hifdh, data.verses);
   const hasHifdh = /[123]/.test(hifdh.status);
 
@@ -103,6 +136,7 @@ export function HomeView({
                 const v = data.verses[e.id - 1];
                 const s = data.surahs.find((x) => x.id === e.s);
                 if (!v || !s) return null;
+                const m = marksBySurah.get(e.s);
                 return (
                   <button
                     key={e.s}
@@ -122,6 +156,47 @@ export function HomeView({
                       </span>
                     </span>
                     <span className="truncate text-xs text-ink-subtle">{ago(e.at)}</span>
+                    {m && (
+                      <span className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-xs tabular-nums text-ink-muted">
+                        <span className="sr-only">
+                          {[
+                            m.pins.length > 0 &&
+                              h.pinsAt(m.pins.map((p) => n(p.a)).join(", ")),
+                            m.saved > 0 && h.savedCount(m.saved, n(m.saved)),
+                          ]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </span>
+                        {m.pins.slice(0, 2).map((p) => (
+                          <span
+                            key={p.id}
+                            aria-hidden
+                            className="flex shrink-0 items-center gap-0.5"
+                          >
+                            <PinIcon
+                              size={12}
+                              style={{ color: p.color }}
+                              fill={p.color}
+                            />
+                            {n(p.a)}
+                          </span>
+                        ))}
+                        {m.pins.length > 2 && (
+                          <span aria-hidden className="shrink-0">
+                            +{n(m.pins.length - 2)}
+                          </span>
+                        )}
+                        {m.saved > 0 && (
+                          <span
+                            aria-hidden
+                            className="flex shrink-0 items-center gap-0.5"
+                          >
+                            <BookmarkIcon size={12} className="text-ink-subtle" />
+                            {n(m.saved)}
+                          </span>
+                        )}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -149,6 +224,15 @@ export function HomeView({
             {h.streakLine(n(streak))}
           </span>
         </button>
+
+        <KhatamRow
+          currentPage={(lastReads[0] && data.verses[lastReads[0].id - 1]?.page) || 1}
+          onOpen={() =>
+            onOpen(
+              lastReads[0] ? lastReadTarget(lastReads[0]) : { scope: "surah", value: 1 },
+            )
+          }
+        />
 
         {hasHifdh && (
           <button

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart3,
   ChevronLeft,
@@ -27,7 +27,7 @@ import { useI18n } from "../i18n/I18nContext";
 import { downloadCsv, exportElementToPng } from "../lib/export";
 import { parseHash, serializeHash } from "../lib/hash";
 import { rootSurahCounts, topRootsInScope } from "../data/roots";
-import { Button, Card, SegmentedControl, Sheet, cx } from "../components/ui";
+import { Button, Card, SegmentedControl, Sheet, Skeleton, cx } from "../components/ui";
 import { QuestionList } from "../components/dashboard/QuestionMenu";
 import { FilterBar } from "../components/dashboard/FilterBar";
 import { MarkReadout, type Pinned } from "../components/dashboard/MarkReadout";
@@ -38,6 +38,7 @@ import {
   distributionFacts,
   extremesFacts,
   lengthFacts,
+  mapFacts,
   openingFacts,
   posFacts,
   spreadFacts,
@@ -61,6 +62,9 @@ import { useTopics } from "../data/useTopics";
 import { buildTopicTree, topicName } from "../data/topics";
 import { TopicExplorer } from "../components/charts/TopicExplorer";
 import type { ChartSettings } from "./SettingsView";
+import type { Hifdh } from "../lib/hifdh";
+import type { ExploreTarget } from "../components/reader/VerseContextPanel";
+import { useSwipePager } from "../lib/useSwipePager";
 import {
   dashboardToParams,
   METRICS,
@@ -71,6 +75,10 @@ import {
   type CloudLang,
   type VizId,
 } from "./vizDefs";
+
+const PetaMushaf = lazy(() =>
+  import("../components/peta/PetaMushaf").then((m) => ({ default: m.PetaMushaf })),
+);
 
 // Rewrite legacy `qv.viz` values (words/letters/…, cloud-ar/cloud-en) once,
 // before the persisted state below reads them.
@@ -88,6 +96,10 @@ export function DashboardView({
   onColorMode: setColorMode,
   onOpen,
   onSearch,
+  lastRead,
+  marked,
+  hifdh,
+  onExplore,
 }: {
   data: QuranData;
   settings: ChartSettings;
@@ -96,6 +108,12 @@ export function DashboardView({
   onOpen: (t: ReaderTarget) => void;
   /** Open global search with a query (word-cloud click). */
   onSearch?: (query: string) => void;
+  /** For the mushaf map: ayah id last read, the ayahs carrying a pin or in a
+   *  collection, and what the learner has memorised. */
+  lastRead?: number;
+  marked: number[];
+  hifdh: Hifdh;
+  onExplore: (t: ExploreTarget) => void;
 }) {
   const theme = useTheme();
   const { t, n, lang, place: i18nPlace, category: i18nCategory } = useI18n();
@@ -164,6 +182,16 @@ export function DashboardView({
     setPinned(null);
     setMenuOpen(false);
   };
+  const vizIndex = VIZ_IDS.indexOf(viz);
+  const vizAt = (d: number) => VIZ_IDS[(vizIndex + d + VIZ_IDS.length) % VIZ_IDS.length];
+  const stepViz = (d: number) => pickViz(vizAt(d));
+  // A sideways swipe on the chart steps like the ‹ › stepper, wrapping.
+  const { handlers, peek, trackRef } = useSwipePager({
+    current: viz,
+    canGo: () => true,
+    onCommit: (d) => stepViz(d),
+  });
+  const peekViz = peek !== 0 ? vizAt(peek) : null;
   const changeFilter = (f: FilterState) => {
     setFilter(f);
     setPinned(null);
@@ -204,6 +232,20 @@ export function DashboardView({
     [filteredVerses, surahMap, def.uses.sort, effectiveFilter.sort],
   );
   const order = useMemo(() => surahData.map((d) => d.id), [surahData]);
+  // The neighbour's rows: the current ones unless it reads range or sort
+  // differently (computed only while it peeks).
+  const peekScope = useMemo(() => {
+    if (!peekViz) return null;
+    const pd = VIZ_BY_ID[peekViz];
+    if (!pd.uses.range === !def.uses.range && !pd.uses.sort === !def.uses.sort)
+      return { verses: filteredVerses, surahData };
+    const f = pd.uses.range ? filter : DEFAULT_FILTER;
+    const verses = filterVerses(data.verses, f, surahMap);
+    return {
+      verses,
+      surahData: aggregateBySurah(verses, surahMap, pd.uses.sort ? f.sort : "quran"),
+    };
+  }, [peekViz, def, filteredVerses, surahData, filter, data.verses, surahMap]);
 
   const activeKeySet = useMemo(() => new Set(activeKeys), [activeKeys]);
   const pct = useCallback(
@@ -258,6 +300,10 @@ export function DashboardView({
       onMark,
     }),
     [theme.palette, theme.primary, theme.dark, colorMode, activeKeySet, onOpen, onMark],
+  );
+  const peekCtx: ChartContext = useMemo(
+    () => ({ ...ctx, onMark: undefined, still: true }),
+    [ctx],
   );
 
   /** A histogram bucket: how many ayahs, and the first few to open. */
@@ -425,19 +471,21 @@ export function DashboardView({
 
   const scopeLine = t.dashboard.scope(surahData.length, n(filteredVerses.length));
   const subtitle =
-    viz === "pos"
-      ? morph
-        ? t.dashboard.posSub(n(morph.totalSegments))
-        : t.dashboard.loadingCorpus
-      : viz === "roots" || viz === "root-explorer"
-        ? `${scopeLine} · ${t.dashboard.rootsSub}`
-        : viz === "topic-explorer"
-          ? `${scopeLine} · ${t.dashboard.topicsSub(topicTree ? n(topicTree.nodes.filter((x) => x.k.startsWith("t")).length) : "…")}`
-          : viz === "cloud"
-            ? `${scopeLine} · ${t.dashboard.cloudSub}`
-            : viz === "opening"
-              ? `${scopeLine} · ${t.dashboard.openingSub}`
-              : scopeLine;
+    viz === "map"
+      ? t.peta.subtitle
+      : viz === "pos"
+        ? morph
+          ? t.dashboard.posSub(n(morph.totalSegments))
+          : t.dashboard.loadingCorpus
+        : viz === "roots" || viz === "root-explorer"
+          ? `${scopeLine} · ${t.dashboard.rootsSub}`
+          : viz === "topic-explorer"
+            ? `${scopeLine} · ${t.dashboard.topicsSub(topicTree ? n(topicTree.nodes.filter((x) => x.k.startsWith("t")).length) : "…")}`
+            : viz === "cloud"
+              ? `${scopeLine} · ${t.dashboard.cloudSub}`
+              : viz === "opening"
+                ? `${scopeLine} · ${t.dashboard.openingSub}`
+                : scopeLine;
 
   /** The question's answer, worded from facts computed over the range. */
   const answer = useMemo((): string | null => {
@@ -551,6 +599,10 @@ export function DashboardView({
             )
           : a.none;
       }
+      case "map": {
+        const f = mapFacts(data.verses, marked);
+        return a.map(n(f.surahs), n(f.ayahs), f.marked, n(f.marked));
+      }
       case "pos": {
         const f = morph ? posFacts(morph.pos) : null;
         return f
@@ -580,6 +632,8 @@ export function DashboardView({
     topicTree,
     topicKey,
     morph,
+    data.verses,
+    marked,
     lang,
     t,
     n,
@@ -621,11 +675,25 @@ export function DashboardView({
       />
     ) : null;
 
-  const question = t.viz.labels[viz];
-  const Icon = def.icon;
-  const vizIndex = VIZ_IDS.indexOf(viz);
-  const stepViz = (d: number) =>
-    pickViz(VIZ_IDS[(vizIndex + d + VIZ_IDS.length) % VIZ_IDS.length]);
+  // The map has no rows: no data table or CSV.
+  const tabular = viz !== "map";
+  const table = showTable && tabular;
+  const heading = (id: VizId) => {
+    const Icon = VIZ_BY_ID[id].icon;
+    return (
+      <h2 className="text-title text-ink">
+        {sideMenu ? (
+          t.viz.labels[id]
+        ) : (
+          <span className="inline-flex items-start gap-2">
+            <Icon size={18} aria-hidden className="mt-1 shrink-0 text-illumination" />
+            <span>{t.viz.labels[id]}</span>
+          </span>
+        )}
+      </h2>
+    );
+  };
+  const tall = "h-[calc(100*var(--zvh)-18rem)] max-h-[calc(88*var(--zvh))] min-h-[360px]";
 
   return (
     // The question menu sits beside the chart from MENU_PX of dashboard width
@@ -638,153 +706,177 @@ export function DashboardView({
       )}
 
       <Card className="min-w-0 flex-1 p-4">
-        <div className="mb-3 flex flex-wrap items-start gap-x-4 gap-y-2">
-          {!sideMenu && (
-            <div className="flex basis-full items-center gap-2">
+        {!sideMenu && (
+          <div className="mb-2 flex items-center gap-2">
+            <Button
+              onClick={() => setMenuOpen(true)}
+              aria-haspopup="dialog"
+              icon={<LayoutGrid size={16} aria-hidden />}
+            >
+              {t.dashboard.allCharts}
+            </Button>
+            <div className="flex items-center gap-0.5 text-sm font-medium tabular-nums text-ink-muted">
               <Button
-                onClick={() => setMenuOpen(true)}
-                aria-haspopup="dialog"
-                icon={<LayoutGrid size={16} aria-hidden />}
+                variant="quiet"
+                onClick={() => stepViz(-1)}
+                aria-label={t.dashboard.prevChart}
+                title={t.dashboard.prevChart}
+                className="w-9 px-0 touch:min-w-11"
               >
-                {t.dashboard.allCharts}
+                <ChevronLeft size={18} aria-hidden />
               </Button>
-              <div className="flex items-center gap-0.5 text-sm font-medium tabular-nums text-ink-muted">
-                <Button
-                  variant="quiet"
-                  onClick={() => stepViz(-1)}
-                  aria-label={t.dashboard.prevChart}
-                  title={t.dashboard.prevChart}
-                  className="w-9 px-0 touch:min-w-11"
+              <span className="min-w-[3.5rem] text-center">
+                {n(vizIndex + 1)} / {n(VIZ_DEFS.length)}
+              </span>
+              <Button
+                variant="quiet"
+                onClick={() => stepViz(1)}
+                aria-label={t.dashboard.nextChart}
+                title={t.dashboard.nextChart}
+                className="w-9 px-0 touch:min-w-11"
+              >
+                <ChevronRight size={18} aria-hidden />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Clipped only mid-swipe, so filter popovers and focus rings show
+            otherwise; edge to edge, so panes slide under the card's edge. */}
+        <div
+          data-testid="dashboard-pager"
+          className={cx(
+            "-mx-4 touch-pan-y touch-pinch-zoom px-4",
+            peek !== 0 && "overflow-hidden",
+          )}
+          {...handlers}
+        >
+          <div ref={trackRef} className="relative">
+            <div className="mb-3 flex flex-wrap items-start gap-x-4 gap-y-2">
+              <div className="min-w-0 flex-[1_1_20rem]">
+                {heading(viz)}
+                <p
+                  className="mt-1 max-w-[68ch] text-base leading-relaxed text-ink"
+                  aria-live="polite"
                 >
-                  <ChevronLeft size={18} aria-hidden />
-                </Button>
-                <span className="min-w-[3.5rem] text-center">
-                  {n(vizIndex + 1)} / {n(VIZ_DEFS.length)}
-                </span>
+                  {answer ?? t.common.loading}
+                </p>
+                <p className="mt-0.5 text-sm text-ink-subtle">{subtitle}</p>
+              </div>
+              <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
+                {headerControls}
+                {tabular && (
+                  <Button
+                    onClick={() => setShowTable(!showTable)}
+                    title={showTable ? t.dashboard.showChart : t.dashboard.showData}
+                    aria-pressed={showTable}
+                    icon={
+                      showTable ? (
+                        <BarChart3 size={16} aria-hidden />
+                      ) : (
+                        <Table2 size={16} aria-hidden />
+                      )
+                    }
+                  >
+                    {showTable ? t.dashboard.showChart : t.dashboard.showData}
+                  </Button>
+                )}
                 <Button
-                  variant="quiet"
-                  onClick={() => stepViz(1)}
-                  aria-label={t.dashboard.nextChart}
-                  title={t.dashboard.nextChart}
-                  className="w-9 px-0 touch:min-w-11"
+                  onClick={handleExport}
+                  title={t.dashboard.png}
+                  disabled={table}
+                  icon={<Download size={16} aria-hidden />}
                 >
-                  <ChevronRight size={18} aria-hidden />
+                  PNG
                 </Button>
+                {tabular && (
+                  <Button
+                    onClick={() => void downloadCsv(csvRows(), `quran-${viz}`)}
+                    title={t.dashboard.csv}
+                    icon={<FileSpreadsheet size={16} aria-hidden />}
+                  >
+                    CSV
+                  </Button>
+                )}
               </div>
             </div>
-          )}
-          <div className="min-w-0 flex-[1_1_20rem]">
-            <h2 className="text-title text-ink">
-              {sideMenu ? (
-                question
-              ) : (
-                <span className="inline-flex items-start gap-2">
-                  <Icon
-                    size={18}
-                    aria-hidden
-                    className="mt-1 shrink-0 text-illumination"
-                  />
-                  <span>{question}</span>
-                </span>
-              )}
-            </h2>
-            <p
-              className="mt-1 max-w-[68ch] text-base leading-relaxed text-ink"
-              aria-live="polite"
-            >
-              {answer ?? t.common.loading}
-            </p>
-            <p className="mt-0.5 text-sm text-ink-subtle">{subtitle}</p>
-          </div>
-          <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
-            {headerControls}
-            <Button
-              onClick={() => setShowTable(!showTable)}
-              title={showTable ? t.dashboard.showChart : t.dashboard.showData}
-              aria-pressed={showTable}
-              icon={
-                showTable ? (
-                  <BarChart3 size={16} aria-hidden />
-                ) : (
-                  <Table2 size={16} aria-hidden />
-                )
-              }
-            >
-              {showTable ? t.dashboard.showChart : t.dashboard.showData}
-            </Button>
-            <Button
-              onClick={handleExport}
-              title={t.dashboard.png}
-              disabled={showTable}
-              icon={<Download size={16} aria-hidden />}
-            >
-              PNG
-            </Button>
-            <Button
-              onClick={() => void downloadCsv(csvRows(), `quran-${viz}`)}
-              title={t.dashboard.csv}
-              icon={<FileSpreadsheet size={16} aria-hidden />}
-            >
-              CSV
-            </Button>
-          </div>
-        </div>
 
-        <div className="mb-3">
-          <FilterBar
-            uses={def.uses}
-            surahs={data.surahs}
-            filter={filter}
-            onFilter={changeFilter}
-            colorMode={colorMode}
-            onColorMode={changeColorMode}
-            horizontal={horizontal}
-            onHorizontal={setHorizontal}
-            onReset={reset}
-            dirty={dirty}
-          />
-        </div>
-
-        {pinned && !showTable && (
-          <div className="mb-3">
-            <MarkReadout
-              pinned={pinned}
-              onOpen={onOpen}
-              onClear={() => setPinned(null)}
-            />
-          </div>
-        )}
-
-        <div
-          onPointerDownCapture={(e) => {
-            pointer.current = e.pointerType || "mouse";
-          }}
-          className={cx(
-            "w-full rounded-xl",
-            (showTable || !def.autoHeight) &&
-              "h-[calc(100*var(--zvh)-18rem)] max-h-[calc(88*var(--zvh))] min-h-[360px]",
-            !showTable && !def.autoHeight && "resize-y overflow-hidden",
-          )}
-        >
-          {showTable ? (
-            <DataTable rows={csvRows()} targetOf={targetOfRow} onOpen={onOpen} />
-          ) : (
-            <div ref={chartRef} className={cx("w-full", !def.autoHeight && "h-full")}>
-              {renderChart()}
+            <div className="mb-3">
+              <FilterBar
+                uses={def.uses}
+                surahs={data.surahs}
+                filter={filter}
+                onFilter={changeFilter}
+                colorMode={colorMode}
+                onColorMode={changeColorMode}
+                horizontal={horizontal}
+                onHorizontal={setHorizontal}
+                onReset={reset}
+                dirty={dirty}
+              />
             </div>
-          )}
-        </div>
-        {def.uses.color && !showTable && (
-          <div className="mt-3 border-t border-line pt-3">
-            <Legend
-              colorMode={colorMode}
-              pie={theme.palette.pie}
-              activeKeys={activeKeySet}
-              onToggle={toggleKey}
-              ayahLevel={viz === "length" && metric !== "avgWords"}
-            />
+
+            {pinned && !table && (
+              <div className="mb-3">
+                <MarkReadout
+                  pinned={pinned}
+                  onOpen={onOpen}
+                  onClear={() => setPinned(null)}
+                />
+              </div>
+            )}
+
+            <div
+              onPointerDownCapture={(e) => {
+                pointer.current = e.pointerType || "mouse";
+              }}
+              data-no-swipe={table || undefined}
+              className={cx(
+                "w-full rounded-xl",
+                (table || !def.autoHeight) && tall,
+                !table && !def.autoHeight && "resize-y overflow-hidden",
+              )}
+            >
+              {table ? (
+                <DataTable rows={csvRows()} targetOf={targetOfRow} onOpen={onOpen} />
+              ) : (
+                <div ref={chartRef} className={cx("w-full", !def.autoHeight && "h-full")}>
+                  {renderChart(viz, filteredVerses, surahData, true)}
+                </div>
+              )}
+            </div>
+            {def.uses.color && !table && (
+              <div className="mt-3 border-t border-line pt-3">
+                <Legend
+                  colorMode={colorMode}
+                  pie={theme.palette.pie}
+                  activeKeys={activeKeySet}
+                  onToggle={toggleKey}
+                  ayahLevel={viz === "length" && metric !== "avgWords"}
+                />
+              </div>
+            )}
+
+            {peekViz && peekScope && (
+              <div
+                aria-hidden
+                // `inert` is not in React 18's types; passed through as an attribute.
+                {...({ inert: "" } as object)}
+                className={cx(
+                  "absolute inset-y-0 w-full overflow-hidden",
+                  peek === 1 ? "left-full" : "right-full",
+                )}
+              >
+                {heading(peekViz)}
+                <div
+                  className={cx("mt-3 w-full", !VIZ_BY_ID[peekViz].autoHeight && tall)}
+                >
+                  {renderChart(peekViz, peekScope.verses, peekScope.surahData, false)}
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </Card>
 
       <Sheet
@@ -802,101 +894,120 @@ export function DashboardView({
     </div>
   );
 
-  function renderChart() {
-    switch (viz) {
+  /** The chart for `id` over `verses` / `surahData`. `live` is the current
+   *  pane; a swipe's neighbour (`live` false) is drawn still and inert, and
+   *  shows a skeleton where its data would need loading or heavy work. */
+  function renderChart(
+    id: VizId,
+    verses: typeof filteredVerses,
+    rows: typeof surahData,
+    live: boolean,
+  ) {
+    const c = live ? ctx : peekCtx;
+    const noop = () => {};
+    const wait = (st: { error: string | null; retry?: () => void }) =>
+      live ? (
+        <LoadState error={st.error} onRetry={st.retry} />
+      ) : (
+        <Skeleton className="h-full min-h-[200px]" />
+      );
+    switch (id) {
       case "length":
         return (
-          <SurahBarChart
-            data={surahData}
-            metric={metric}
-            horizontal={horizontal}
-            ctx={ctx}
-          />
+          <SurahBarChart data={rows} metric={metric} horizontal={horizontal} ctx={c} />
         );
       case "correlation":
-        return <CorrelationScatter data={surahData} ctx={ctx} />;
+        return <CorrelationScatter data={rows} ctx={c} />;
       case "opening":
         return (
           <OpeningCategories
-            data={surahData}
-            ctx={ctx}
+            data={rows}
+            ctx={c}
             surahMap={surahMap}
             exceptions={exceptions}
-            selected={openingCat}
-            onSelect={setOpeningCat}
+            selected={live ? openingCat : null}
+            onSelect={live ? setOpeningCat : noop}
           />
         );
       case "histogram":
         return (
           <LengthHistogram
-            verses={filteredVerses}
+            verses={verses}
             bucketSize={settings.bucketSize}
-            ctx={ctx}
-            selected={pinned?.bucket ?? null}
-            onBucket={pinBucket}
+            ctx={c}
+            selected={live ? (pinned?.bucket ?? null) : null}
+            onBucket={live ? pinBucket : undefined}
           />
         );
       case "boxplots":
         return (
-          <BoxPlots verses={filteredVerses} order={order} surahMap={surahMap} ctx={ctx} />
+          <BoxPlots
+            verses={verses}
+            order={live ? order : rows.map((d) => d.id)}
+            surahMap={surahMap}
+            ctx={c}
+          />
         );
       case "extremes":
         return (
           <ExtremesPanel
-            verses={filteredVerses}
+            verses={verses}
             count={settings.extremesCount}
             surahMap={surahMap}
-            ctx={ctx}
+            ctx={c}
           />
         );
       case "roots":
         return rootsState.data ? (
           <RootChart
             roots={rootsState.data}
-            verses={filteredVerses}
+            verses={verses}
             primary={theme.primary}
             dark={theme.dark}
             onPick={(bw) => {
+              if (!live) return;
               setRootBw(bw);
               setViz("root-explorer");
             }}
           />
         ) : (
-          <LoadState error={rootsState.error} onRetry={rootsState.retry} />
+          wait(rootsState)
         );
       case "root-explorer":
         return rootsState.data ? (
           <RootExplorer
             roots={rootsState.data}
-            verses={filteredVerses}
+            verses={verses}
             surahMap={surahMap}
-            ctx={ctx}
+            ctx={c}
             selectedBw={rootBw}
-            onSelectBw={setRootBw}
+            onSelectBw={live ? setRootBw : noop}
           />
         ) : (
-          <LoadState error={rootsState.error} onRetry={rootsState.retry} />
+          wait(rootsState)
         );
       case "topic-explorer":
         return topicTree ? (
           <TopicExplorer
             tree={topicTree}
-            verses={filteredVerses}
+            verses={verses}
             surahMap={surahMap}
-            ctx={ctx}
+            ctx={c}
             selectedKey={topicKey}
-            onSelectKey={setTopicKey}
+            onSelectKey={live ? setTopicKey : noop}
           />
         ) : (
-          <LoadState error={topicsState.error} onRetry={topicsState.retry} />
+          wait(topicsState)
         );
       case "pos":
         return morph ? (
           <PosChart pos={morph.pos} primary={theme.primary} dark={theme.dark} />
         ) : (
-          <LoadState error={morphState.error} onRetry={morphState.retry} />
+          wait(morphState)
         );
       case "cloud":
+        // Counting the words is too heavy to start mid-swipe.
+        if (!live) return <Skeleton className="h-full min-h-[200px]" />;
         return cloudLang === "ar" ? (
           <WordCloud
             words={arabicCloud}
@@ -914,6 +1025,24 @@ export function DashboardView({
             onWordClick={onSearch}
           />
         );
+      case "map": {
+        const skeleton = <Skeleton className="h-[calc(60*var(--zvh))]" />;
+        // Its first showing plays the once-a-session reveal: never as a neighbour.
+        if (!live) return skeleton;
+        return (
+          <Suspense fallback={skeleton}>
+            <PetaMushaf
+              verses={data.verses}
+              surahMap={surahMap}
+              lastRead={lastRead}
+              bookmarks={marked}
+              hifdh={hifdh}
+              onOpen={onOpen}
+              onExplore={onExplore}
+            />
+          </Suspense>
+        );
+      }
       default:
         return null;
     }

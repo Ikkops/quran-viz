@@ -3,7 +3,8 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { QuranData, Surah, Verse } from "../types/quran";
-import { dayKey } from "../data/readingLog";
+import { addDays, dayKey } from "../data/readingLog";
+import { KHATAM_KEY } from "../lib/khatam";
 import { READING_LOG_KEY, resetReadingStore } from "../lib/readingStore";
 import { ThemeProvider } from "../theme/ThemeContext";
 import { HomeView } from "./HomeView";
@@ -48,6 +49,7 @@ function home(over: Partial<Parameters<typeof HomeView>[0]> = {}) {
         onActivity={() => {}}
         hifdh={emptyHifdh()}
         onHifdhPlan={() => {}}
+        marks={{ pins: [], collections: [] }}
         {...over}
       />
     </ThemeProvider>,
@@ -101,6 +103,35 @@ describe("HomeView", () => {
     expect(onOpen).toHaveBeenCalledWith({ scope: "surah", value: 2, anchor: 2 });
   });
 
+  it("shows the pins and saved ayahs of a last-read surah on its card", () => {
+    home({
+      lastReads: [
+        { id: 2, s: 2, at: Date.now() },
+        { id: 3, s: 112, at: Date.now() },
+      ],
+      marks: {
+        pins: [
+          { id: "p1", name: "Tilawah", color: "#2563EB", ayah: 2, at: 0 },
+          { id: "p2", name: "Unplaced", color: "#15803D", ayah: null, at: 0 },
+        ],
+        collections: [
+          {
+            id: "c1",
+            name: "Fav",
+            color: "#B7791F",
+            items: [{ id: 2, note: "", at: 0 }],
+          },
+        ],
+      },
+    });
+    const [baqara, ikhlas] = within(
+      screen.getByRole("region", { name: "Last read" }),
+    ).getAllByRole("button");
+    expect(baqara).toHaveAccessibleName(/Pin at ayah 142, 1 ayah in collections/);
+    expect(ikhlas).not.toHaveTextContent(/Pin|collection/);
+    expect(ikhlas.querySelector("svg")).toBeNull();
+  });
+
   it("starts at Al-Fatihah for a new learner", async () => {
     const onOpen = home();
     await userEvent.click(screen.getByRole("button", { name: /Start reading/ }));
@@ -121,6 +152,25 @@ describe("HomeView", () => {
     expect(card).toHaveTextContent("Streak: 2 days");
     await userEvent.click(card);
     expect(onActivity).toHaveBeenCalled();
+  });
+
+  it("shows today's khatam pages when a target is set, and opens the last read", async () => {
+    const today = dayKey(new Date());
+    localStorage.setItem(
+      KHATAM_KEY,
+      JSON.stringify({ start: today, end: addDays(today, 9), from: 1 }),
+    );
+    const onOpen = home({ lastReads: [{ id: 2, s: 2, at: Date.now() }] });
+    // Verse 2 has no page in this fixture, so the position is page 1: 603 pages over 10 days.
+    const row = screen.getByRole("button", { name: /Today: 61 pages/ });
+    expect(row).toHaveTextContent("On schedule");
+    await userEvent.click(row);
+    expect(onOpen).toHaveBeenCalledWith({ scope: "surah", value: 2, anchor: 2 });
+  });
+
+  it("shows no khatam row without a target", () => {
+    home();
+    expect(screen.queryByRole("button", { name: /pages/ })).toBeNull();
   });
 
   it("resets sort, filter and layout but keeps the search", async () => {

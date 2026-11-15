@@ -1,5 +1,5 @@
 import type { EditionsIndex } from "../../types/quran";
-import { groupTranslations } from "../../data/editions";
+import { groupTranslations, langKeywords } from "../../data/editions";
 import { Select } from "../ui";
 import { useI18n } from "../../i18n/I18nContext";
 
@@ -32,15 +32,17 @@ export function EditionSelect({
       value={value}
       onChange={onChange}
       searchable
-      options={groups.flatMap((g) =>
-        g.editions
+      options={groups.flatMap((g) => {
+        const langWords = langKeywords(g.language, t.locale);
+        return g.editions
           .filter((e) => e.identifier === value || !exclude?.includes(e.identifier))
           .map((e) => ({
             value: e.identifier,
             label: e.englishName,
             group: g.label,
-          })),
-      )}
+            keywords: `${langWords} ${e.name}`,
+          }));
+      })}
     />
   );
 }

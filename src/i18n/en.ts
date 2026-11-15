@@ -112,6 +112,10 @@ export const en = {
     startAt: (name: string) => `From ${name}`,
     todayLine: (time: string, goal: number) => `Today: ${time} of ${goal} min`,
     streakLine: (n: string) => `Streak: ${n} ${n === "1" ? "day" : "days"}`,
+    pinsAt: (ayahs: string) =>
+      ayahs.includes(",") ? `Pins at ayahs ${ayahs}` : `Pin at ayah ${ayahs}`,
+    savedCount: (count: number, n: string) =>
+      `${n} ${count === 1 ? "ayah" : "ayahs"} in collections`,
   },
 
   activity: {
@@ -141,6 +145,29 @@ export const en = {
     empty: "Nothing yet. Time counts while the reader is open and in use.",
     goal: "Daily goal",
     how: "Time counts while the reader is open and you are reading or listening. It stays on this device.",
+  },
+
+  khatam: {
+    title: "Khatam target",
+    explain:
+      "Pick the day you want to finish the whole Qur'an by to see how many pages to read each day.",
+    date: "Finish by",
+    set: "Set target",
+    save: "Save",
+    cancel: "Cancel",
+    change: "Change",
+    remove: "Remove",
+    finishBy: (date: string) => `Finish by ${date}`,
+    pagesLeft: (count: number, n: string) =>
+      `${n} ${count === 1 ? "page" : "pages"} left`,
+    perDay: (count: number, n: string) => `${n} ${count === 1 ? "page" : "pages"} a day`,
+    today: (count: number, n: string) => `Today: ${n} ${count === 1 ? "page" : "pages"}`,
+    todayDone: "Today's pages done",
+    behind: (count: number, n: string) => `${n} ${count === 1 ? "page" : "pages"} behind`,
+    onTrack: "On schedule",
+    overdue: "Past the target date",
+    done: "Khatam, alhamdulillah",
+    progress: "Progress to khatam",
   },
 
   ui: {
@@ -174,6 +201,19 @@ export const en = {
       confirm:
         "Replace everything on this device (bookmarks, memorisation, reading activity, settings) with this backup?",
       bad: "That file isn't a quran-viz backup.",
+    },
+    reminders: {
+      title: "Reminders",
+      reading: "Daily reading goal",
+      hifdh: "Memorisation review",
+      time: "Time",
+      blocked:
+        "Notifications are blocked. Allow them in the system settings to use reminders.",
+      readingTitle: "Time to read the Qur'an",
+      readingBody: (min: number) => `Today's goal: ${min} min.`,
+      hifdhTitle: "Memorisation review",
+      hifdhBody: (n: number) =>
+        n === 1 ? "1 page waiting for review." : `${n} pages waiting for review.`,
     },
     audioStorage: "Audio storage",
     audio: {
@@ -277,6 +317,7 @@ export const en = {
       Verses: "Ayahs",
       Vocabulary: "Vocabulary",
       Topics: "Topics",
+      Map: "Map",
     },
     labels: {
       length: "Surah length",
@@ -290,6 +331,7 @@ export const en = {
       "root-explorer": "Root explorer",
       pos: "Part of speech",
       "topic-explorer": "Topic explorer",
+      map: "Mushaf map",
     },
     metrics: {
       wordCount: "Words",
@@ -300,9 +342,7 @@ export const en = {
   },
 
   dashboard: {
-    sections: "Dashboard sections",
     charts: "Charts",
-    map: "Map",
     allCharts: "All charts",
     prevChart: "Previous chart",
     nextChart: "Next chart",
@@ -411,6 +451,8 @@ export const en = {
     pickTopic: "Pick a topic below to see where it occurs.",
     pos: (a: string, pa: string, b: string, pb: string) =>
       `${a}: ${pa} of all segments; ${b}: ${pb}.`,
+    map: (surahs: string, ayahs: string, marked: number, markedText: string) =>
+      `${surahs} surahs, ${ayahs} ayahs; ${marked ? markedText : "none"} with your pins or bookmarks.`,
     none: "Nothing in this range.",
   },
 
@@ -550,7 +592,6 @@ export const en = {
 
   peta: {
     bookmarks: "Pins and bookmarks",
-    title: "Mushaf map",
     subtitle:
       "All 6,236 ayahs in mushaf order, one row per juz; each ayah is as wide as its text.",
     mapLabel: "Mushaf map: arrow keys move between ayahs, Enter opens the reader",
@@ -700,6 +741,14 @@ export const en = {
       `· score ${score} · ${words} shared words · click to read`,
     arcHint:
       "Hover an arc to see the pair; click a surah in the band to focus it. Source:",
+  },
+
+  nowPlaying: {
+    label: "Now playing",
+    pause: "Pause",
+    play: "Play",
+    stop: "Stop",
+    open: "Open in reader",
   },
 
   search: {
@@ -918,6 +967,13 @@ export const en = {
       chain: "Build up (1, 2, 1–2, 3, 1–3…)",
       chainHelp:
         "Each new ayah plays with its repeats, then everything so far plays once. Set the gap to the ayah's length to recite it back.",
+      sleep: "Sleep timer",
+      sleepOff: "Off",
+      sleepMinutes: (n: number) => `${n} minutes`,
+      sleepSurah: "End of surah",
+      sleepLeft: (n: number) => `${n} min`,
+      sleepIn: (n: number) => `Stops in ${n} min`,
+      sleepAtSurahEnd: "Stops at the end of the surah",
       restart: "Start this ayah again",
       repeatButton: (v: string) => `Repeat each ayah: ${v}`,
       seek: "Position in the range",

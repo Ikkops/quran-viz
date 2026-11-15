@@ -5,8 +5,9 @@ import type { Marks } from "../lib/marks";
 import type { Messages } from "../i18n/en";
 import { useReadingGoal } from "../lib/readingStore";
 import { persisted, usePersistentState } from "../lib/usePersistentState";
+import { useSwipePager } from "../lib/useSwipePager";
 import { useI18n } from "../i18n/I18nContext";
-import { SegmentedControl } from "../components/ui";
+import { SegmentedControl, cx } from "../components/ui";
 import { ActivityPanel } from "../components/home/ActivityPanel";
 import { MarksPanel } from "../components/marks/MarksPanel";
 import { HifdhPanel } from "../components/hifdh/HifdhPanel";
@@ -19,16 +20,23 @@ type ActivityProps = {
   hifdh: Hifdh;
   onHifdh: (h: Hifdh) => void;
   onOpen: (t: ReaderTarget) => void;
+  /** Global id of the newest last-read ayah, if any. */
+  lastRead?: number;
 };
 
-function Stats() {
+function Stats({ data, lastRead }: ActivityProps) {
   const [goal, setGoal] = useReadingGoal();
-  return <ActivityPanel goal={goal} onGoal={setGoal} />;
+  const page = lastRead ? (data.verses[lastRead - 1]?.page ?? 1) : 1;
+  return <ActivityPanel goal={goal} onGoal={setGoal} currentPage={page} />;
 }
 
 // To add a tab, add one entry here (and its label in both i18n files).
 const TABS = [
-  { id: "stats", label: (t: Messages) => t.activity.tabs.stats, render: () => <Stats /> },
+  {
+    id: "stats",
+    label: (t: Messages) => t.activity.tabs.stats,
+    render: (p: ActivityProps) => <Stats {...p} />,
+  },
   {
     id: "marks",
     label: (t: Messages) => t.activity.tabs.marks,
@@ -57,7 +65,13 @@ export function ActivityView(props: ActivityProps) {
     "stats",
     persisted.oneOf(TAB_IDS),
   );
-  const current = TABS.find((x) => x.id === tab) ?? TABS[0];
+  const index = Math.max(0, TAB_IDS.indexOf(tab));
+  // A sideways swipe on the panel moves between tabs, stopping at the ends.
+  const { handlers, peek, trackRef } = useSwipePager({
+    current: tab,
+    canGo: (d) => index + d >= 0 && index + d < TABS.length,
+    onCommit: (d) => setTab(TAB_IDS[index + d]),
+  });
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4">
       <SegmentedControl<ActivityTab>
@@ -67,7 +81,29 @@ export function ActivityView(props: ActivityProps) {
         options={TABS.map((x) => ({ value: x.id, label: x.label(t) }))}
         fullWidth
       />
-      {current.render(props)}
+      {/* Clipped only mid-swipe, so cards keep their shadows and focus rings. */}
+      <div
+        data-testid="activity-pager"
+        className={cx("touch-pan-y touch-pinch-zoom", peek !== 0 && "overflow-hidden")}
+        {...handlers}
+      >
+        <div ref={trackRef} className="relative">
+          {TABS[index].render(props)}
+          {peek !== 0 && (
+            <div
+              aria-hidden
+              // `inert` is not in React 18's types; passed through as an attribute.
+              {...({ inert: "" } as object)}
+              className={cx(
+                "absolute inset-y-0 w-full overflow-hidden",
+                peek === 1 ? "left-full" : "right-full",
+              )}
+            >
+              {TABS[index + peek].render(props)}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

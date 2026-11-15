@@ -16,6 +16,7 @@ import {
 import { useReadingLog } from "../../lib/readingStore";
 import { persisted, usePersistentState } from "../../lib/usePersistentState";
 import { useI18n } from "../../i18n/I18nContext";
+import { KhatamCard } from "./Khatam";
 import { Card, QuietIconButton, SegmentedControl, Select, cx } from "../ui";
 
 function useDateFormats() {
@@ -172,10 +173,13 @@ function Bars({
 export function ActivityPanel({
   goal,
   onGoal,
+  currentPage,
 }: {
   /** Daily goal in minutes (owned by Home, which shows it too). */
   goal: number;
   onGoal: (minutes: number) => void;
+  /** Mushaf page of the newest last read (1 without one), for the khatam target. */
+  currentPage: number;
 }) {
   const { t, n } = useI18n();
   const a = t.activity;
@@ -288,6 +292,8 @@ export function ActivityPanel({
           )}
         </p>
       </Card>
+
+      <KhatamCard currentPage={currentPage} />
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex items-center gap-2">

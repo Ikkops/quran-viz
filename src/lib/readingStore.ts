@@ -62,6 +62,10 @@ const subscribe = (fn: () => void) => {
   };
 };
 
+/** The log and its changes outside React (reminders, which must not re-render
+ *  `App` on every tick). */
+export { current as readingLog, subscribe as subscribeReadingLog };
+
 export function useReadingLog(): ReadingLog {
   return useSyncExternalStore(subscribe, current, current);
 }
@@ -116,7 +120,12 @@ const goalChoice = (raw: unknown) =>
     ? (raw as number)
     : undefined;
 
+const GOAL_KEY = "qv.reading.goal";
+
 /** The daily goal in minutes (`qv.reading.goal`), shared by Home and Activity. */
 export function useReadingGoal() {
-  return usePersistentState<number>("qv.reading.goal", DEFAULT_GOAL_MINUTES, goalChoice);
+  return usePersistentState<number>(GOAL_KEY, DEFAULT_GOAL_MINUTES, goalChoice);
 }
+
+export const readReadingGoal = (): number =>
+  readPersisted<number>(GOAL_KEY, DEFAULT_GOAL_MINUTES, goalChoice);

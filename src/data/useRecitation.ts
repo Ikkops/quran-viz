@@ -10,6 +10,8 @@ import {
   advance,
   gapSeconds,
   audioIndexUrl,
+  sleepDue,
+  sleepTimerFor,
   clipOf,
   cursorAt,
   type Clip,
@@ -17,6 +19,8 @@ import {
   type LoopRange,
   type RecitationOptions,
   type ReciterId,
+  type SleepChoice,
+  type SleepTimer,
   type SurahClips,
 } from "./recitation";
 
@@ -151,6 +155,9 @@ export interface Recitation {
   clock: PlayClock;
   /** Length of an ayah in seconds: measured once played, else estimated. */
   lengthOf: (id: number) => number;
+  /** The armed sleep timer (this session only), or null. */
+  sleep: SleepTimer | null;
+  setSleep: (choice: SleepChoice) => void;
 }
 
 /** Per-ayah playback through one <audio> element, looping over `range`.
@@ -189,6 +196,12 @@ export function useRecitation({
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState<number | null>(null);
+  const [sleep, setSleepState] = useState<SleepTimer | null>(null);
+  const sleepRef = useRef<SleepTimer | null>(null);
+  const armSleep = useCallback((s: SleepTimer | null) => {
+    sleepRef.current = s;
+    setSleepState(s);
+  }, []);
 
   const surahFiles = !!RECITER_INFO[reciter as ReciterId]?.surahFiles;
   const clips = useClips(surahFiles ? reciter : null);
@@ -334,6 +347,9 @@ export function useRecitation({
       setError(null);
       setMissing(null);
       setAt(c);
+      const sl = sleepRef.current;
+      if (sl?.choice === "surah" && sl.surah === null)
+        armSleep({ ...sl, surah: live.current.verses[c.id - 1]?.s ?? null });
       clipRef.current = clip;
       doneRef.current = false;
       const at = clip.from + offset;
@@ -374,14 +390,32 @@ export function useRecitation({
         warm.src = nsrc;
       }
     },
-    [clipFor, setAt, tick, announce],
+    [clipFor, setAt, tick, announce, armSleep],
   );
+
+  // The one pause path (button, media controls, sleep timer), so the system's
+  // controls always show it.
+  const pause = useCallback(() => {
+    const audio = audioRef.current;
+    const cur = cursorRef.current;
+    clearGap();
+    audio?.pause();
+    setPlaying(false);
+    if (cur) announce(cur, false, audio?.currentTime ?? 0);
+  }, [announce]);
 
   const onEnded = useCallback(() => {
     const cur = cursorRef.current;
     if (!cur) return;
     const { range: r, options: o, needsBasmalah: nb } = live.current;
     const nxt = advance(cur, r, o, nb);
+    // Checked at every ayah boundary rather than by a timer, which Android
+    // throttles in the background; the pause lands between ayahs.
+    if (sleepDue(sleepRef.current, Date.now(), cur, nxt, live.current.verses, r, o)) {
+      armSleep(null);
+      pause();
+      return;
+    }
     if (!nxt) {
       setPlaying(false);
       setAt(null);
@@ -394,7 +428,7 @@ export function useRecitation({
     const gap = cur.basmalah ? 0 : gapSeconds(o.gap, length, o.rate);
     if (gap > 0) gapTimer.current = setTimeout(() => start(nxt), gap * 1000);
     else start(nxt);
-  }, [start, setAt]);
+  }, [start, setAt, armSleep, pause]);
 
   // Attach listeners once the element exists; it is created on first play.
   useEffect(() => {
@@ -466,8 +500,9 @@ export function useRecitation({
     audioRef.current?.pause();
     setPlaying(false);
     setMissing(null);
+    armSleep(null);
     setAt(null);
-  }, [setAt]);
+  }, [setAt, armSleep]);
 
   // Closing the reader (or turning the player off) silences it.
   useEffect(() => {
@@ -483,9 +518,18 @@ export function useRecitation({
     [],
   );
 
+  // A deadline that passed while paused is spent, not a stop after the next ayah.
+  const dropSpentSleep = useCallback(() => {
+    const sl = sleepRef.current;
+    if (sl && "at" in sl && Date.now() >= sl.at) armSleep(null);
+  }, [armSleep]);
+
   const play = useCallback(
-    (id: number) => start(cursorAt(id, live.current.needsBasmalah)),
-    [start],
+    (id: number) => {
+      dropSpentSleep();
+      start(cursorAt(id, live.current.needsBasmalah));
+    },
+    [start, dropSpentSleep],
   );
 
   // Playback stopped at an ayah whose surah wasn't on the device: once that
@@ -500,12 +544,10 @@ export function useRecitation({
     const audio = audioRef.current;
     const cur = cursorRef.current;
     if (playing) {
-      clearGap();
-      audio?.pause();
-      setPlaying(false);
-      if (cur) announce(cur, false, audio?.currentTime ?? 0);
+      pause();
       return;
     }
+    dropSpentSleep();
     if (!cur || !audio) {
       play(live.current.range.from);
       return;
@@ -530,7 +572,7 @@ export function useRecitation({
     setPlaying(true);
     announce(cur, true, audio.currentTime);
     audio.play()?.catch(() => setPlaying(false));
-  }, [playing, play, onEnded, clipFor, start, announce]);
+  }, [playing, pause, dropSpentSleep, play, onEnded, clipFor, start, announce]);
 
   const step = useCallback(
     (delta: 1 | -1) => {
@@ -580,6 +622,20 @@ export function useRecitation({
     [start, playing],
   );
 
+  const setSleep = useCallback(
+    (choice: SleepChoice) => {
+      const c = cursorRef.current;
+      armSleep(
+        sleepTimerFor(
+          choice,
+          Date.now(),
+          c ? (live.current.verses[c.id - 1]?.s ?? null) : null,
+        ),
+      );
+    },
+    [armSleep],
+  );
+
   // The system's media controls (notification, lock screen, headset buttons).
   const controls = useRef({ toggle, step, stop, playing });
   useLayoutEffect(() => {
@@ -619,5 +675,7 @@ export function useRecitation({
     moveTo,
     clock,
     lengthOf,
+    sleep,
+    setSleep,
   };
 }

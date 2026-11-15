@@ -13,6 +13,9 @@ import {
   gapSeconds,
   setRangeEnd,
   shiftRange,
+  sleepDue,
+  sleepMinutesLeft,
+  sleepTimerFor,
   type Cursor,
   type LoopOptions,
   type LoopRange,
@@ -294,5 +297,61 @@ describe("gapSeconds", () => {
   });
   it("is nothing while the length is unknown", () => {
     expect(gapSeconds(-1, NaN, 1)).toBe(0);
+  });
+});
+
+describe("sleep timer", () => {
+  // Surah 1 is ayahs 1–3, surah 2 is ayahs 4–6.
+  const vs = [1, 1, 1, 2, 2, 2].map((s) => ({ s }));
+  const all: LoopRange = { from: 1, to: 6 };
+  const at = (id: number, ayahPass = 0): Cursor => ({
+    id,
+    ayahPass,
+    rangePass: 0,
+    basmalah: false,
+  });
+
+  it("turns a choice into a deadline or a surah", () => {
+    expect(sleepTimerFor(0, 1000, 1)).toBeNull();
+    expect(sleepTimerFor(15, 1000, 1)).toEqual({ choice: 15, at: 1000 + 15 * 60_000 });
+    expect(sleepTimerFor("surah", 1000, 2)).toEqual({ choice: "surah", surah: 2 });
+  });
+
+  it("stops a minute timer at the first ayah boundary after the deadline", () => {
+    const t = { choice: 15, at: 10_000 } as const;
+    expect(sleepDue(t, 9_999, at(2), at(3), vs, all, once)).toBe(false);
+    expect(sleepDue(t, 10_000, at(2), at(3), vs, all, once)).toBe(true);
+    // Not between the basmalah and its ayah.
+    expect(sleepDue(t, 20_000, { ...at(4), basmalah: true }, at(4), vs, all, once)).toBe(
+      false,
+    );
+  });
+
+  it("stops at the end of the surah, after the last ayah's repeats", () => {
+    const t = { choice: "surah", surah: 1 } as const;
+    expect(sleepDue(t, 0, at(2), at(3), vs, all, once)).toBe(false);
+    expect(sleepDue(t, 0, at(3), at(4), vs, all, once)).toBe(true);
+    const thrice = { ayahRepeat: 3, rangeRepeat: 1 };
+    expect(sleepDue(t, 0, at(3, 0), at(3, 1), vs, all, thrice)).toBe(false);
+    expect(sleepDue(t, 0, at(3, 2), at(4), vs, all, thrice)).toBe(true);
+    // Another surah's last ayah does not count.
+    expect(sleepDue(t, 0, at(6), null, vs, all, once)).toBe(false);
+  });
+
+  it("is not defeated by a looping range or endless ayah repeats", () => {
+    const t = { choice: "surah", surah: 1 } as const;
+    const loop = { ayahRepeat: 1, rangeRepeat: 0 };
+    // The range ends inside the surah and wraps forever: stop at its end.
+    expect(sleepDue(t, 0, at(2), at(1), vs, { from: 1, to: 2 }, loop)).toBe(true);
+    expect(sleepDue(t, 0, at(1), at(2), vs, { from: 1, to: 2 }, loop)).toBe(false);
+    // Each ayah forever never reaches the end: stop after this one.
+    const forever = { ayahRepeat: 0, rangeRepeat: 1 };
+    expect(sleepDue(t, 0, at(1), at(1, 1), vs, all, forever)).toBe(true);
+  });
+
+  it("counts whole minutes left, never below 1", () => {
+    expect(sleepMinutesLeft(24 * 60_000, 0)).toBe(24);
+    expect(sleepMinutesLeft(23 * 60_000 + 1, 0)).toBe(24);
+    expect(sleepMinutesLeft(0, 5000)).toBe(1);
   });
 });

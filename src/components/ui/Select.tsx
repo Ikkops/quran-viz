@@ -27,6 +27,8 @@ export interface SelectOption<T> {
   trailing?: ReactNode;
   /** A dividing line above this option. */
   separator?: boolean;
+  /** Extra words the filter also matches (e.g. a language's other names). */
+  keywords?: string;
 }
 
 const join = (...p: (string | false | null | undefined)[]) => p.filter(Boolean).join(" ");
@@ -92,7 +94,9 @@ export function Select<T extends string | number>({
   const shown = useMemo(() => {
     if (!searchable || !query.trim()) return options;
     const q = fold(query.trim());
-    return options.filter((o) => fold(o.label).includes(q));
+    return options.filter((o) =>
+      fold(`${o.label} ${o.group ?? ""} ${o.keywords ?? ""}`).includes(q),
+    );
   }, [options, searchable, query]);
 
   const selectedIndex = options.findIndex((o) => o.value === value);
@@ -349,7 +353,7 @@ export function Select<T extends string | number>({
               <li
                 key={`g-${r.label}`}
                 role="presentation"
-                className="px-2.5 pb-1 pt-2.5 text-eyebrow text-ink-subtle"
+                className="px-2.5 pb-1 pt-2.5 text-[0.9375rem] font-semibold text-illumination"
               >
                 {r.label}
               </li>

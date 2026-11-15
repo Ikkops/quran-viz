@@ -6,6 +6,7 @@ import {
   distributionFacts,
   extremesFacts,
   lengthFacts,
+  mapFacts,
   openingFacts,
   pearson,
   posFacts,
@@ -120,5 +121,13 @@ describe("answers", () => {
     expect(f?.first.tag).toBe("N");
     expect(f?.firstShare).toBeCloseTo(0.6);
     expect(f?.second.tag).toBe("V");
+  });
+});
+
+describe("mapFacts", () => {
+  it("counts surahs, ayahs and distinct marked ayahs on the map", () => {
+    const vs = [verse(1, 1, 3), verse(2, 1, 4), verse(3, 2, 5)];
+    expect(mapFacts(vs, [2, 2, 3, 99])).toEqual({ surahs: 2, ayahs: 3, marked: 2 });
+    expect(mapFacts(vs, []).marked).toBe(0);
   });
 });
