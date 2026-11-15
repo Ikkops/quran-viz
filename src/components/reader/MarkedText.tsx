@@ -1,3 +1,5 @@
+import { maskedParts, type WordMask } from "../../data/hifdh";
+import { MaskedWord, STUMBLED } from "./Masked";
 import { Fragment, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { splitAt, type Range } from "../../data/textSearch";
 import { alignTajweedToWords, type TajweedSegment } from "../../data/tajweed";
@@ -132,6 +134,7 @@ export function AyahWords({
   onWord,
   gloss,
   glossLang,
+  mask,
   end,
 }: {
   id: number;
@@ -142,6 +145,8 @@ export function AyahWords({
   onWord?: (id: number, w: number, el: Element) => void;
   gloss?: (w: number) => string;
   glossLang?: string;
+  /** Hafalan mode: which words are hidden. */
+  mask?: WordMask | null;
   end: ReactNode;
 }) {
   const c = clock ?? idleClock;
@@ -152,21 +157,31 @@ export function AyahWords({
     () => (tajweed ? alignTajweedToWords(tajweed, words) : null),
     [tajweed, words],
   );
-  const word = (w: string, i: number, extra?: string) => (
-    <span
-      role={onWord ? "button" : undefined}
-      tabIndex={onWord ? -1 : undefined}
-      onClick={onWord ? (e) => onWord(id, i, e.currentTarget) : undefined}
-      className={cx(
-        "rounded-sm transition-colors duration-150 motion-reduce:transition-none",
-        onWord && "cursor-pointer",
-        on && i >= on[0] && i < on[1] && "bg-illumination/20",
-        extra,
-      )}
-    >
-      {segs?.[i] ? <TajweedSegs segs={segs[i]} /> : withRubrics(w)}
-    </span>
-  );
+  const word = (w: string, i: number, extra?: string) => {
+    const [show, hide] = maskedParts(mask, id, i, w);
+    return (
+      <span
+        role={onWord ? "button" : undefined}
+        tabIndex={onWord ? -1 : undefined}
+        onClick={onWord ? (e) => onWord(id, i, e.currentTarget) : undefined}
+        className={cx(
+          "rounded-sm transition-colors duration-150 motion-reduce:transition-none",
+          onWord && "cursor-pointer",
+          on && i >= on[0] && i < on[1] && "bg-illumination/20",
+          !hide && mask?.stumbled(id, i) && STUMBLED,
+          extra,
+        )}
+      >
+        {hide ? (
+          <MaskedWord show={show} hide={hide} />
+        ) : segs?.[i] ? (
+          <TajweedSegs segs={segs[i]} />
+        ) : (
+          withRubrics(w)
+        )}
+      </span>
+    );
+  };
   if (gloss)
     return (
       <div lang="ar" dir="rtl" className="flex flex-wrap items-start gap-x-5 gap-y-2">

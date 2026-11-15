@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FolderOpen } from "lucide-react";
+import { FolderOpen, ListMusic } from "lucide-react";
 import {
   chooseAudioFolder,
   hasFolderAccess,
@@ -11,7 +11,9 @@ import {
 } from "../../data/audioStore";
 import { formatBytes } from "../../data/recitation";
 import { useI18n } from "../../i18n/I18nContext";
-import { Button } from "../ui";
+import type { Surah } from "../../types/quran";
+import { Button, Sheet } from "../ui";
+import { SavedAudio } from "./SavedAudio";
 
 const NONE: readonly string[] = [];
 
@@ -20,8 +22,9 @@ const NONE: readonly string[] = [];
  * folder on an SD card, or any folder the learner chooses. Choosing moves the
  * audio already downloaded; the choice stays until it is changed here.
  */
-export function AudioStorageSettings() {
+export function AudioStorageSettings({ surahs }: { surahs: Surah[] }) {
   const { t } = useI18n();
+  const [savedOpen, setSavedOpen] = useState(false);
   const a = t.settings.audio;
   const s = useAudioDownloads(NONE);
   const [granted, setGranted] = useState<boolean | null>(null);
@@ -101,6 +104,21 @@ export function AudioStorageSettings() {
           ))}
       </div>
       <p className="text-xs text-ink-subtle">{a.help}</p>
+      <Button
+        className="self-start"
+        icon={<ListMusic size={16} aria-hidden />}
+        onClick={() => setSavedOpen(true)}
+      >
+        {a.saved}
+      </Button>
+      <Sheet
+        open={savedOpen}
+        onClose={() => setSavedOpen(false)}
+        title={a.saved}
+        closeLabel={t.common.close}
+      >
+        <SavedAudio surahs={surahs} />
+      </Sheet>
     </div>
   );
 }

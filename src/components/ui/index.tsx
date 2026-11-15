@@ -13,6 +13,17 @@ import {
 } from "react";
 import { X } from "lucide-react";
 import { useI18n } from "../../i18n/I18nContext";
+import {
+  EASE_IN,
+  EASE_OUT,
+  animateTo,
+  axisLock,
+  commits,
+  prefersReducedMotion,
+  velocity,
+  type DragSample,
+} from "../../lib/drag";
+import { popupRoot, rootZoom } from "./popup";
 
 export { Select, type SelectOption } from "./Select";
 
@@ -510,8 +521,10 @@ const FOCUSABLE =
 /**
  * A panel docked to the bottom edge (phones) or the right edge (wider layouts),
  * over a dimmed page: the reader's ayah context and player options. Escape,
- * the backdrop and Android back (a synthetic Escape) close it; focus moves in
- * on open and returns on close. The body has no padding of its own: callers
+ * the backdrop and Android back (a synthetic Escape) close it, and a bottom
+ * sheet can be dragged down by its handle, header or unscrolled content; each
+ * plays the exit before `onClose`. Focus moves in on open and returns on
+ * close. The body has no padding of its own: callers
  * pad their content (`px-4 py-3`, the header's inset).
  */
 export function Sheet({
@@ -536,14 +549,63 @@ export function Sheet({
   // focus jumped back to the opener and then to the panel, blurring a focused
   // input, so the on-screen keyboard closed the moment it opened.
   const onCloseRef = useRef(onClose);
+  const backdropRef = useRef<HTMLDivElement>(null);
+  const closing = useRef(false);
+  // Every way out (X, backdrop, Escape and so Android back, a drag) plays the
+  // exit first: the panel leaves toward its own edge, from `fromPx` when it
+  // was dragged there. A close the caller makes itself just unmounts.
+  const requestClose = (fromPx = 0) => {
+    if (closing.current) return;
+    const panel = panelRef.current;
+    const backdrop = backdropRef.current;
+    const reduced = prefersReducedMotion();
+    const off =
+      side === "bottom"
+        ? "translateY(100%)"
+        : side === "top"
+          ? "translateY(-100%)"
+          : "translateX(100%)";
+    const options: KeyframeAnimationOptions = {
+      duration: reduced ? 120 : 180,
+      easing: EASE_IN,
+      fill: "forwards",
+    };
+    const dim = backdrop?.style.opacity || "1";
+    const a = animateTo(
+      panel,
+      reduced
+        ? [{ opacity: 1 }, { opacity: 0 }]
+        : [
+            { transform: fromPx ? `translateY(${fromPx}px)` : "none" },
+            { transform: off },
+          ],
+      options,
+    );
+    const b = animateTo(backdrop, [{ opacity: dim }, { opacity: 0 }], options);
+    // No Web Animations API (tests): close at once, as before.
+    if (!a.animation) return onCloseRef.current();
+    closing.current = true;
+    void Promise.all([a.done, b.done]).then(() => {
+      onCloseRef.current();
+      // A caller that keeps the sheet open gets it back.
+      requestAnimationFrame(() => {
+        a.animation?.cancel();
+        b.animation?.cancel();
+        closing.current = false;
+      });
+    });
+  };
+  const closeRef = useRef(requestClose);
   useLayoutEffect(() => {
     onCloseRef.current = onClose;
+    closeRef.current = requestClose;
   });
   useEffect(() => {
     if (!open) return;
+    closing.current = false;
     const before = document.activeElement as HTMLElement | null;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCloseRef.current();
+      if (e.key === "Escape") closeRef.current();
       else if (e.key === "Tab" && panelRef.current) {
         const f = panelRef.current.querySelectorAll<HTMLElement>(FOCUSABLE);
         if (!f.length) return;
@@ -571,9 +633,108 @@ export function Sheet({
       before?.focus?.();
     };
   }, [open]);
+
+  // A bottom sheet follows a finger dragging it down and closes when let go
+  // far enough or flicked. The drag starts from the handle and header, or from
+  // the content while nothing in it is scrolled; otherwise the content scrolls.
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!open || side !== "bottom" || !panel) return;
+    let st: {
+      x: number;
+      y: number;
+      free: boolean;
+      dragging: boolean;
+      dy: number;
+      samples: DragSample[];
+    } | null = null;
+    const follow = !prefersReducedMotion();
+    const place = (dy: number) => {
+      if (!follow) return;
+      panel.style.transform = dy ? `translateY(${dy}px)` : "";
+      const b = backdropRef.current;
+      if (b) b.style.opacity = dy ? String(Math.max(0, 1 - dy / panel.offsetHeight)) : "";
+    };
+    const onStart = (e: TouchEvent) => {
+      st = null;
+      const el = e.target as Element | null;
+      if (closing.current || e.touches.length !== 1 || !el) return;
+      if (el.closest("input, textarea, [role='slider'], [data-select-popup]")) return;
+      let free = true;
+      for (let n: Element | null = el; n && n !== panel; n = n.parentElement)
+        if (n.scrollTop > 0) free = false;
+      const t = e.touches[0];
+      st = { x: t.clientX, y: t.clientY, free, dragging: false, dy: 0, samples: [] };
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!st) return;
+      const t = e.touches[0];
+      const dx = t.clientX - st.x;
+      const dy = t.clientY - st.y;
+      if (!st.dragging) {
+        const axis = axisLock(dx, dy);
+        if (!axis) {
+          // Hold the browser's own scroll off while this may become a drag.
+          if (st.free && dy > 0 && e.cancelable) e.preventDefault();
+          return;
+        }
+        if (axis !== "y" || dy < 0 || !st.free || window.getSelection?.()?.toString()) {
+          st = null;
+          return;
+        }
+        st.dragging = true;
+      }
+      if (e.cancelable) e.preventDefault();
+      // The app root is zoomed: a px inside it is `zoom` px of the finger's.
+      st.dy = Math.max(0, dy) / rootZoom(popupRoot());
+      st.samples.push({ p: t.clientY, t: e.timeStamp });
+      place(st.dy);
+    };
+    const onEnd = () => {
+      const s = st;
+      st = null;
+      if (!s?.dragging) return;
+      const v = velocity(s.samples) / rootZoom(popupRoot());
+      if (commits(s.dy, panel.offsetHeight, v)) {
+        closeRef.current(follow ? s.dy : 0);
+        place(0);
+        return;
+      }
+      place(0);
+      if (!follow) return;
+      const back = { duration: 200, easing: EASE_OUT };
+      animateTo(
+        panel,
+        [{ transform: `translateY(${s.dy}px)` }, { transform: "none" }],
+        back,
+      );
+      animateTo(
+        backdropRef.current,
+        [{ opacity: Math.max(0, 1 - s.dy / panel.offsetHeight) }, { opacity: 1 }],
+        back,
+      );
+    };
+    panel.addEventListener("touchstart", onStart, { passive: true });
+    panel.addEventListener("touchmove", onMove, { passive: false });
+    panel.addEventListener("touchend", onEnd);
+    panel.addEventListener("touchcancel", onEnd);
+    return () => {
+      panel.removeEventListener("touchstart", onStart);
+      panel.removeEventListener("touchmove", onMove);
+      panel.removeEventListener("touchend", onEnd);
+      panel.removeEventListener("touchcancel", onEnd);
+    };
+  }, [open, side]);
+
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 bg-ink/30" onClick={onClose}>
+    <div className="fixed inset-0 z-50">
+      <div
+        ref={backdropRef}
+        aria-hidden
+        className="animate-backdrop-in absolute inset-0 bg-ink/30"
+        onClick={() => requestClose()}
+      />
       <div
         ref={panelRef}
         role="dialog"
@@ -592,18 +753,24 @@ export function Sheet({
         )}
       >
         {side === "bottom" && (
-          <div
-            aria-hidden
-            className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-line"
-          />
+          <div aria-hidden className="flex shrink-0 touch-none justify-center pb-1 pt-2">
+            <div className="h-1 w-9 rounded-full bg-line" />
+          </div>
         )}
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line py-1.5 pl-4 pr-1.5">
+        <div
+          className={cx(
+            "flex shrink-0 items-center justify-between gap-3 border-b border-line py-1.5 pl-4 pr-1.5",
+            side === "bottom" && "touch-none",
+          )}
+        >
           <h2 className="min-w-0 truncate text-title text-ink">{title}</h2>
-          <QuietIconButton label={closeLabel} onClick={onClose}>
+          <QuietIconButton label={closeLabel} onClick={() => requestClose()}>
             <X size={19} />
           </QuietIconButton>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {children}
+        </div>
       </div>
     </div>
   );

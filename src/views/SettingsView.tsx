@@ -8,6 +8,7 @@ import { LANGS, MESSAGES, useI18n, type Lang } from "../i18n/I18nContext";
 import { LAST_READ_COUNTS } from "../lib/lastRead";
 import { SHORTCUTS } from "../lib/shortcuts";
 import { isNativeApp } from "../data/audioStore";
+import type { Surah } from "../types/quran";
 import { AudioStorageSettings } from "../components/settings/AudioStorageSettings";
 
 export interface ChartSettings {
@@ -44,6 +45,7 @@ function Row({ label, children }: { label?: string; children: ReactNode }) {
 /** Settings: language, theme, Qur'an text, last read, audio folder (in the
  *  Android app), charts, keyboard shortcuts, about. */
 export function SettingsView({
+  surahs,
   settings,
   onSettings,
   lastReadCount,
@@ -51,6 +53,7 @@ export function SettingsView({
   onAbout,
   onWelcome,
 }: {
+  surahs: Surah[];
   settings: ChartSettings;
   onSettings: (s: ChartSettings) => void;
   /** How many "last read" places Home shows. */
@@ -225,7 +228,7 @@ export function SettingsView({
       {isNativeApp() && (
         <Section title={t.settings.audioStorage}>
           <div>
-            <AudioStorageSettings />
+            <AudioStorageSettings surahs={surahs} />
           </div>
         </Section>
       )}

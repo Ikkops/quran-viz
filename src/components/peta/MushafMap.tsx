@@ -31,6 +31,8 @@ export interface MapMarks {
   sajda: boolean;
   lastRead?: number;
   bookmarks?: number[];
+  /** Memorised ayahs that need review (a rubric dot below). */
+  weak?: number[];
 }
 
 /** mouse click · touch tap · Enter key · arrow-key move (select only). */
@@ -153,6 +155,7 @@ export function MushafMap({
         for (const v of verses) if (v.sajda === 1) dot(v.id, true, tk.rubric);
       for (const id of marks.bookmarks ?? [])
         if (verses[id - 1]) dot(id, false, tk.illumination);
+      for (const id of marks.weak ?? []) if (verses[id - 1]) dot(id, false, tk.rubric);
       if (marks.lastRead && verses[marks.lastRead - 1]) {
         const [x, w] = span(marks.lastRead, 0);
         g.fillStyle = tk.ink;

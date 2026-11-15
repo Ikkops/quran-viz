@@ -1,3 +1,5 @@
+import { maskedParts, type WordMask } from "../../data/hifdh";
+import { MaskedWord, STUMBLED } from "./Masked";
 import {
   useEffect,
   useLayoutEffect,
@@ -64,6 +66,7 @@ export function MushafLinesPage({
   audioRange,
   glosses,
   glossLang,
+  mask,
   onWord,
   onAyah,
 }: {
@@ -85,6 +88,8 @@ export function MushafLinesPage({
   audioRange: { from: number; to: number } | null;
   glosses: ((id: number) => WordInfo[] | undefined) | null;
   glossLang: GlossLang;
+  /** Hafalan mode: which words are hidden. */
+  mask?: WordMask | null;
   onWord: (id: number, w: number, el: Element) => void;
   onAyah: (id: number, rect: PickRect) => void;
 }) {
@@ -323,12 +328,15 @@ export function MushafLinesPage({
                 // The band stops at the run's last word, not after its gap: that
                 // word draws it on its own text.
                 const runEnd = !!b && band[k + 1] !== b;
+                const [show, hide] = maskedParts(mask, id, w - 1, aw?.text[w - 1] ?? "");
                 const text = (
                   <>
-                    {aw?.segs?.[w - 1] ? (
+                    {hide ? (
+                      <MaskedWord show={show} hide={hide} />
+                    ) : aw?.segs?.[w - 1] ? (
                       <TajweedSegs segs={aw.segs[w - 1]} />
                     ) : (
-                      (aw?.text[w - 1] ?? "")
+                      show
                     )}
                     {last && v && <AyahEnd n={v.a} />}
                   </>
@@ -365,6 +373,7 @@ export function MushafLinesPage({
                       className={cx(
                         "transition-colors motion-reduce:transition-none",
                         glosses && "flex flex-col items-center",
+                        !hide && mask?.stumbled(id, w - 1) && STUMBLED,
                         lit
                           ? "rounded-sm bg-illumination/25"
                           : picked

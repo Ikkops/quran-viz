@@ -360,10 +360,21 @@ A gutter track (8px radius, 2px inset, faint hairline); the selected option is l
 
 ### Sheets and dialogs
 - **Sheet:** leaf, float shadow, 16px radius on the free corners; bottom sheets have a small
-  decorative grab handle. Header in the Title step over a hairline. The body has no padding of
-  its own: content pads itself `px-4` (usually `py-3`), matching the header's inset.
+  grab handle and can be dragged down to close. Header in the Title step over a hairline. The
+  body has no padding of its own: content pads itself `px-4` (usually `py-3`), matching the
+  header's inset.
 - **Dialog (`Modal`):** the same surface (16px, hairline, float); `ModalHeader` in the Title
   step over a hairline.
+
+### Motion
+Motion only says where things go; the Peta Mushaf reveal stays the one orchestrated moment.
+- What is under the finger follows it 1:1 (a sheet dragged down, the reader's text swiped
+  sideways). Let go early, it springs back; at the first or last window it only gives a little.
+- A sheet leaves toward the edge it came from. A reader window leaves in the direction of
+  travel and the next arrives from the other side.
+- Arrivals decelerate, `cubic-bezier(0.16, 1, 0.3, 1)`, 240–280 ms. Exits are shorter,
+  150–200 ms, ease-in. No bounce. Only `transform` and `opacity`.
+- Reduced motion: nothing slides; sheets and windows change with a 120 ms fade.
 
 ### Tab bar
 Five tabs, labels always visible, ≥56px targets. The current tab has a lapis-tinted pill behind
@@ -392,6 +403,10 @@ its icon and a 600-weight ink label; the others are ink-subtle.
   a double-ruled frame, eight-pointed-star bands and a lobed cartouche with the
   calligraphic name (sized in em, `role="img"`). A tap opens the ayah's meaning
   (`AyahPopover`); in the printed layout press-and-hold opens the word's.
+- **Hafalan mode:** hidden words are empty slots of the word's own width (Hairline tint, the
+  word highlights' small radius), so the page keeps its shape; ayah-end medallions stay. A bar under the head holds
+  the level (first word, first letters, hidden), cover again and leave. A word the learner
+  stumbled on carries a dotted rubric underline while it is visible.
 - **Konteks ayat:** a bottom sheet at every width.
 - **Head:** floats over the text and slides up out of the way while reading
   down; a scroll up brings it back. "Go to" drops from the top edge; About this
@@ -402,7 +417,8 @@ its icon and a 600-weight ink label; the others are ink-subtle.
 All 6,236 ayahs in mushaf order, one row per juz, each ayah a sliver as wide as its text, in
 its place colour; surah starts as paper hairlines. Overlays: sajdah (rubric dot), last read (ink
 bar), bookmarks (lapis dot); a root's or a topic's ayahs highlighted by dimming the rest to 16%.
-The same strip, one row high, sits under the reader's head as "where am I in the Qur'an".
+The "Memorisation" highlight does the same for what the learner has memorised,
+with a rubric dot under ayahs that need review. The same strip, one row high, sits under the reader's head as "where am I in the Qur'an".
 
 ### Index list
 Surahs, juz and manzils as a dense table (hairline rows, tabular figures, sortable headers), a

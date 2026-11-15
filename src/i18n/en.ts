@@ -186,6 +186,17 @@ export const en = {
       moveFailed: (f: string) =>
         `Moving stopped: ${f}. Files already moved are in the new place; the rest stayed.`,
       help: "Choosing a place moves the audio already downloaded. The choice stays until you change it here. Audio in a folder you chose is kept when the app is uninstalled.",
+      saved: "Saved audio",
+      savedTotal: (size: string) => `${size} on this device`,
+      savedEmpty:
+        "No audio has been downloaded yet. Download a surah from the player in the reader.",
+      savedLine: (n: number, size: string) => `${n} of 114 surahs · ${size}`,
+      deleteReciter: "Delete all",
+      deleteReciterConfirm: (name: string, size: string) =>
+        `Delete all of ${name}'s downloaded audio (${size})? You can download it again later.`,
+      deleteSurah: (surah: string) => `Delete ${surah}`,
+      deleteSurahConfirm: (surah: string, name: string, size: string) =>
+        `Delete ${surah} by ${name} (${size})? You can download it again later.`,
     },
     title: "Settings",
     language: "Language",
@@ -892,6 +903,10 @@ export const en = {
       rate: "Speed",
       times: (n: number) => (n === 0 ? "∞" : n === 1 ? "none" : `${n - 1}×`),
       seconds: (s: number) => `${s} s`,
+      gapAyah: (x: number) => `${x}× the ayah`,
+      chain: "Build up (1, 2, 1–2, 3, 1–3…)",
+      chainHelp:
+        "Each new ayah plays with its repeats, then everything so far plays once. Set the gap to the ayah's length to recite it back.",
       restart: "Start this ayah again",
       repeatButton: (v: string) => `Repeat each ayah: ${v}`,
       seek: "Position in the range",
@@ -921,12 +936,39 @@ export const en = {
       onDevice: (n: number, size: string) =>
         n === 0 ? "Nothing downloaded yet." : `${n} of 114 surahs · ${size}`,
       downloadAll: (size: string) => `Download all (about ${size})`,
-      deleteAll: "Delete downloaded audio",
-      deleteConfirm: (name: string, size: string) =>
-        `Delete ${name}'s downloaded audio (${size})? You can download it again later.`,
       sourceNote:
-        "Audio is downloaded from everyayah.com once, then plays without a connection.",
+        "Audio is downloaded from everyayah.com once, then plays without a connection. To delete it, open Settings → Audio storage → Saved audio.",
     },
+  },
+
+  /** Hafalan (memorisation) mode in the reader. */
+  hifdh: {
+    mode: "Hafalan mode",
+    show: "How much stays visible",
+    levels: {
+      "first-word": "First word",
+      "first-letter": "First letters",
+      hidden: "Hidden",
+    },
+    hideAgain: "Cover the text again",
+    off: "Leave Hafalan mode",
+    mark: "Memorisation",
+    markTitle: (ref: string) => `Memorisation · ${ref}`,
+    applyTo: "Apply to",
+    extents: { ayah: "This ayah", page: "Page", surah: "Surah", juz: "Juz" },
+    ayahCount: (n: string) => `${n} ayahs`,
+    statuses: {
+      0: "Not started",
+      1: "Memorising",
+      2: "Memorised",
+      3: "Memorised, needs review",
+    },
+    mapKind: "Memorisation",
+    mapEmpty:
+      "Nothing is marked yet. In the reader, tap an ayah and choose Memorisation.",
+    mapSummary: (pct: string, n: string, weak: string) =>
+      `${pct} of the Qur'an memorised (${n} ayahs) · ${weak} need review`,
+    mapJuz: (juz: number, pct: string) => `Juz ${juz}: ${pct}`,
   },
 
   /** Tajweed rule names, keyed by markup code. */

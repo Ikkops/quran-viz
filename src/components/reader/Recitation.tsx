@@ -6,7 +6,6 @@ import {
   LocateFixed,
   SlidersHorizontal,
   Download,
-  Trash2,
   X,
   Minus,
   Pause,
@@ -36,7 +35,7 @@ import type {
   ReciterIndex,
 } from "../../data/useRecitation";
 import { useI18n } from "../../i18n/I18nContext";
-import { Button, cx, QuietIconButton, Select } from "../ui";
+import { Button, cx, QuietIconButton, Select, Toggle } from "../ui";
 
 /** The Android app's per-surah audio download, as the player shows it. */
 export interface AudioDownloadPrompt {
@@ -57,7 +56,6 @@ export interface AudioStorage {
   allSize: string;
   busy: boolean;
   onDownloadAll: () => void;
-  onDeleteAll: () => void;
 }
 
 function Choice<T extends number>({
@@ -740,7 +738,7 @@ export function RecitationControls({
           label={a.gap}
           value={options.gap}
           choices={GAP_CHOICES}
-          format={a.seconds}
+          format={(v) => (v < 0 ? a.gapAyah(-v) : a.seconds(v))}
           onChange={(v) => set("gap", v)}
         />
         <Choice
@@ -752,32 +750,31 @@ export function RecitationControls({
         />
       </div>
 
+      <div>
+        <Toggle
+          checked={!!options.chain}
+          onChange={(v) => set("chain", v)}
+          label={a.chain}
+        />
+        <p className="text-xs text-ink-subtle">{a.chainHelp}</p>
+      </div>
+
       {storage && (
         <section className="flex flex-col gap-2 border-t border-line pt-5">
           <h3 className="text-heading text-ink">{a.storageTitle}</h3>
           <p className="text-sm tabular-nums text-ink-muted">
             {a.onDevice(storage.surahs, storage.size)}
           </p>
-          <div className="flex flex-wrap gap-2">
-            {storage.surahs < 114 && (
-              <Button
-                onClick={storage.onDownloadAll}
-                disabled={storage.busy}
-                icon={<Download size={16} aria-hidden />}
-              >
-                {a.downloadAll(storage.allSize)}
-              </Button>
-            )}
-            {storage.surahs > 0 && (
-              <button
-                type="button"
-                onClick={storage.onDeleteAll}
-                className="inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-rubric transition-colors hover:bg-surface-sunken touch:min-h-11"
-              >
-                <Trash2 size={15} aria-hidden /> {a.deleteAll}
-              </button>
-            )}
-          </div>
+          {storage.surahs < 114 && (
+            <Button
+              className="self-start"
+              onClick={storage.onDownloadAll}
+              disabled={storage.busy}
+              icon={<Download size={16} aria-hidden />}
+            >
+              {a.downloadAll(storage.allSize)}
+            </Button>
+          )}
           <p className="text-xs text-ink-subtle">{a.sourceNote}</p>
         </section>
       )}

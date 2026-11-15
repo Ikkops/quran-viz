@@ -1,3 +1,4 @@
+import { HIFDH_LEVELS, type HifdhLevel } from "../../data/hifdh";
 import type { Verse } from "../../types/quran";
 import type { ReaderScope } from "../charts/common";
 import { TAFSIR_EDITIONS, langName } from "../../data/editions";
@@ -136,6 +137,13 @@ export function useReaderPrefs() {
   const [showThemes, setShowThemes] = useBool("themes", false);
   const [showAsbab, setShowAsbab] = useBool("asbab", false);
   const [showAudio, setShowAudio] = useBool("audio", true);
+  // Hafalan mode: on or off, and how much stays visible while it is on.
+  const [hifdhOn, setHifdhOn] = useBool("hifdh", false);
+  const [hifdhLevel, setHifdhLevel] = usePersistentState<HifdhLevel>(
+    K + "hifdhLevel",
+    "hidden",
+    persisted.oneOf(HIFDH_LEVELS),
+  );
   // Nothing stored: word meanings follow the UI language.
   const { lang } = useI18n();
   const [glossLang, setGlossLang] = usePersistentState<GlossLang>(
@@ -215,6 +223,10 @@ export function useReaderPrefs() {
     setShowAsbab,
     showAudio,
     setShowAudio,
+    hifdhOn,
+    setHifdhOn,
+    hifdhLevel,
+    setHifdhLevel,
     glossLang,
     setGlossLang,
     infoLang,

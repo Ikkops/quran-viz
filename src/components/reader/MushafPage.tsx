@@ -2,6 +2,7 @@ import { Fragment, type KeyboardEvent } from "react";
 import type { Surah, Verse } from "../../types/quran";
 import { useI18n } from "../../i18n/I18nContext";
 import { cx } from "../ui";
+import type { WordMask } from "../../data/hifdh";
 import { AyahText } from "./AyahText";
 import { Basmala } from "./VerseRow";
 import { SurahBanner } from "./SurahBanner";
@@ -29,6 +30,7 @@ export function MushafPage({
   tajweed,
   selectedId,
   playingId,
+  mask,
   onAyah,
 }: {
   verses: Verse[];
@@ -36,6 +38,8 @@ export function MushafPage({
   tajweed: (string | null)[] | null;
   selectedId: number | undefined;
   playingId: number | undefined;
+  /** Hafalan mode: which words are hidden. */
+  mask?: WordMask | null;
   onAyah: (id: number, rect: PickRect) => void;
 }) {
   const { t } = useI18n();
@@ -89,7 +93,7 @@ export function MushafPage({
                       playingId === v.id && "bg-rubric/15",
                     )}
                   >
-                    <AyahText v={v} tajweed={tajweed?.[v.id]} />
+                    <AyahText v={v} tajweed={tajweed?.[v.id]} mask={mask} />
                   </span>{" "}
                 </Fragment>
               ))}

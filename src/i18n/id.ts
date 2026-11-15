@@ -302,6 +302,17 @@ export const id: Messages = {
       moveFailed: (f) =>
         `Pemindahan berhenti: ${f}. Berkas yang sudah pindah ada di tempat baru; sisanya tetap.`,
       help: "Memilih tempat akan memindahkan audio yang sudah diunduh. Pilihan ini berlaku sampai Anda mengubahnya di sini. Audio di folder pilihan Anda tetap ada saat aplikasi dihapus.",
+      saved: "Audio tersimpan",
+      savedTotal: (size) => `${size} di perangkat ini`,
+      savedEmpty:
+        "Belum ada audio yang diunduh. Unduh surah dari pemutar di halaman baca.",
+      savedLine: (n, size) => `${n} dari 114 surah · ${size}`,
+      deleteReciter: "Hapus semua",
+      deleteReciterConfirm: (name, size) =>
+        `Hapus semua audio ${name} yang sudah diunduh (${size})? Anda bisa mengunduhnya lagi nanti.`,
+      deleteSurah: (surah) => `Hapus ${surah}`,
+      deleteSurahConfirm: (surah, name, size) =>
+        `Hapus ${surah} bacaan ${name} (${size})? Anda bisa mengunduhnya lagi nanti.`,
     },
     title: "Pengaturan",
     language: "Bahasa",
@@ -975,6 +986,10 @@ export const id: Messages = {
       rate: "Kecepatan",
       times: (n) => (n === 0 ? "∞" : n === 1 ? "tidak" : `${n - 1}×`),
       seconds: (s) => `${s} dtk`,
+      gapAyah: (x) => `${x}× ayat`,
+      chain: "Sambung bertahap (1, 2, 1–2, 3, 1–3…)",
+      chainHelp:
+        "Setiap ayat baru diputar dengan ulangannya, lalu semua yang sudah dilalui diputar sekali. Atur jarak sepanjang ayat untuk menirukannya.",
       restart: "Ulangi ayat ini dari awal",
       repeatButton: (v) => `Ulangi tiap ayat: ${v}`,
       seek: "Posisi dalam rentang",
@@ -1002,11 +1017,8 @@ export const id: Messages = {
       onDevice: (n, size) =>
         n === 0 ? "Belum ada yang diunduh." : `${n} dari 114 surah · ${size}`,
       downloadAll: (size) => `Unduh semua (sekitar ${size})`,
-      deleteAll: "Hapus audio yang diunduh",
-      deleteConfirm: (name, size) =>
-        `Hapus audio ${name} yang sudah diunduh (${size})? Anda bisa mengunduhnya lagi nanti.`,
       sourceNote:
-        "Audio diunduh sekali dari everyayah.com, lalu bisa diputar tanpa koneksi.",
+        "Audio diunduh sekali dari everyayah.com, lalu bisa diputar tanpa koneksi. Untuk menghapusnya, buka Pengaturan → Penyimpanan audio → Audio tersimpan.",
     },
   },
 
@@ -1096,6 +1108,35 @@ export const id: Messages = {
       SP_kaAn: "kana dan saudaranya",
       SP_kaAd: "kada dan saudaranya",
     } as Record<string, string>,
+  },
+
+  /** Mode hafalan di halaman baca. */
+  hifdh: {
+    mode: "Mode hafalan",
+    show: "Seberapa banyak yang terlihat",
+    levels: {
+      "first-word": "Kata awal",
+      "first-letter": "Huruf awal",
+      hidden: "Tertutup",
+    },
+    hideAgain: "Tutup lagi teksnya",
+    off: "Keluar dari mode hafalan",
+    mark: "Hafalan",
+    markTitle: (ref) => `Hafalan · ${ref}`,
+    applyTo: "Berlaku untuk",
+    extents: { ayah: "Ayat ini", page: "Halaman", surah: "Surah", juz: "Juz" },
+    ayahCount: (n) => `${n} ayat`,
+    statuses: {
+      0: "Belum dihafal",
+      1: "Sedang dihafal",
+      2: "Sudah hafal",
+      3: "Hafal, perlu diulang",
+    },
+    mapKind: "Hafalan",
+    mapEmpty: "Belum ada yang ditandai. Di halaman baca, ketuk ayat lalu pilih Hafalan.",
+    mapSummary: (pct, n, weak) =>
+      `${pct} Al-Qur'an sudah hafal (${n} ayat) · ${weak} perlu diulang`,
+    mapJuz: (juz, pct) => `Juz ${juz}: ${pct}`,
   },
 
   tajweed: {

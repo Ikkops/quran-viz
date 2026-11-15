@@ -14,6 +14,7 @@ import { useTheme } from "./theme/ThemeContext";
 import type { ColorMode, ReaderTarget } from "./components/charts/common";
 import { Card, Skeleton } from "./components/ui";
 import { BOOKMARKS_KEY } from "./lib/bookmarks";
+import { HIFDH_KEY, emptyHifdh, sanitizeHifdh, type Hifdh } from "./lib/hifdh";
 import {
   MARKS_KEY,
   initialMarks,
@@ -255,6 +256,12 @@ export default function App() {
     ),
     sanitizeMarks,
   );
+  // What the learner has memorised, and the words they stumbled on.
+  const [hifdh, setHifdh] = usePersistentState<Hifdh>(
+    HIFDH_KEY,
+    emptyHifdh(),
+    sanitizeHifdh,
+  );
   // Interface scale, capped on narrow screens (lib/uiScale.ts).
   const viewportWidth = useViewportWidth();
   const zoom = effectiveUiScale(settings.uiScale, viewportWidth);
@@ -395,6 +402,8 @@ export default function App() {
               onClose={() => navigateReader(null)}
               marks={marks}
               onMarks={setMarks}
+              hifdh={hifdh}
+              onHifdh={setHifdh}
               onRead={noteRead}
               onExplore={explore}
               phone={!wide}
@@ -438,6 +447,7 @@ export default function App() {
                 data={data}
                 lastRead={lastReads[0]?.id}
                 marked={marked}
+                hifdh={hifdh}
                 onOpen={navigateReader}
                 onExplore={explore}
                 charts={
@@ -467,6 +477,7 @@ export default function App() {
             )}
             {view === "settings" && (
               <SettingsView
+                surahs={data?.surahs ?? []}
                 settings={settings}
                 onSettings={setSettings}
                 lastReadCount={lastReadCount}
