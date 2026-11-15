@@ -12,7 +12,7 @@ import { buildTopicTree, searchTopicTree, topicName } from "../../data/topics";
 import { persisted, usePersistentState } from "../../lib/usePersistentState";
 import { useI18n } from "../../i18n/I18nContext";
 import { useTheme } from "../../theme/ThemeContext";
-import { Button, Card, SectionTitle, SegmentedControl, cx } from "../ui";
+import { Button, SegmentedControl, cx } from "../ui";
 import type { ExploreTarget } from "../reader/VerseContextPanel";
 import { MushafMap, type MapMarks, type PickHow } from "./MushafMap";
 
@@ -240,9 +240,8 @@ export function PetaMushaf({
     (kind === "root" && !roots.data) || (kind === "topic" && !tree);
 
   return (
-    <Card className="p-4">
-      <SectionTitle title={t.peta.title} subtitle={t.peta.subtitle} />
-
+    // Drawn inside the dashboard's card, under its question heading.
+    <div>
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="mr-1 text-eyebrow text-ink-subtle">{t.peta.marks}</span>
         <Chip
@@ -439,6 +438,6 @@ export function PetaMushaf({
           <Play size={14} aria-hidden /> {t.peta.replay}
         </button>
       </div>
-    </Card>
+    </div>
   );
 }

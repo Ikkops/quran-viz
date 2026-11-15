@@ -166,6 +166,56 @@ function advanceChain(
   return at(range.from, range.to, rangePass);
 }
 
+/** Sleep timer choices: off, minutes, or the end of the surah playing. */
+export const SLEEP_CHOICES = [0, 15, 30, 60, "surah"] as const;
+export type SleepChoice = (typeof SLEEP_CHOICES)[number];
+
+/** An armed sleep timer: a deadline (epoch ms), or the surah whose end stops
+ *  playback (null until the first ayah plays, when nothing was loaded). */
+export type SleepTimer =
+  | { choice: 15 | 30 | 60; at: number }
+  | { choice: "surah"; surah: number | null };
+
+export function sleepTimerFor(
+  choice: SleepChoice,
+  now: number,
+  surah: number | null,
+): SleepTimer | null {
+  if (choice === 0) return null;
+  if (choice === "surah") return { choice, surah };
+  return { choice, at: now + choice * 60_000 };
+}
+
+/**
+ * Whether playback should pause now that ayah `cur.id` has finished playing
+ * (`nxt` is what would play next). A minute timer stops at the first ayah
+ * boundary after its deadline. "End of surah" stops after the last ayah of
+ * its surah that the range plays, once that ayah's repeats are done; with
+ * each ayah repeated forever it stops after the ayah playing, since the end
+ * would never come. A range repeat never gets past either.
+ */
+export function sleepDue(
+  timer: SleepTimer | null,
+  now: number,
+  cur: Cursor,
+  nxt: Cursor | null,
+  verses: readonly { s: number }[],
+  range: LoopRange,
+  opts: LoopOptions,
+): boolean {
+  if (!timer || cur.basmalah) return false;
+  if ("at" in timer) return now >= timer.at;
+  if (opts.ayahRepeat === 0) return true;
+  if (verses[cur.id - 1]?.s !== timer.surah) return false;
+  const lastInSurah = verses[cur.id]?.s !== timer.surah;
+  return (lastInSurah || cur.id >= range.to) && nxt?.id !== cur.id;
+}
+
+/** Whole minutes left before a deadline, at least 1 (shown on the player). */
+export function sleepMinutesLeft(at: number, now: number): number {
+  return Math.max(1, Math.ceil((at - now) / 60_000));
+}
+
 /** Move one end of the range by `delta`, clamped to [1, max]; the other end
  *  follows when they would cross, so from <= to always holds. */
 export function shiftRange(

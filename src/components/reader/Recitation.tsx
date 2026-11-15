@@ -1,4 +1,4 @@
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   CircleCheck,
   Crosshair,
@@ -8,6 +8,7 @@ import {
   Download,
   X,
   Minus,
+  Moon,
   Pause,
   Play,
   Plus,
@@ -21,13 +22,16 @@ import {
   GAP_CHOICES,
   RATE_CHOICES,
   REPEAT_CHOICES,
+  SLEEP_CHOICES,
   formatClock,
   locateInRange,
   nextRepeat,
   repeatBadge,
   setRangeEnd,
   shiftRange,
+  sleepMinutesLeft,
   type LoopRange,
+  type SleepTimer,
 } from "../../data/recitation";
 import type {
   Recitation,
@@ -295,6 +299,34 @@ function RangeStepper({
   );
 }
 
+/** The armed sleep timer on the bar: minutes left (redrawn when the whole
+ *  minute changes, not every second) or "end of surah"; opens the options. */
+function SleepBadge({ sleep, onOpen }: { sleep: SleepTimer; onOpen: () => void }) {
+  const { t } = useI18n();
+  const a = t.reader.audio;
+  const [now, setNow] = useState(Date.now);
+  const at = "at" in sleep ? sleep.at : null;
+  useEffect(() => {
+    if (at === null || at <= now) return;
+    const id = setTimeout(() => setNow(Date.now()), (at - now) % 60_000 || 60_000);
+    return () => clearTimeout(id);
+  }, [at, now]);
+  const left = at === null ? null : sleepMinutesLeft(at, now);
+  const label = left === null ? a.sleepAtSurahEnd : a.sleepIn(left);
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={label}
+      title={label}
+      className="inline-flex h-8 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs tabular-nums text-illumination transition-colors hover:bg-surface-sunken touch:min-h-11"
+    >
+      <Moon size={14} aria-hidden />
+      {left === null ? a.sleepSurah : a.sleepLeft(left)}
+    </button>
+  );
+}
+
 /**
  * The player docked under the reader (DESIGN.md "Float"). The seek bar sits
  * between the two ends of the range (start on the left, end on the right);
@@ -470,6 +502,13 @@ export function MiniPlayer({
     <span className="text-ink-subtle">{reciterName}</span>
   );
   const seek = <SeekBar rec={rec} range={range} reciter={reciter} />;
+  const sleep = rec.sleep && (
+    <SleepBadge
+      key={"at" in rec.sleep ? rec.sleep.at : "surah"}
+      sleep={rec.sleep}
+      onOpen={onOpenOptions}
+    />
+  );
   return (
     <div
       role="region"
@@ -498,6 +537,7 @@ export function MiniPlayer({
               {status}
             </p>
           )}
+          {roomy && sleep}
           <button
             type="button"
             onClick={() =>
@@ -567,6 +607,7 @@ export function MiniPlayer({
           <p className="min-w-0 truncate text-sm" aria-live="polite">
             {status}
           </p>
+          {sleep}
           {toStep}
         </div>
       )}
@@ -749,6 +790,17 @@ export function RecitationControls({
           onChange={(v) => set("rate", v)}
         />
       </div>
+
+      <Select
+        size="sm"
+        label={a.sleep}
+        value={rec.sleep?.choice ?? 0}
+        onChange={rec.setSleep}
+        options={SLEEP_CHOICES.map((c) => ({
+          value: c,
+          label: c === 0 ? a.sleepOff : c === "surah" ? a.sleepSurah : a.sleepMinutes(c),
+        }))}
+      />
 
       <div>
         <Toggle

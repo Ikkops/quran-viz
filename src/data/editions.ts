@@ -59,6 +59,18 @@ export function langName(code: string, locale?: string): string {
   return LANG_NAMES[code] ?? code.toUpperCase();
 }
 
+/** Every name a language goes by (code, English, `locale`'s, its own), for
+ *  search. */
+export function langKeywords(code: string, locale?: string): string {
+  let own = "";
+  try {
+    own = new Intl.DisplayNames([code], { type: "language" }).of(code) ?? "";
+  } catch {
+    /* unsupported code or runtime */
+  }
+  return [code, LANG_NAMES[code] ?? "", langName(code, locale), own].join(" ");
+}
+
 export function isRtl(code: string): boolean {
   return ["ar", "fa", "ur", "ps", "sd", "ug", "dv", "ku"].includes(code);
 }

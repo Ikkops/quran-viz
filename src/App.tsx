@@ -47,7 +47,8 @@ const ActivityView = lazy(() =>
 const SettingsView = lazy(() =>
   import("./views/SettingsView").then((m) => ({ default: m.SettingsView })),
 );
-import { DashboardPage, DASHBOARD_TAB_KEY } from "./views/DashboardPage";
+/** The dashboard's chosen view (views/vizDefs.ts, kept out of this chunk). */
+const VIZ_KEY = "qv.viz";
 /** The Activity page's tab (views/ActivityView.tsx, kept out of this chunk). */
 const ACTIVITY_TAB_KEY = "qv.activity.tab";
 const ReaderView = lazy(() =>
@@ -75,6 +76,10 @@ import { useI18n } from "./i18n/I18nContext";
 import { searchEditionFor } from "./data/searchEdition";
 import { installBackButton } from "./lib/androidBack";
 import { useReadingTimer } from "./lib/readingStore";
+import { useReminders } from "./lib/remindersNative";
+import { RecitationProvider } from "./data/RecitationContext";
+import { NowPlayingBar } from "./components/shell/NowPlayingBar";
+import { preferredDivision, scopeField } from "./components/reader/readerShared";
 
 /** Current hash, parsed. Dashboard params are kept when the reader opens or
  *  closes so a shared link reopens the same chart. */
@@ -108,10 +113,6 @@ export default function App() {
     [loaded, lang],
   );
   const initial = readHash();
-  // An old `#browse` (Map) link opens the dashboard on its Map tab.
-  useState(() => {
-    if (initial.params.tab === "map") presetTab(DASHBOARD_TAB_KEY, "map");
-  });
   const [view, setViewState] = useState<View>(initial.view);
   const [reader, setReader] = useState<ReaderTarget | null>(initial.reader);
   // Each view remembers its scroll position: switching tabs and coming back
@@ -196,7 +197,6 @@ export default function App() {
         ? { v: "root-explorer", root: x.key }
         : { v: "topic-explorer", topic: x.key };
     openedHere.current = false;
-    presetTab(DASHBOARD_TAB_KEY, "charts");
     window.location.hash = serializeHash("dashboard", null, params);
     changeView("dashboard");
     showReader(null);
@@ -348,19 +348,29 @@ export default function App() {
         : { scope: "surah", value: 1 },
     );
   };
+  // The mini-player opens the reader at the recited ayah, in the division the
+  // learner reads by (as Home's last-read cards do).
+  const openPlaying = (id: number) => {
+    const v = data?.verses[id - 1];
+    if (!v) return;
+    const d = preferredDivision();
+    navigateReader({ scope: d, value: scopeField(v, d), anchor: id });
+  };
   const showWelcome = !!data && ((!welcomed && !deepLinked && !reader) || welcomeAgain);
   const finishWelcome = (choice: WelcomeChoice) => {
     setWelcomed(true);
     setWelcomeAgain(false);
     if (choice === "read") openRead();
     else if (choice === "map") {
-      presetTab(DASHBOARD_TAB_KEY, "map");
+      presetTab(VIZ_KEY, "map");
+      setDashKey((k) => k + 1);
       setView("dashboard");
     }
   };
   const reading = !!(data && reader);
   // Reading time (Home → Activity) counts while the reader is open.
   useReadingTimer(reading);
+  useReminders(hifdh, data?.verses);
   const marked = useMemo(() => markedAyahs(marks), [marks]);
   const navProps: NavProps = {
     view,
@@ -371,165 +381,177 @@ export default function App() {
   };
 
   return (
-    <div
-      id="app-root"
-      className="min-h-[calc(100*var(--zvh))] bg-paper pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] font-ui text-ink"
-      // `--zvh` is 1vh corrected for this zoom: use `calc(N*var(--zvh))` instead of
-      // `Nvh` anywhere below, since CSS zoom multiplies `vh` lengths.
-      style={
-        {
-          zoom,
-          "--zvh": `calc(1vh / ${zoom})`,
-        } as CSSProperties
-      }
+    <RecitationProvider
+      surahs={data?.surahs ?? []}
+      verses={data?.verses ?? []}
+      readerOpen={reading}
+      onRead={noteRead}
     >
-      <div className="min-w-0">
-        {!reading && <TopBar {...navProps} />}
-        {data && reader && (
-          <Suspense fallback={<ReaderSkeleton />}>
-            <ReaderView
-              target={reader}
-              surahs={data.surahs}
-              verses={data.verses}
-              editions={data.editions}
-              edition={edition}
-              onEditionChange={setEdition}
-              colorMode={colorMode}
-              palette={theme.palette}
-              arabicScale={theme.arabicScale}
-              onArabicScale={theme.setArabicScale}
-              onNavigate={navigateReader}
-              onClose={() => navigateReader(null)}
-              marks={marks}
-              onMarks={setMarks}
-              hifdh={hifdh}
-              onHifdh={setHifdh}
-              onRead={noteRead}
-              onExplore={explore}
-              phone={!wide}
-              dark={theme.dark}
-            />
-          </Suspense>
-        )}
-        <main
-          hidden={reading}
-          className="mx-auto max-w-7xl px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-5"
-        >
-          {loading && <LoadingSkeleton />}
-          {error && (
-            <Card className="p-6 text-center text-sm">
-              <p role="alert" className="font-medium text-rubric">
-                {t.app.failedData}
-              </p>
-              <p className="mt-2 text-ink-muted">{t.app.failedDataHelp}</p>
-              <p className="mt-1 text-xs text-ink-subtle">{error}</p>
-              <button
-                type="button"
-                onClick={() => window.location.reload()}
-                className="mt-3 min-h-10 touch:min-h-11 rounded-lg border border-line px-4 text-sm font-medium text-ink hover:bg-surface-sunken"
-              >
-                {t.common.retry}
-              </button>
-            </Card>
-          )}
-          <Suspense fallback={<LoadingSkeleton />}>
-            {data && view === "home" && (
-              <HomeView
-                data={data}
-                lastReads={lastReads.slice(0, lastReadCount)}
-                onOpen={navigateReader}
-                onSearch={() => openSearch()}
-                onActivity={() => setView("activity")}
-                hifdh={hifdh}
-                onHifdhPlan={() => {
-                  presetTab(ACTIVITY_TAB_KEY, "hifdh");
-                  setActivityKey((k) => k + 1);
-                  setView("activity");
-                }}
-              />
-            )}
-            {data && view === "dashboard" && (
-              <DashboardPage
-                data={data}
-                lastRead={lastReads[0]?.id}
-                marked={marked}
-                hifdh={hifdh}
-                onOpen={navigateReader}
-                onExplore={explore}
-                charts={
-                  <DashboardView
-                    key={dashKey}
-                    data={data}
-                    settings={settings}
-                    colorMode={colorMode}
-                    onColorMode={setColorMode}
-                    onOpen={navigateReader}
-                    onSearch={openSearch}
-                  />
-                }
-              />
-            )}
-            {data && view === "structure" && (
-              <StructureView data={data} onOpen={navigateReader} />
-            )}
-            {data && view === "activity" && (
-              <ActivityView
-                key={activityKey}
-                data={data}
+      <div
+        id="app-root"
+        className="min-h-[calc(100*var(--zvh))] bg-paper pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] font-ui text-ink"
+        // `--zvh` is 1vh corrected for this zoom: use `calc(N*var(--zvh))` instead of
+        // `Nvh` anywhere below, since CSS zoom multiplies `vh` lengths.
+        style={
+          {
+            zoom,
+            "--zvh": `calc(1vh / ${zoom})`,
+          } as CSSProperties
+        }
+      >
+        <div className="min-w-0">
+          {!reading && <TopBar {...navProps} />}
+          {data && reader && (
+            <Suspense fallback={<ReaderSkeleton />}>
+              <ReaderView
+                target={reader}
+                surahs={data.surahs}
+                verses={data.verses}
+                editions={data.editions}
+                edition={edition}
+                onEditionChange={setEdition}
+                colorMode={colorMode}
+                palette={theme.palette}
+                arabicScale={theme.arabicScale}
+                onArabicScale={theme.setArabicScale}
+                onNavigate={navigateReader}
+                onClose={() => navigateReader(null)}
                 marks={marks}
                 onMarks={setMarks}
                 hifdh={hifdh}
                 onHifdh={setHifdh}
-                onOpen={navigateReader}
+                onRead={noteRead}
+                onExplore={explore}
+                phone={!wide}
+                dark={theme.dark}
+              />
+            </Suspense>
+          )}
+          <main
+            hidden={reading}
+            className="mx-auto max-w-7xl px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-5"
+          >
+            {loading && <LoadingSkeleton />}
+            {error && (
+              <Card className="p-6 text-center text-sm">
+                <p role="alert" className="font-medium text-rubric">
+                  {t.app.failedData}
+                </p>
+                <p className="mt-2 text-ink-muted">{t.app.failedDataHelp}</p>
+                <p className="mt-1 text-xs text-ink-subtle">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="mt-3 min-h-10 touch:min-h-11 rounded-lg border border-line px-4 text-sm font-medium text-ink hover:bg-surface-sunken"
+                >
+                  {t.common.retry}
+                </button>
+              </Card>
+            )}
+            <Suspense fallback={<LoadingSkeleton />}>
+              {data && view === "home" && (
+                <HomeView
+                  data={data}
+                  lastReads={lastReads.slice(0, lastReadCount)}
+                  onOpen={navigateReader}
+                  onSearch={() => openSearch()}
+                  onActivity={() => setView("activity")}
+                  hifdh={hifdh}
+                  marks={marks}
+                  onHifdhPlan={() => {
+                    presetTab(ACTIVITY_TAB_KEY, "hifdh");
+                    setActivityKey((k) => k + 1);
+                    setView("activity");
+                  }}
+                />
+              )}
+              {data && view === "dashboard" && (
+                <DashboardView
+                  key={dashKey}
+                  data={data}
+                  settings={settings}
+                  colorMode={colorMode}
+                  onColorMode={setColorMode}
+                  onOpen={navigateReader}
+                  onSearch={openSearch}
+                  lastRead={lastReads[0]?.id}
+                  marked={marked}
+                  hifdh={hifdh}
+                  onExplore={explore}
+                />
+              )}
+              {data && view === "structure" && (
+                <StructureView data={data} onOpen={navigateReader} />
+              )}
+              {data && view === "activity" && (
+                <ActivityView
+                  key={activityKey}
+                  data={data}
+                  marks={marks}
+                  onMarks={setMarks}
+                  hifdh={hifdh}
+                  onHifdh={setHifdh}
+                  onOpen={navigateReader}
+                  lastRead={lastReads[0]?.id}
+                />
+              )}
+              {view === "settings" && (
+                <SettingsView
+                  surahs={data?.surahs ?? []}
+                  settings={settings}
+                  onSettings={setSettings}
+                  lastReadCount={lastReadCount}
+                  onLastReadCount={setLastReadCount}
+                  onAbout={() => setAboutOpen(true)}
+                  onWelcome={() => setWelcomeAgain(true)}
+                />
+              )}
+            </Suspense>
+            {data && (
+              <NowPlayingBar
+                surahs={data.surahs}
+                verses={data.verses}
+                onOpen={openPlaying}
               />
             )}
-            {view === "settings" && (
-              <SettingsView
-                surahs={data?.surahs ?? []}
-                settings={settings}
-                onSettings={setSettings}
-                lastReadCount={lastReadCount}
-                onLastReadCount={setLastReadCount}
-                onAbout={() => setAboutOpen(true)}
-                onWelcome={() => setWelcomeAgain(true)}
-              />
-            )}
-          </Suspense>
-        </main>
+          </main>
+        </div>
+        {!reading && <BottomTabs {...navProps} />}
+
+        <Suspense fallback={null}>
+          {data && showWelcome && (
+            <Welcome
+              open
+              onDone={finishWelcome}
+              editions={data.editions.editions}
+              edition={edition}
+              onEdition={setEdition}
+              onAbout={() => setAboutOpen(true)}
+            />
+          )}
+
+          {aboutUsed && (
+            <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
+          )}
+
+          {data && searchUsed && (
+            <GlobalSearchModal
+              key={searchSeed.n}
+              initialQuery={searchSeed.q}
+              editionId={edition}
+              latinEditionId={searchEditionFor(lang, edition, data.editions.editions)}
+              open={searchOpen}
+              onClose={() => setSearchOpen(false)}
+              verses={data.verses}
+              surahs={data.surahs}
+              colorMode={colorMode}
+              palette={theme.palette}
+              onOpenReader={navigateReader}
+            />
+          )}
+        </Suspense>
       </div>
-      {!reading && <BottomTabs {...navProps} />}
-
-      <Suspense fallback={null}>
-        {data && showWelcome && (
-          <Welcome
-            open
-            onDone={finishWelcome}
-            editions={data.editions.editions}
-            edition={edition}
-            onEdition={setEdition}
-            onAbout={() => setAboutOpen(true)}
-          />
-        )}
-
-        {aboutUsed && <AboutModal open={aboutOpen} onClose={() => setAboutOpen(false)} />}
-
-        {data && searchUsed && (
-          <GlobalSearchModal
-            key={searchSeed.n}
-            initialQuery={searchSeed.q}
-            editionId={edition}
-            latinEditionId={searchEditionFor(lang, edition, data.editions.editions)}
-            open={searchOpen}
-            onClose={() => setSearchOpen(false)}
-            verses={data.verses}
-            surahs={data.surahs}
-            colorMode={colorMode}
-            palette={theme.palette}
-            onOpenReader={navigateReader}
-          />
-        )}
-      </Suspense>
-    </div>
+    </RecitationProvider>
   );
 }
 

@@ -110,7 +110,7 @@ export function SurahBarChart({
             stackId="s"
             radius={stacked ? undefined : radius}
             onClick={onClick}
-            isAnimationActive={data.length < 60}
+            isAnimationActive={!ctx.still && data.length < 60}
           >
             {rows.map((d) => (
               <Cell

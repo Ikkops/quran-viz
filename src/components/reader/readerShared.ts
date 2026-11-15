@@ -1,5 +1,6 @@
 import { HIFDH_LEVELS, type HifdhLevel } from "../../data/hifdh";
 import type { Verse } from "../../types/quran";
+import { pagesFor, type MushafLayout } from "../../data/mushafLayout";
 import type { ReaderScope } from "../charts/common";
 import { TAFSIR_EDITIONS, langName } from "../../data/editions";
 import { formatBytes } from "../../data/recitation";
@@ -8,11 +9,6 @@ import type { GlossLang } from "../../data/useWordByWord";
 import type { InfoLang } from "../../data/useSurahInfo";
 import { persisted, usePersistentState } from "../../lib/usePersistentState";
 import { useI18n } from "../../i18n/I18nContext";
-import {
-  DEFAULT_RECITATION,
-  RECITERS,
-  sanitizeRecitationOptions,
-} from "../../data/recitation";
 
 /** The Verse field each scope is keyed by. */
 const SCOPE_FIELD: Record<ReaderScope, keyof Verse> = {
@@ -126,7 +122,8 @@ const LANGS = ["en", "id"] as const;
 const tafsirIds = TAFSIR_EDITIONS.map((t) => t.id);
 const SCALE = persisted.number(0.5, 2);
 
-/** Every remembered reader preference, in one place. */
+/** Every remembered reader preference, in one place (the player's own,
+ *  `qv.reader.audio` and `qv.audio.*`, live in data/RecitationContext.tsx). */
 export function useReaderPrefs() {
   const useBool = (key: string, init: boolean) =>
     usePersistentState(K + key, init, persisted.bool);
@@ -136,7 +133,6 @@ export function useReaderPrefs() {
   const [showWords, setShowWords] = useBool("words", false);
   const [showThemes, setShowThemes] = useBool("themes", false);
   const [showAsbab, setShowAsbab] = useBool("asbab", false);
-  const [showAudio, setShowAudio] = useBool("audio", true);
   // Hafalan mode: on or off, and how much stays visible while it is on.
   const [hifdhOn, setHifdhOn] = useBool("hifdh", false);
   const [hifdhLevel, setHifdhLevel] = usePersistentState<HifdhLevel>(
@@ -196,16 +192,6 @@ export function useReaderPrefs() {
     "tafsir",
     persisted.oneOf(CONTEXT_TABS),
   );
-  const [audioOpts, setAudioOpts] = usePersistentState(
-    "qv.audio.options",
-    DEFAULT_RECITATION,
-    sanitizeRecitationOptions,
-  );
-  const [reciterPref, setReciter] = usePersistentState<string>(
-    "qv.audio.reciter",
-    RECITERS[0],
-    persisted.oneOf(RECITERS),
-  );
   return {
     division,
     setDivision,
@@ -221,8 +207,6 @@ export function useReaderPrefs() {
     setShowThemes,
     showAsbab,
     setShowAsbab,
-    showAudio,
-    setShowAudio,
     hifdhOn,
     setHifdhOn,
     hifdhLevel,
@@ -245,10 +229,6 @@ export function useReaderPrefs() {
     setMode,
     contextTab,
     setContextTab,
-    audioOpts,
-    setAudioOpts,
-    reciterPref,
-    setReciter,
   };
 }
 
@@ -264,6 +244,29 @@ export function groupByPage(verses: Verse[]): Verse[][] {
     else out.push([v]);
   }
   return out;
+}
+
+/** The rows a reader window lists: printed pages (once the layout is in),
+ *  flowing pages, or one row per ayah. Shared by the list and the swipe peek. */
+export interface WindowRows {
+  verses: Verse[];
+  from: number;
+  to: number;
+  layoutPages: number[] | null;
+  pages: Verse[][] | null;
+  count: number;
+}
+export function windowRows(
+  verses: Verse[],
+  mushaf: boolean,
+  layout: MushafLayout | null,
+): WindowRows {
+  const from = verses[0]?.id ?? 1;
+  const to = verses[verses.length - 1]?.id ?? 1;
+  const layoutPages = layout ? pagesFor(layout, from, to) : null;
+  const pages = mushaf && !layoutPages ? groupByPage(verses) : null;
+  const count = layoutPages?.length ?? pages?.length ?? verses.length;
+  return { verses, from, to, layoutPages, pages, count };
 }
 
 /** Division boundaries crossed between `prev` and `v`, outermost first. */

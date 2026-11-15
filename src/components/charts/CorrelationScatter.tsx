@@ -71,6 +71,7 @@ export function CorrelationScatter({
         <Tooltip content={<SurahTooltip />} cursor={{ strokeDasharray: "3 3" }} />
         <Scatter
           data={data}
+          isAnimationActive={!ctx.still}
           onClick={(d: unknown) =>
             hitMark(ctx, { scope: "surah", value: (d as SurahDatum).id })
           }

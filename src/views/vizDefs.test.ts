@@ -6,7 +6,21 @@ import {
   migrateViz,
   paramsToDashboard,
   seedDashboardFromHash,
+  VIZ_BY_ID,
+  VIZ_DEFS,
 } from "./vizDefs";
+
+describe("VIZ_DEFS", () => {
+  it("lists 12 views, the mushaf map last", () => {
+    expect(VIZ_DEFS).toHaveLength(12);
+    expect(VIZ_DEFS[VIZ_DEFS.length - 1]).toMatchObject({
+      value: "map",
+      group: "Map",
+      uses: {},
+    });
+    expect(VIZ_BY_ID.map.autoHeight).toBe(true);
+  });
+});
 
 beforeEach(() => localStorage.clear());
 
@@ -26,6 +40,23 @@ describe("migrateViz", () => {
     migrateStoredViz();
     expect(JSON.parse(localStorage.getItem("qv.viz")!)).toBe("length");
     expect(JSON.parse(localStorage.getItem("qv.metric")!)).toBe("ayahCount");
+  });
+  it("turns the old Map tab into the map view, once", () => {
+    localStorage.setItem("qv.viz", JSON.stringify("roots"));
+    localStorage.setItem("qv.dashboard.tab", JSON.stringify("map"));
+    migrateStoredViz();
+    expect(JSON.parse(localStorage.getItem("qv.viz")!)).toBe("map");
+    expect(localStorage.getItem("qv.dashboard.tab")).toBeNull();
+    localStorage.setItem("qv.viz", JSON.stringify("roots"));
+    migrateStoredViz();
+    expect(JSON.parse(localStorage.getItem("qv.viz")!)).toBe("roots");
+  });
+  it("leaves the view alone for the old Charts tab", () => {
+    localStorage.setItem("qv.viz", JSON.stringify("cloud"));
+    localStorage.setItem("qv.dashboard.tab", JSON.stringify("charts"));
+    migrateStoredViz();
+    expect(JSON.parse(localStorage.getItem("qv.viz")!)).toBe("cloud");
+    expect(localStorage.getItem("qv.dashboard.tab")).toBeNull();
   });
 });
 
@@ -80,6 +111,19 @@ describe("dashboard link params", () => {
     expect(JSON.parse(localStorage.getItem("qv.filter")!)).toMatchObject({
       mode: "surah",
       surahRange: [2, 3],
+    });
+  });
+
+  it("opens the map for an old #browse / tab=map link", () => {
+    localStorage.setItem("qv.viz", JSON.stringify("cloud"));
+    seedDashboardFromHash("#browse");
+    expect(JSON.parse(localStorage.getItem("qv.viz")!)).toBe("map");
+    expect(paramsToDashboard({ tab: "map", v: "pos" }, DEFAULT_FILTER).viz).toBe("pos");
+    expect(dashboardToParams({ ...state, viz: "map" })).toEqual({
+      v: "map",
+      s: "revelation",
+      r: "juz:28-30",
+      p: "Medinan",
     });
   });
 

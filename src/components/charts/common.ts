@@ -74,6 +74,8 @@ export interface ChartContext {
    *  on a mouse click but only selects on a tap, so the readout can be read
    *  first; without it, charts fall back to `onOpen`. */
   onMark?: (target: ReaderTarget) => void;
+  /** No entrance animation (a pager's neighbour, shown mid-swipe). */
+  still?: boolean;
 }
 
 /** Report a hit on a mark (see `ChartContext.onMark`). */

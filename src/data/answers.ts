@@ -180,3 +180,13 @@ export function posFacts(pos: PosDatum[]) {
     secondShare: sorted[1].count / total,
   };
 }
+
+/** The mushaf map: surahs and ayahs shown, and how many carry the learner's marks. */
+export function mapFacts(verses: Verse[], marked: number[]) {
+  const ids = new Set(verses.map((v) => v.id));
+  return {
+    surahs: new Set(verses.map((v) => v.s)).size,
+    ayahs: verses.length,
+    marked: new Set(marked.filter((id) => ids.has(id))).size,
+  };
+}

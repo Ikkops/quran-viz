@@ -4,7 +4,7 @@ import type { QuranData } from "../types/quran";
 import { surahMapOf } from "../data/selectors";
 import { useTheme } from "../theme/ThemeContext";
 import { useI18n } from "../i18n/I18nContext";
-import { Button, Card, SectionTitle, SegmentedControl } from "../components/ui";
+import { Button, Card, SectionTitle, SegmentedControl, cx } from "../components/ui";
 import type { ChartContext, ReaderTarget } from "../components/charts/common";
 import { StructureOverview } from "../components/charts/StructureOverview";
 import { JuzBreakdown } from "../components/charts/JuzBreakdown";
@@ -13,6 +13,7 @@ import { SajdaMarkers } from "../components/charts/SajdaMarkers";
 import { DivisionBreakdown } from "../components/charts/DivisionBreakdown";
 import { SimilarArcs } from "../components/charts/SimilarArcs";
 import { useSimilar } from "../data/useSimilar";
+import { useSwipePager } from "../lib/useSwipePager";
 
 type Tab = "overview" | "manzil" | "juz" | "hizb" | "ruku" | "sajda" | "similar";
 
@@ -35,7 +36,15 @@ export function StructureView({
     persisted.oneOf(TABS),
   );
   const surahMap = useMemo(() => surahMapOf(data.surahs), [data.surahs]);
-  const similar = useSimilar(tab === "similar");
+  const index = TABS.indexOf(tab);
+  // A sideways swipe on the chart moves between tabs, stopping at the ends.
+  const { handlers, peek, trackRef } = useSwipePager({
+    current: tab,
+    canGo: (d) => index + d >= 0 && index + d < TABS.length,
+    onCommit: (d) => setTab(TABS[index + d]),
+  });
+  const peekTab = peek !== 0 ? TABS[index + peek] : null;
+  const similar = useSimilar(tab === "similar" || peekTab === "similar");
 
   const ctx: ChartContext = useMemo(
     () => ({
@@ -48,6 +57,47 @@ export function StructureView({
     }),
     [theme.palette, theme.primary, theme.dark, onOpen],
   );
+
+  const renderTab = (k: Tab) => {
+    switch (k) {
+      case "overview":
+        return <StructureOverview surahs={data.surahs} meta={data.meta} />;
+      case "juz":
+        return <JuzBreakdown verses={data.verses} ctx={ctx} />;
+      case "hizb":
+        return <HizbBreakdown verses={data.verses} ctx={ctx} />;
+      case "manzil":
+      case "ruku":
+        return (
+          <DivisionBreakdown
+            verses={data.verses}
+            surahMap={surahMap}
+            division={k}
+            ctx={ctx}
+          />
+        );
+      case "similar":
+        return similar.data ? (
+          <SimilarArcs
+            data={similar.data}
+            verses={data.verses}
+            surahMap={surahMap}
+            ctx={ctx}
+          />
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-ink-subtle">
+            {similar.error ? t.common.failedToLoad(similar.error) : t.common.loading}
+            {similar.error && (
+              <Button size="sm" onClick={similar.retry}>
+                {t.common.retry}
+              </Button>
+            )}
+          </div>
+        );
+      case "sajda":
+        return <SajdaMarkers verses={data.verses} surahMap={surahMap} ctx={ctx} />;
+    }
+  };
 
   return (
     <Card className="p-4">
@@ -62,41 +112,34 @@ export function StructureView({
           />
         }
       />
-      <div className="h-[calc(64*var(--zvh))] min-h-[440px] w-full">
-        {tab === "overview" && (
-          <StructureOverview surahs={data.surahs} meta={data.meta} />
+      {/* Clipped only mid-swipe; edge to edge, so panes slide under the card's edge. */}
+      <div
+        data-testid="structure-pager"
+        className={cx(
+          "-mx-4 touch-pan-y touch-pinch-zoom px-4",
+          peek !== 0 && "overflow-hidden",
         )}
-        {tab === "juz" && <JuzBreakdown verses={data.verses} ctx={ctx} />}
-        {tab === "hizb" && <HizbBreakdown verses={data.verses} ctx={ctx} />}
-        {(tab === "manzil" || tab === "ruku") && (
-          <DivisionBreakdown
-            verses={data.verses}
-            surahMap={surahMap}
-            division={tab}
-            ctx={ctx}
-          />
-        )}
-        {tab === "similar" &&
-          (similar.data ? (
-            <SimilarArcs
-              data={similar.data}
-              verses={data.verses}
-              surahMap={surahMap}
-              ctx={ctx}
-            />
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-ink-subtle">
-              {similar.error ? t.common.failedToLoad(similar.error) : t.common.loading}
-              {similar.error && (
-                <Button size="sm" onClick={similar.retry}>
-                  {t.common.retry}
-                </Button>
+        {...handlers}
+      >
+        <div
+          ref={trackRef}
+          className="relative h-[calc(64*var(--zvh))] min-h-[440px] w-full"
+        >
+          {renderTab(tab)}
+          {peekTab && (
+            <div
+              aria-hidden
+              // `inert` is not in React 18's types; passed through as an attribute.
+              {...({ inert: "" } as object)}
+              className={cx(
+                "absolute inset-y-0 w-full overflow-hidden",
+                peek === 1 ? "left-full" : "right-full",
               )}
+            >
+              {renderTab(peekTab)}
             </div>
-          ))}
-        {tab === "sajda" && (
-          <SajdaMarkers verses={data.verses} surahMap={surahMap} ctx={ctx} />
-        )}
+          )}
+        </div>
       </div>
     </Card>
   );

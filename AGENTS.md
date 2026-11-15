@@ -251,9 +251,13 @@ it). To add a visualization: create a chart component, add an entry to
 `VIZ_DEFS` in `views/vizDefs.ts` (group, icon, which controls it `uses` —
 range/sort/color/layout; unused controls are hidden — and `autoHeight` for views
 that lay themselves out and grow instead of filling the fixed chart box), then
-add its case to `renderChart()` in `views/DashboardView.tsx`, its question to
-`t.viz.questions`, and its answer: a pure fact function in `data/answers.ts`
-(tested) worded by `t.answers.*` in the `answer` memo of `DashboardView`.
+add its case to `renderChart(id, verses, rows, live)` in
+`views/DashboardView.tsx` (use those arguments, not `viz`/`filteredVerses`,
+and write no state when `live` is false: the swipe pager draws the neighbour
+chart with it), its question to `t.viz.labels`, and its answer: a pure fact
+function in `data/answers.ts` (tested) worded by `t.answers.*` in the `answer`
+memo of `DashboardView`. `ChartContext.still` turns a chart's entrance
+animation off (neighbour panes).
 Structural views go
 in `views/StructureView.tsx`. `migrateViz` maps retired `qv.viz` values (the
 old per-metric and per-language ids) to current ones; extend it when removing
@@ -294,7 +298,10 @@ an id.
   width (Activity's tabs).
 - `Select` (`ui/Select.tsx`) — the app's dropdown; there are no native
   `<select>`s (their Android/browser pickers did not fit the app). Props:
-  `options: { value, label, group? }[]`, `onChange(value)`, `label` or
+  `options: { value, label, group?, keywords? }[]` (the filter matches label,
+  group and `keywords`; group headings are semi-bold in the accent colour;
+  `EditionSelect` passes each language's names via `langKeywords`, so "indo"
+  lists every Indonesian translation), `onChange(value)`, `label` or
   `ariaLabel`, `size="sm"`, `searchable` (filter field; folds case, accents,
   apostrophes and hyphens). A `role="combobox"` button opens a `role="listbox"`
   popup portalled into `#app-root` (so zoom, theme and fonts apply) and
@@ -315,16 +322,36 @@ an id.
   through `requestClose`, which plays the exit with the Web Animations API
   (panel to its own edge, backdrop to 0, 180 ms) and then calls `onClose`; a
   close the caller makes itself (`open` set to false) unmounts at once. A
-  bottom sheet can be dragged down: native touch listeners on the panel
-  (`touchmove` non-passive), starting from the handle or header, or from the
-  content while no scroller between the touch and the panel is scrolled; it
+  bottom sheet can be dragged down, a top sheet (the reader's Go-to) up:
+  native touch listeners on the panel (`touchmove` non-passive), starting from
+  the handle or header, or from the content while every scroller between the
+  touch and the panel is at its top (bottom sheet) or bottom (top sheet); it
   closes past 30% of its height or on a flick, else springs back. The drag
   maths is `lib/drag.ts` (pure, tested: `axisLock`, `velocity`, `commits`,
   `rubberBand`, `animateTo`), shared with the reader's swipe. Translations are
   divided by `rootZoom`. jsdom has no `Element.animate`, so `animateTo`
-  resolves at once and `onClose` runs synchronously in tests. Under
-  `prefers-reduced-motion` nothing slides: sheets fade (120 ms) and a drag
-  closes without following the finger.
+  resolves at once and `onClose` runs synchronously in tests. Reduced-motion
+  rule (sheets, the reader swipe, `useSwipePager`): what the finger drives
+  always follows it; only what plays by itself shortens. So under
+  `prefers-reduced-motion` a drag still follows, its spring-back and exit run
+  80 ms, and a close from the X, backdrop or Escape fades (120 ms).
+- `useSwipePager` (`lib/useSwipePager.ts`) — the held-swipe pager for the
+  reader windows, Dashboard charts, Structure and Activity tabs: mid-drag the
+  current pane and its neighbour both show. Options `current` (changes when
+  the pane does), `canGo(dir)` (wrap-around callers return true),
+  `onCommit(dir)`, `enabled`, `onThreshold(past)` (the hook itself gives a
+  haptic `tick()` from `lib/haptics.ts` there, as `Sheet` does at its 30%;
+  Android app only); returns React touch
+  `handlers` for an `overflow-hidden touch-pan-y` container, `peek` (-1/0/1:
+  mount the neighbour only while non-zero) and `trackRef` (`relative`; the
+  neighbour `absolute inset-y-0 w-full`, `left-full` for +1 or `right-full`
+  for -1, `aria-hidden inert`). Swipe left = +1. Commits past 30% of the
+  width or on a flick, else springs back; rubber band where `canGo` is false.
+  After a commit the track stays at ∓100% until `current` changes, then a
+  layout effect clears it before paint. Never starts from inputs, sliders,
+  `[data-no-swipe]`, `[data-select-popup]` or a sideways scroller. Pure
+  helpers (`swipeDir`, `swipeOffset`, `pastThreshold`, `releaseCommits`) are
+  tested; jsdom commits synchronously.
 
 **Design system.** `PRODUCT.md` (who the app is for) and
 `DESIGN.md` ("Mushaf sebagai instrumen": tokens, type, rules) are the design
@@ -410,7 +437,9 @@ or ayah); its column names come from `t.table.cols`. Recharts charts set
 `accessibilityLayer` (arrow keys move the tooltip); `index.css` hides the
 browser's click-focus ring on `.recharts-surface`.
 
-**Code splitting.** `App.tsx` lazy-loads the three views, `ReaderView`,
+**Code splitting.** (The recitation data modules and `readerShared` are in the
+main chunk since `RecitationProvider` lives in `App`; no reader component is.)
+`App.tsx` lazy-loads the three views, `ReaderView`,
 `SettingsModal` and `GlobalSearchModal` (`React.lazy` + `Suspense`; the two
 dialogs mount on first opening and stay mounted). Recharts lands in a shared
 chunk loaded with the dashboard or Structure; html2canvas stays a dynamic
@@ -438,6 +467,20 @@ surah (max 10). Home shows the newest `qv.lastRead.count` (1/3/5/10, default 5,
 set in Settings) as one sideways-scrolling row, newest first in the accent
 style: `w-44 shrink-0 snap-start` cards in a `scrollbar-none` snap row that
 bleeds past `main`'s `px-4` with `-mx-4 px-4`. The old `qv.lastRead` target seeds the list once.
+A card adds one cut-off line for its surah's marks: up to two placed pins (pin
+icon in the pin's colour + ayah number, then `+n`) and a bookmark icon with the
+count of its ayahs saved in collections; an `sr-only` span words it
+(`t.home.pinsAt`, `savedCount`).
+
+**Khatam target** (`lib/khatam.ts`, pure, tested; `qv.khatam` =
+`{ start, end, from }`). `khatamPlan(target, currentPage, today)` measures
+progress by the mushaf page of the newest last read (not pages actually read):
+pages left, average per day, `today` (pages still to read to stand on the
+straight line from `from` to page 604 tonight; 0 once read), and a status
+(done, on track, behind by n, overdue). `components/home/Khatam.tsx`:
+`KhatamCard` in Activity → Statistics sets, changes (re-baselining from today)
+or removes it with a native date field; `KhatamRow` on Home, under the
+today/streak line, shows today's pages and the progress and opens the reader.
 
 **Activity** (`views/ActivityView.tsx`, view id `activity`, `qv.activity.tab`):
 Statistics (`components/home/ActivityPanel.tsx`: today, current and longest
@@ -516,7 +559,21 @@ interface scale, accent, Qur'an font and size, last-read count, audio storage
 audio" button opens `SavedAudio.tsx` in a `Sheet`: every reciter with audio on
 the device, its surah count and size, a delete for the whole reciter and, once
 the row is opened, one per surah; this is the only place audio is deleted),
-chart settings, theme sharing, keyboard shortcuts, About, Welcome.
+reminders (Android app only, below), chart settings, theme sharing, keyboard shortcuts, About, Welcome.
+
+**Reminders** (Android app only; `qv.reminders`, `components/settings/
+ReminderSettings.tsx`). Two daily local notifications, each a switch and a
+time: the reading goal (skipped on a day whose goal is met) and hifdh review
+(only on days with pages due, with the count). `lib/reminders.ts`
+(`nextReminders`, pure, tested) lists the next 7 days; `lib/remindersNative.ts`
+(`syncReminders`, `useReminders` called once in `App`) cancels the reserved
+ids (7100–7106 reading, 7110–7116 hifdh) and schedules them through
+`@capacitor/local-notifications`, imported dynamically. There is no
+background code: it resyncs on app start, resume, and when the settings, the
+reading log or the hifdh state change the list. Alarms are inexact
+(`isExactNotification: false`, `allowWhileIdle`); the manifest removes the
+plugin's `SCHEDULE_EXACT_ALARM`. The small icon is `ic_launcher_monochrome`.
+Permission is asked only when a reminder is switched on, never at start.
 
 **Themes** (`theme/tokens.ts` `THEMES`, `ThemeContext`). Six named themes on a
 light or dark base: light, cream, sepia, dark, warm-dark, black, plus "system"
@@ -530,9 +587,18 @@ others (`tajweed.test.ts`). The lapis accent is each theme's own
 `illumination` token.
 
 **Views.** `App.tsx` switches Home / Dashboard / Structure / Activity /
-Settings. The dashboard (`views/DashboardPage.tsx`, `qv.dashboard.tab`) is
-Charts (`DashboardView`) or Map (the Peta Mushaf, `components/peta/`); an old
-`#browse` link opens the Map tab. State is mirrored to the URL hash via
+Settings. The dashboard is `DashboardView` alone: the Peta Mushaf
+(`components/peta/`) is its twelfth view (`map`, last in `VIZ_DEFS`), drawn
+inside the dashboard card without a title of its own; "Show data" and CSV are
+hidden for it. The old Charts | Map tabs and `qv.dashboard.tab` are gone:
+`migrateStoredViz` folds a stored `map` tab into `qv.viz`, and `#browse` /
+`tab=map` links open `v=map`. Dashboard, Structure (7 tabs) and Activity
+(3 tabs) page sideways with `useSwipePager`; the dashboard wraps like its
+stepper, the tabs do not. Their containers take `overflow-hidden` only while
+`peek !== 0` (popovers and shadows are clipped otherwise) and are
+`touch-pan-y touch-pinch-zoom`; the data table box is `data-no-swipe`; a
+neighbour chart whose data is not in memory (and always the word cloud and the
+map) is a `Skeleton`. State is mirrored to the URL hash via
 `parseHash`/`serializeHash`. Clicking most chart elements calls
 `onOpen`/`onSelectSurah`, opening the reader (scopes: surah, manzil, juz, hizb,
 rub', ruku', page).
@@ -615,16 +681,19 @@ markers in the text (`TranslationText`); a pressed one shows its note below.
 Transliteration follows the UI language (`transliterationFor`). Reading by
 juz, hizb, rukuʿ or page, the head's title is the surah at the top and the
 division is the bold subtitle. A sideways swipe on the list goes to the next
-(left) or previous (right) window, like ←/→, and the text follows the finger:
-once `axisLock` says the touch is sideways, the list's inner wrapper
-(`slideRef`) is translated with it; let go past 80 px or flicked, it slides
-out (150 ms, held with `fill: forwards`) and `go()` navigates, otherwise it
-springs back, and at either end of the scope it only gives a little
-(`rubberBand`). `go` and the end-of-list buttons record the direction in
-`arriveFrom`; a layout effect keyed on the target cancels the held exit and
-slides the new window in from 48 px on that side (240 ms). Other jumps (Go to,
-the strip) do not animate. The scroller is `touch-pan-y overflow-x-hidden`.
-Reduced motion: no following, a 120 ms fade on arrival. Every ayah has a play button whenever a reciter exists; with the
+(left) or previous (right) window, like ←/→, through `useSwipePager`: the
+scroller carries the handlers, the list's inner wrapper is the track, and
+while `peek !== 0` `ReaderPeek` shows the start of the neighbour window beside
+it (static, `inert`, level with the viewport: at most 8 ayah rows, 2 flow
+pages or 1 printed page, drawn by the same `renderRow` over `windowRows` from
+`readerShared.ts` as the list, without highlights; data not in memory is left
+out). A swiped-to window opens at its top with no arrival animation
+(`swipedTo`); `go` from ←/→ and the end-of-list buttons records the direction
+in `arriveFrom` and the new window slides in from 48 px on that side (240 ms).
+Other jumps (Go to, the strip) do not animate. The swipe is off during search
+and while any sheet, popover or row menu is open. The scroller is
+`touch-pan-y overflow-x-hidden`.
+Every ayah has a play button whenever a reciter exists; with the
 player hidden it opens it. While a reciter with word timings
 (`data/wordTimings.ts`, `TIMED_RECITERS`) plays, `AyahWords` (ayah rows)
 and `MushafLinesPage` light up the word being recited from `rec.clock`. Only an
@@ -790,6 +859,19 @@ by CI (no Android SDK on the dev machine), so check the PR's `apk` job.
   `editRange` calls `rec.moveTo(range.from)` at once (paused stays paused); a
   range changed by navigation instead lets the ayah finish and wraps. `001001.mp3` doubles as the basmalah
   before ayah 1 of surahs with `hasBismillah` (once, not on ayah repeats).
+- `data/RecitationContext.tsx`: `RecitationProvider` in `App` owns the
+  recitation (`useRecitation`, `useReciters`, the reciter fallback, the edited
+  loop range, and the prefs `qv.reader.audio`, `qv.audio.options`,
+  `qv.audio.reciter`, which left `useReaderPrefs`), so it outlives the reader:
+  closing the reader no longer stops playback. `ReaderView` reads it through
+  `useRecitationContext()` and pushes its scope's range (`setScopeRange`); the
+  last one stays in use after it closes. With the reader closed, listening
+  still counts as reading time and the recited ayah updates last read.
+  `components/shell/NowPlayingBar.tsx` sits above `BottomTabs` on every view
+  while a cursor exists and the reader is closed: the label opens the reader
+  at the playing ayah (in `preferredDivision`), play/pause, and a stop that
+  leaves `qv.reader.audio` alone. Reader tests render through
+  `withRecitation` (`src/test/recitation.tsx`).
 - `data/useRecitation.ts` drives one `<audio>` element and warms the next file;
   `useReciters(RECITERS)` lists the reciters whose index loads. The choice
   persists as `qv.audio.reciter` (falls back to the first present one). Switching
@@ -817,7 +899,13 @@ by CI (no Android SDK on the dev machine), so check the PR's `apk` job.
   (picking a surah jumps to its first ayah for From, its last for To), "set to
   the playing ayah", reset, and
   repeat ayah / repeat range (0 = ∞) / gap / speed and the "Build up" switch,
-  persisted as `qv.audio.options`. A negative gap is a multiple of the ayah's
+  persisted as `qv.audio.options`. After them, "Sleep timer" (`rec.sleep`,
+  `rec.setSleep`; `SLEEP_CHOICES` off / 15 / 30 / 60 minutes / end of surah;
+  session state inside `useRecitation`, not persisted, untouched by Cancel):
+  `sleepDue` is checked at each ayah boundary (`onEnded`), so the ayah in
+  progress finishes and the shared `pause()` runs; "end of surah" stops after
+  the last ayah of that surah the range plays, and a loop or repeat does not
+  defeat it. The bar shows the time left on a moon badge. A negative gap is a multiple of the ayah's
   own length (`GAP_CHOICES` −1 and −1.5, `gapSeconds(gap, duration, rate)`),
   the pause for reciting the ayah back. "Build up" (`chain`) makes `advance`
   go through `advanceChain`: each new ayah with its repeats, then the range
@@ -876,7 +964,7 @@ position persists to `localStorage["qv.lastRead"]` for the Resume button.
 `lib/usePersistentState(key, initial, sanitize?)` mirrors state to localStorage;
 pass a `sanitize` (helpers in `persisted.*`) whenever a stored value can go stale.
 Keys: `qv.structure.tab`, `qv.browse.layout`, `qv.peta.*`, `qv.compare.editions` (reader compare layout), `qv.viz`, `qv.metric` (Surah length metric), `qv.cloudLang`, `qv.root`,
-`qv.topicKey` (explorer selections; the topic is a node key), `qv.filter`, `qv.horizontal`, `qv.activeKeys`, `qv.dashboard.table`,
+`qv.topicKey` (explorer selections; the topic is a node key), `qv.filter`, `qv.horizontal`, `qv.activeKeys`, `qv.dashboard.table`, `qv.khatam`, `qv.reminders`,
 `qv.settings`, `qv.browse.*` (Browse kind, query, sort, type filter),
 `qv.bookmarks` (owned by `App`; sanitized by `lib/bookmarks.ts`),
 `qv.search.translation`,

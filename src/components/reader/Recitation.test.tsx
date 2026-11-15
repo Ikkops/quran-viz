@@ -27,6 +27,8 @@ const idle: Recitation = {
   moveTo: vi.fn(),
   clock: { subscribe: () => () => {}, get: () => clockAt },
   lengthOf: () => 10,
+  sleep: null,
+  setSleep: vi.fn(),
 };
 const prompt = (over: Partial<AudioDownloadPrompt> = {}): AudioDownloadPrompt => ({
   needed: { what: "Al-Baqara", size: "25 MB" },
@@ -143,6 +145,31 @@ describe("MiniPlayer controls", () => {
     bar(null, rec);
     await userEvent.click(screen.getByRole("button", { name: "Start this ayah again" }));
     expect(rec.restart).toHaveBeenCalled();
+  });
+});
+
+describe("MiniPlayer sleep timer", () => {
+  it("shows the minutes left and opens the options", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(0);
+    const onOpenOptions = vi.fn();
+    bar(null, { ...idle, sleep: { choice: 30, at: 24 * 60_000 } }, { onOpenOptions });
+    vi.useRealTimers();
+    await userEvent.click(screen.getByRole("button", { name: "Stops in 24 min" }));
+    expect(screen.getByText("24 min")).toBeInTheDocument();
+    expect(onOpenOptions).toHaveBeenCalled();
+  });
+
+  it("shows the end of the surah", () => {
+    bar(null, { ...idle, sleep: { choice: "surah", surah: 1 } });
+    expect(
+      screen.getByRole("button", { name: "Stops at the end of the surah" }),
+    ).toBeInTheDocument();
+  });
+
+  it("has no badge while off", () => {
+    bar(null);
+    expect(screen.queryByRole("button", { name: /^Stops/ })).toBeNull();
   });
 });
 

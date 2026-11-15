@@ -56,6 +56,7 @@ export function LengthHistogram({
         <Bar
           dataKey="count"
           name={t.common.verses}
+          isAnimationActive={!ctx.still}
           fill={ctx.primary}
           radius={[4, 4, 0, 0]}
           cursor={onBucket ? "pointer" : undefined}

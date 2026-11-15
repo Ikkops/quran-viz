@@ -36,7 +36,6 @@ import {
 import type { Hits } from "./MarkedText";
 import {
   pageOf,
-  pagesFor,
   useMushafLayout,
   wordCounter,
   type LayoutLine,
@@ -72,17 +71,14 @@ import { MarkSheet } from "../marks/MarkSheet";
 import { GoToSheet } from "./GoToSheet";
 import { useI18n } from "../../i18n/I18nContext";
 import {
-  LOCAL_RECITERS,
   RECITERS,
   estimateAudioBytes,
-  estimateAyahSeconds,
   formatBytes,
   outsideRange,
   type LoopRange,
   type RecitationOptions,
-  type ReciterId,
 } from "../../data/recitation";
-import { useReciters, useRecitation } from "../../data/useRecitation";
+import { useRecitationContext } from "../../data/RecitationContext";
 import {
   cancelDownloads,
   deviceTimings,
@@ -117,17 +113,9 @@ import {
   type WordMask,
 } from "../../data/hifdh";
 import { splitWords } from "../../data/mushafLayout";
-import {
-  EASE_IN,
-  EASE_OUT,
-  animateTo,
-  axisLock,
-  commits,
-  prefersReducedMotion,
-  rubberBand,
-  velocity,
-  type DragSample,
-} from "../../lib/drag";
+import { EASE_OUT, animateTo, prefersReducedMotion } from "../../lib/drag";
+import { useSwipePager } from "../../lib/useSwipePager";
+import { ReaderPeek } from "./ReaderPeek";
 import { ReaderToolbar } from "./ReaderToolbar";
 import {
   VerseRow,
@@ -145,12 +133,13 @@ import { VerseContextPanel, type ExploreTarget } from "./VerseContextPanel";
 import {
   copyToClipboard,
   DIVISIONS,
-  groupByPage,
   MAX_EXTRA,
   MUSHAF_LAYOUTS,
   scopeField,
   tafsirOptions,
   useReaderPrefs,
+  windowRows,
+  type WindowRows,
 } from "./readerShared";
 
 /** End-of-scope buttons: a long surah name wraps instead of overflowing a phone. */
@@ -257,11 +246,13 @@ export function ReaderView({
   const [openAsbab, setOpenAsbab] = useState<Set<number>>(() => new Set());
   const [contextSheet, setContextSheet] = useState(false);
   const [playerSheet, setPlayerSheet] = useState(false);
-  // An edited loop range; null follows the reader's scope.
-  const [loopRange, setLoopRange] = useState<LoopRange | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const atBottomRef = useRef(false);
   const navSettledRef = useRef(false);
+  // The window a swipe committed to: the pager has slid it in already.
+  const swipedTo = useRef("");
+  // Set when that window opened at its top, so the anchor jump is skipped.
+  const openedAtTop = useRef(false);
   // A tapped word (its popup), and the word whose details page is open.
   const [wordPick, setWordPick] = useState<WordPick | null>(null);
   const [wordDetail, setWordDetail] = useState<{ id: number; w: number } | null>(null);
@@ -432,7 +423,10 @@ export function ReaderView({
     [...groupedTafsirs.values()].find((x) => x.error)?.error ??
     null;
 
-  // ── Recitation ──
+  // ── Recitation: owned by RecitationProvider, so it outlives the reader ──
+  const audio = useRecitationContext();
+  const { rec, reciters, reciter, reciterId, loopRange, setLoopRange, setScopeRange } =
+    audio;
   const scopeRange = useMemo<LoopRange>(
     () =>
       scopeVerses.length
@@ -440,53 +434,17 @@ export function ReaderView({
         : { from: 1, to: 1 },
     [scopeVerses],
   );
+  // The provider keeps the last scope after the reader closes.
+  useLayoutEffect(() => setScopeRange(scopeRange), [scopeRange, setScopeRange]);
   const range = loopRange ?? scopeRange;
-  const needsBasmalah = useCallback(
-    (id: number) => {
-      const v = verses[id - 1];
-      return !!v && v.a === 1 && !!surahMap.get(v.s)?.hasBismillah;
-    },
-    [verses, surahMap],
-  );
   // ── Android app: recitation lives in device storage, downloaded per surah ──
   const native = isNativeApp();
-  // The app offers the whole catalogue; the desktop, the folders under audio/.
-  const reciters = useReciters(native ? RECITERS : LOCAL_RECITERS);
-  // The stored choice, or the first reciter present locally.
-  const reciter = reciters?.find((r) => r.id === p.reciterPref) ?? reciters?.[0] ?? null;
-  const reciterId = (reciter?.id ?? p.reciterPref) as ReciterId;
   // The chosen reciter's downloads; the others' (their surah counts in the
   // reciter list) are read only once the player's sheet is open.
   const downloads = useAudioDownloads(playerSheet ? RECITERS : [reciterId]);
   const onDevice = downloads.downloaded[reciterId];
-  const available = useCallback(
-    (id: number) => !native || !!onDevice?.[verses[id - 1]?.s ?? 0],
-    [native, onDevice, verses],
-  );
   const totalWords = useMemo(() => surahs.reduce((n, x) => n + x.wordCount, 0), [surahs]);
-  const totalLetters = useMemo(
-    () => surahs.reduce((n, x) => n + x.letterCount, 0),
-    [surahs],
-  );
-  // Ayah lengths for the seek bar, until the real ones are known.
-  const estimate = useCallback(
-    (id: number) => estimateAyahSeconds(reciterId, verses[id - 1]?.l ?? 0, totalLetters),
-    [reciterId, verses, totalLetters],
-  );
   const reciterName = reciter?.name ?? "";
-  // What the system's media controls show: "Qaf 50:16" by the reciter.
-  const describe = useCallback(
-    (id: number) => {
-      const v = verses[id - 1];
-      const name = v ? (surahMap.get(v.s)?.name ?? "") : "";
-      return {
-        title: v ? `${name} ${v.s}:${v.a}` : "",
-        artist: reciterName,
-        album: t.app.titleShort,
-      };
-    },
-    [verses, surahMap, reciterName, t],
-  );
   const jobOf = useCallback(
     (n: number): SurahJob | null => {
       const x = surahMap.get(n);
@@ -504,19 +462,6 @@ export function ReaderView({
         : t.reader.audio.nSurahs(ns.length),
     [surahMap, t],
   );
-
-  const rec = useRecitation({
-    reciter: reciterId,
-    enabled: p.showAudio,
-    verses,
-    range,
-    options: p.audioOpts,
-    needsBasmalah,
-    base: native ? downloads.base : undefined,
-    available: native ? available : undefined,
-    estimate,
-    describe,
-  });
 
   let downloadPrompt: AudioDownloadPrompt | null = null;
   let storage: AudioStorage | null = null;
@@ -569,7 +514,7 @@ export function ReaderView({
         ),
     };
   }
-  const audioOn = !!reciter && p.showAudio;
+  const audioOn = !!reciter && audio.showAudio;
   // The options sheet changes things as you pick them; Cancel puts back what
   // was set when it opened.
   const sheetSnapshot = useRef<{
@@ -580,8 +525,8 @@ export function ReaderView({
   const openPlayerSheet = () => {
     sheetSnapshot.current = {
       loopRange,
-      options: p.audioOpts,
-      reciter: p.reciterPref,
+      options: audio.audioOpts,
+      reciter: audio.reciterPref,
     };
     setPlayerSheet(true);
   };
@@ -598,7 +543,7 @@ export function ReaderView({
   /** Play from `id`; outside the range, the range becomes id..end of scope.
    *  A hidden player opens. */
   const playFrom = (id: number) => {
-    if (!p.showAudio) p.setShowAudio(true);
+    if (!audio.showAudio) audio.setShowAudio(true);
     if (id < range.from || id > range.to)
       setLoopRange({ from: id, to: Math.max(id, scopeRange.to) });
     rec.play(id);
@@ -635,15 +580,11 @@ export function ReaderView({
   const layoutState = useMushafLayout(layoutId);
   const layout = layoutId && layoutState.data?.page ? layoutState.data : null;
   const wordCount = useMemo(() => wordCounter(verses), [verses]);
-  const layoutPages = useMemo(
-    () => (layout ? pagesFor(layout, scopeRange.from, scopeRange.to) : null),
-    [layout, scopeRange],
+  const rows = useMemo(
+    () => windowRows(scopeVerses, mode === "mushaf", layout),
+    [scopeVerses, mode, layout],
   );
-  const pages = useMemo(
-    () => (mode === "mushaf" && !layoutPages ? groupByPage(scopeVerses) : null),
-    [mode, scopeVerses, layoutPages],
-  );
-  const count = layoutPages ? layoutPages.length : pages ? pages.length : filtered.length;
+  const { layoutPages, pages, count } = rows;
   const indexOfAyah = useCallback(
     (id: number) =>
       layout && layoutPages
@@ -738,6 +679,12 @@ export function ReaderView({
     // New scope/anchor: scrolling to the anchor, not the bottom, so clear the
     // bottom-pin and suppress re-pinning until the anchor scroll settles.
     atBottomRef.current = false;
+    // A swiped-to window was opened at its top already (no anchor to find).
+    if (openedAtTop.current) {
+      openedAtTop.current = false;
+      navSettledRef.current = true;
+      return;
+    }
     navSettledRef.current = false;
     const idx = indexOfAyah(anchorId);
     if (idx < 0) {
@@ -916,8 +863,6 @@ export function ReaderView({
   const max = SCOPE_MAX[target.scope];
   // The side the next window arrives from: +1 going forward, -1 going back.
   const arriveFrom = useRef(0);
-  const leaving = useRef<Animation | null>(null);
-  const slideRef = useRef<HTMLDivElement>(null);
   const go = useCallback(
     (value: number) => {
       if (value < 1 || value > max) return;
@@ -926,14 +871,62 @@ export function ReaderView({
     },
     [max, onNavigate, target.scope, target.value],
   );
-  // A window reached by stepping (a swipe, ← / →, the end-of-list buttons)
-  // slides in from the side it lies on; any other jump just appears. A short
-  // offset, not the full width: the list is still settling on its anchor.
+  // A sideways swipe moves to the next (swipe left) or previous (swipe right)
+  // surah, juz, hizb, rukuʿ or page, like ← / →, with the neighbour's start
+  // (`ReaderPeek`) beside the text while the finger is down. Not over an
+  // open popover, menu or sheet, nor while searching (the hits are this
+  // window's; the end-of-list buttons hide then too).
+  const scopeKey = `${target.scope}:${target.value}`;
+  const pager = useSwipePager({
+    current: scopeKey,
+    canGo: (d) => target.value + d >= 1 && target.value + d <= max,
+    onCommit: (d) => {
+      swipedTo.current = `${target.scope}:${target.value + d}`;
+      go(target.value + d);
+    },
+    enabled:
+      !query.trim() &&
+      !settingsOpen &&
+      !goToOpen &&
+      !markFor &&
+      !contextSheet &&
+      !playerSheet &&
+      !showInfo &&
+      !tajweedRules &&
+      hifdhFor === null &&
+      !rating &&
+      menuFor === null &&
+      !ayahPick &&
+      !wordPick &&
+      !wordDetail,
+  });
+  const slideRef = pager.trackRef;
+  const peekRows = useMemo(() => {
+    // Not in the render that lands a swipe: the pager drops the peek next.
+    if (!pager.peek || swipedTo.current === scopeKey) return null;
+    const value = target.value + pager.peek;
+    return windowRows(
+      verses.filter((v) => scopeField(v, target.scope) === value),
+      mode === "mushaf",
+      layout,
+    );
+  }, [pager.peek, scopeKey, verses, target.scope, target.value, mode, layout]);
+  // A window reached by stepping (← / →, the end-of-list buttons) slides in
+  // from the side it lies on; any other jump just appears. A short offset,
+  // not the full width: the list is still settling on its anchor. A swiped-to
+  // window is already in place: it only opens at its top, in the same frame
+  // as the pager drops its transform (both layout effects of this commit).
   useLayoutEffect(() => {
     const dir = arriveFrom.current;
     arriveFrom.current = 0;
-    leaving.current?.cancel();
-    leaving.current = null;
+    const swiped = swipedTo.current === scopeKey;
+    swipedTo.current = "";
+    if (swiped) {
+      openedAtTop.current = true;
+      quietScrollUntil.current = Date.now() + 700;
+      if (scrollRef.current) scrollRef.current.scrollTop = 0;
+      return;
+    }
     if (!dir) return;
     const reduced = prefersReducedMotion();
     animateTo(
@@ -944,7 +937,7 @@ export function ReaderView({
       ],
       { duration: reduced ? 120 : 240, easing: EASE_OUT },
     );
-  }, [target.scope, target.value]);
+  }, [scopeKey, slideRef]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement as HTMLElement | null;
@@ -964,101 +957,6 @@ export function ReaderView({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [go, target.value]);
-
-  // A sideways swipe moves to the next (swipe left) or previous (swipe right)
-  // surah, juz, hizb, rukuʿ or page, like ← / →. The text follows the finger;
-  // let go past 80 px (or flicked) it slides away and the next window comes
-  // in, otherwise it springs back, and at either end of the scope it only
-  // gives a little. Not from inputs and sliders, nor while text is selected.
-  const swipe = useRef<{
-    x: number;
-    y: number;
-    locked: boolean;
-    raw: number;
-    dx: number;
-    samples: DragSample[];
-  } | null>(null);
-  const onSwipeStart = (e: React.TouchEvent) => {
-    const el = e.target as Element;
-    swipe.current =
-      e.touches.length === 1 &&
-      !leaving.current &&
-      !el.closest("input, textarea, [role='slider'], [data-no-swipe]")
-        ? {
-            x: e.touches[0].clientX,
-            y: e.touches[0].clientY,
-            locked: false,
-            raw: 0,
-            dx: 0,
-            samples: [],
-          }
-        : null;
-  };
-  const onSwipeMove = (e: React.TouchEvent) => {
-    const st = swipe.current;
-    if (!st) return;
-    const tch = e.touches[0];
-    const dx = tch.clientX - st.x;
-    if (!st.locked) {
-      const axis = axisLock(dx, tch.clientY - st.y);
-      if (!axis) return;
-      if (axis !== "x" || window.getSelection?.()?.toString()) {
-        swipe.current = null;
-        return;
-      }
-      st.locked = true;
-    }
-    const next = target.value + (dx < 0 ? 1 : -1);
-    st.raw = dx;
-    // The app root is zoomed: a px inside it is `zoom` px of the finger's.
-    st.dx = (next >= 1 && next <= max ? dx : rubberBand(dx)) / rootZoom(popupRoot());
-    st.samples.push({ p: tch.clientX, t: e.timeStamp });
-    if (slideRef.current && !prefersReducedMotion())
-      slideRef.current.style.transform = `translateX(${st.dx}px)`;
-  };
-  const onSwipeEnd = () => {
-    const st = swipe.current;
-    swipe.current = null;
-    if (!st?.locked) return;
-    const el = slideRef.current;
-    if (el) el.style.transform = "";
-    const follow = !prefersReducedMotion();
-    const dir = st.raw < 0 ? 1 : -1;
-    const next = target.value + dir;
-    const forward = velocity(st.samples) * Math.sign(st.raw);
-    if (next < 1 || next > max || !commits(Math.abs(st.raw), 80, forward, 1)) {
-      if (follow)
-        animateTo(el, [{ transform: `translateX(${st.dx}px)` }, { transform: "none" }], {
-          duration: 200,
-          easing: EASE_OUT,
-        });
-      return;
-    }
-    const out = follow
-      ? animateTo(
-          el,
-          [
-            { transform: `translateX(${st.dx}px)`, opacity: 1 },
-            { transform: `translateX(${-dir * (el?.offsetWidth ?? 0)}px)`, opacity: 0 },
-          ],
-          { duration: 150, easing: EASE_IN, fill: "forwards" },
-        )
-      : null;
-    // No animation to wait for (reduced motion, tests): go now.
-    if (!out?.animation) return go(next);
-    const mine = out.animation;
-    leaving.current = mine;
-    void out.done.then(() => {
-      go(next);
-      // The arrival clears the exit; if the reader did not move, undo it.
-      setTimeout(() => {
-        if (leaving.current !== mine) return;
-        mine.cancel();
-        leaving.current = null;
-        arriveFrom.current = 0;
-      }, 400);
-    });
-  };
 
   // A row's "more" menu closes on any press outside it.
   useEffect(() => {
@@ -1193,25 +1091,27 @@ export function ReaderView({
       notes: footnotes[id],
     })),
   ];
-  const inlineTafsirs: RowTafsir[] = shownTafsirs.map((ed) => {
-    const ai = ayahTafsirIds.indexOf(ed.id);
-    const grouped = groupedTafsirs.get(ed.id);
-    const lookup = tafsirGroups.get(ed.id);
-    return {
-      id: ed.id,
-      label: ed.label,
-      kind: ed.kind,
-      lang: ed.lang,
-      source: ed.source,
-      published: lang === "id" ? ed.published.id : ed.published.en,
-      loading:
-        ed.kind === "ayah"
-          ? (ayahTafsirs[ai]?.loading ?? true)
-          : !lookup && !grouped?.error,
-      ayah: ed.kind === "ayah" ? (ayahTafsirs[ai]?.data ?? null) : null,
-      groupAt: (id, prevId) => (lookup ? tafsirGroupAt(lookup, id, prevId) : null),
-    };
-  });
+  const tafsirsFor = (groups: typeof tafsirGroups): RowTafsir[] =>
+    shownTafsirs.map((ed) => {
+      const ai = ayahTafsirIds.indexOf(ed.id);
+      const grouped = groupedTafsirs.get(ed.id);
+      const lookup = groups.get(ed.id);
+      return {
+        id: ed.id,
+        label: ed.label,
+        kind: ed.kind,
+        lang: ed.lang,
+        source: ed.source,
+        published: lang === "id" ? ed.published.id : ed.published.en,
+        loading:
+          ed.kind === "ayah"
+            ? (ayahTafsirs[ai]?.loading ?? true)
+            : !lookup && !grouped?.error,
+        ayah: ed.kind === "ayah" ? (ayahTafsirs[ai]?.data ?? null) : null,
+        groupAt: (id, prevId) => (lookup ? tafsirGroupAt(lookup, id, prevId) : null),
+      };
+    });
+  const inlineTafsirs = tafsirsFor(tafsirGroups);
 
   const rowCtx: RowContext = {
     mode,
@@ -1267,6 +1167,71 @@ export function ReaderView({
     openContext,
     menuFor,
     setMenuFor,
+  };
+
+  // One row of a window: the list's, or (not `live`) the swipe peek's, which
+  // shows no selection, recitation, search or edited-range highlight.
+  const peekCtx: RowContext | null = peekRows && {
+    ...rowCtx,
+    inlineTafsirs: tafsirsFor(
+      new Map(
+        [...groupedTafsirs].flatMap(([id, st]) =>
+          st.data ? [[id, tafsirGroupLookup(peekRows.verses, st.data)] as const] : [],
+        ),
+      ),
+    ),
+    search: null,
+    recited: null,
+    playingId: undefined,
+    inEditedRange: () => false,
+    selectedId: undefined,
+    copied: null,
+    menuFor: null,
+  };
+  const renderRow = (w: WindowRows, i: number, live = true) => {
+    if (layout && w.layoutPages)
+      return (
+        <MushafLinesPage
+          layout={layout}
+          page={w.layoutPages[i]}
+          verses={verses}
+          surahMap={surahMap}
+          wordCount={wordCount}
+          inScope={(id) => id >= w.from && id <= w.to}
+          tajweed={p.showTajweed ? tajweedState.data : null}
+          selectedId={!live ? undefined : contextSheet ? highlightId : ayahPick?.id}
+          pickedWord={live ? (wordPick ?? wordDetail) : null}
+          playingId={live && audioOn ? playingId : undefined}
+          clock={rec.clock}
+          timing={timingOf}
+          audioRange={live && audioOn && loopRange ? range : null}
+          glosses={p.showWords ? wordsOf : null}
+          glossLang={p.glossLang}
+          mask={mask}
+          onWord={onWordHold}
+          onAyah={onAyah}
+        />
+      );
+    const page = w.pages?.[i];
+    if (page)
+      return (
+        <MushafPage
+          verses={page}
+          surahMap={surahMap}
+          tajweed={p.showTajweed ? tajweedState.data : null}
+          selectedId={!live ? undefined : contextSheet ? highlightId : ayahPick?.id}
+          playingId={live && audioOn ? playingId : undefined}
+          mask={mask}
+          onAyah={onAyah}
+        />
+      );
+    return (
+      <VerseRow
+        v={w.verses[i]}
+        prev={i > 0 ? w.verses[i - 1] : null}
+        ctx={live || !peekCtx ? rowCtx : peekCtx}
+      />
+    );
   };
 
   // End-of-scope "continue" targets.
@@ -1603,7 +1568,10 @@ export function ReaderView({
           info={{ on: showInfo, toggle: () => setShowInfo(!showInfo) }}
           player={
             reciter
-              ? { on: p.showAudio, toggle: () => p.setShowAudio(!p.showAudio) }
+              ? {
+                  on: audio.showAudio,
+                  toggle: () => audio.setShowAudio(!audio.showAudio),
+                }
               : null
           }
           settingsOpen={settingsOpen}
@@ -1675,13 +1643,20 @@ export function ReaderView({
         <div
           ref={scrollRef}
           onScroll={onListScroll}
-          onTouchStart={onSwipeStart}
-          onTouchMove={onSwipeMove}
-          onTouchEnd={onSwipeEnd}
-          onTouchCancel={onSwipeEnd}
+          {...pager.handlers}
           className="min-w-0 flex-1 touch-pan-y overflow-y-auto overflow-x-hidden px-3 pb-4 pt-1"
         >
-          <div ref={slideRef} className="mx-auto max-w-4xl">
+          <div ref={slideRef} className="relative mx-auto max-w-4xl">
+            {peekRows && pager.peek !== 0 && (
+              <ReaderPeek
+                dir={pager.peek}
+                rows={peekRows}
+                top={scrollRef.current?.scrollTop ?? 0}
+                height={scrollRef.current?.clientHeight ?? 0}
+                headH={headH}
+                renderRow={(w, i) => renderRow(w, i, false)}
+              />
+            )}
             <div
               style={{
                 height: `${rowVirtualizer.getTotalSize()}px`,
@@ -1698,48 +1673,11 @@ export function ReaderView({
                 </p>
               )}
               {rowVirtualizer.getVirtualItems().map((vi) => {
-                if (layout && layoutPages)
-                  return (
-                    <div
-                      key={vi.key}
-                      ref={rowVirtualizer.measureElement}
-                      data-index={vi.index}
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        transform: `translateY(${vi.start}px)`,
-                      }}
-                    >
-                      <MushafLinesPage
-                        layout={layout}
-                        page={layoutPages[vi.index]}
-                        verses={verses}
-                        surahMap={surahMap}
-                        wordCount={wordCount}
-                        inScope={(id) => id >= scopeRange.from && id <= scopeRange.to}
-                        tajweed={p.showTajweed ? tajweedState.data : null}
-                        selectedId={contextSheet ? highlightId : ayahPick?.id}
-                        pickedWord={wordPick ?? wordDetail}
-                        playingId={audioOn ? playingId : undefined}
-                        clock={rec.clock}
-                        timing={timingOf}
-                        audioRange={audioOn && loopRange ? range : null}
-                        glosses={p.showWords ? wordsOf : null}
-                        glossLang={p.glossLang}
-                        mask={mask}
-                        onWord={onWordHold}
-                        onAyah={onAyah}
-                      />
-                    </div>
-                  );
-                const page = pages?.[vi.index];
-                const v = page ? page[0] : filtered[vi.index];
+                const v = layoutPages || pages ? undefined : filtered[vi.index];
                 return (
                   <div
                     key={vi.key}
-                    data-ayah={page ? undefined : v.id}
+                    data-ayah={v?.id}
                     ref={rowVirtualizer.measureElement}
                     data-index={vi.index}
                     style={{
@@ -1748,26 +1686,10 @@ export function ReaderView({
                       left: 0,
                       width: "100%",
                       transform: `translateY(${vi.start}px)`,
-                      zIndex: !page && menuFor === v.id ? 10 : undefined,
+                      zIndex: v && menuFor === v.id ? 10 : undefined,
                     }}
                   >
-                    {page ? (
-                      <MushafPage
-                        verses={page}
-                        surahMap={surahMap}
-                        tajweed={p.showTajweed ? tajweedState.data : null}
-                        selectedId={contextSheet ? highlightId : ayahPick?.id}
-                        playingId={audioOn ? playingId : undefined}
-                        mask={mask}
-                        onAyah={onAyah}
-                      />
-                    ) : (
-                      <VerseRow
-                        v={v}
-                        prev={vi.index > 0 ? filtered[vi.index - 1] : null}
-                        ctx={rowCtx}
-                      />
-                    )}
+                    {renderRow(rows, vi.index)}
                   </div>
                 );
               })}
@@ -1822,14 +1744,14 @@ export function ReaderView({
           verses={verses}
           reciter={reciterId}
           reciterName={reciterName}
-          options={p.audioOpts}
-          onOptions={p.setAudioOpts}
+          options={audio.audioOpts}
+          onOptions={audio.setAudioOpts}
           range={range}
           onRange={editRange}
           roomy={width >= PLAYER_ROOMY_PX}
           onOpenOptions={openPlayerSheet}
           onLocate={goToPlaying}
-          onClose={() => p.setShowAudio(false)}
+          onClose={() => audio.setShowAudio(false)}
           download={downloadPrompt}
         />
       )}
@@ -2071,16 +1993,16 @@ export function ReaderView({
         <RecitationControls
           rec={rec}
           reciters={reciters ?? []}
-          reciter={reciter?.id ?? p.reciterPref}
-          onReciter={p.setReciter}
+          reciter={reciter?.id ?? audio.reciterPref}
+          onReciter={audio.setReciter}
           verses={verses}
           surahs={surahs}
           range={range}
           isDefaultRange={!loopRange}
           onRange={editRange}
           onResetRange={() => editRange(null)}
-          options={p.audioOpts}
-          onOptions={p.setAudioOpts}
+          options={audio.audioOpts}
+          onOptions={audio.setAudioOpts}
           storage={storage}
           reciterNote={native ? reciterNote : undefined}
           timed={(id) => TIMED_RECITERS.has(id)}
@@ -2092,8 +2014,8 @@ export function ReaderView({
             const was = sheetSnapshot.current;
             if (was) {
               editRange(was.loopRange);
-              p.setAudioOpts(was.options);
-              p.setReciter(was.reciter);
+              audio.setAudioOpts(was.options);
+              audio.setReciter(was.reciter);
             }
             setPlayerSheet(false);
           }}

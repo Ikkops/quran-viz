@@ -58,6 +58,37 @@ describe("Select", () => {
     expect(onChange).toHaveBeenCalledWith("c");
   });
 
+  it("filters by group name and keywords as well as the label", async () => {
+    const options = [
+      { value: "a", label: "Kemenag", group: "Indonesian", keywords: "id Bahasa" },
+      { value: "b", label: "Sahih International", group: "English", keywords: "en" },
+      { value: "c", label: "Pickthall", group: "English", keywords: "en" },
+    ];
+    render(
+      <Select
+        ariaLabel="Edition"
+        value="b"
+        options={options}
+        onChange={() => {}}
+        searchable
+      />,
+    );
+    await userEvent.click(screen.getByRole("combobox"));
+    const box = screen.getByRole("searchbox");
+    await userEvent.type(box, "indo");
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Kemenag"]);
+    expect(screen.getByText("Indonesian")).toBeInTheDocument();
+    await userEvent.clear(box);
+    await userEvent.type(box, "bahasa");
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual(["Kemenag"]);
+    await userEvent.clear(box);
+    await userEvent.type(box, "pick");
+    expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "Pickthall",
+    ]);
+    expect(screen.getByText("English")).toBeInTheDocument();
+  });
+
   it("closes on Escape without closing the sheet around it", async () => {
     const onClose = vi.fn();
     render(

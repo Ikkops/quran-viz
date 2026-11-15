@@ -1,5 +1,5 @@
 import { emptyHifdh } from "../../lib/hifdh";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MARK_COLORS, initialMarks, movePin } from "../../lib/marks";
@@ -25,6 +25,7 @@ vi.mock("@tanstack/react-virtual", () => ({
 }));
 
 import { ReaderView } from "./ReaderView";
+import { withRecitation } from "../../test/recitation";
 
 // Stub fetch: return empty arrays for any translation file so the hook
 // resolves without a real network. The reader also lazy-loads tajweed /
@@ -110,8 +111,10 @@ const editions: EditionsIndex = {
 
 const palette: Palette = resolvePalette("lapis", false);
 
-function renderReader(overrides?: Partial<Parameters<typeof ReaderView>[0]>) {
-  return render(
+type ReaderProps = Parameters<typeof ReaderView>[0];
+
+function reader(overrides?: Partial<ReaderProps>) {
+  return (
     <ReaderView
       target={{ scope: "surah", value: 1 }}
       surahs={surahs}
@@ -130,8 +133,12 @@ function renderReader(overrides?: Partial<Parameters<typeof ReaderView>[0]>) {
       hifdh={emptyHifdh()}
       onHifdh={() => {}}
       {...overrides}
-    />,
+    />
   );
+}
+
+function renderReader(overrides?: Partial<ReaderProps>) {
+  return render(reader(overrides), { wrapper: withRecitation(surahs, verses) });
 }
 
 describe("ReaderView", () => {
@@ -206,19 +213,62 @@ describe("ReaderView", () => {
     expect(onNavigate).toHaveBeenCalledWith({ scope: "surah", value: 2 });
   });
 
-  it("goes to the next surah on a swipe left, and not on a short one", () => {
-    const onNavigate = vi.fn();
-    renderReader({ onNavigate });
-    const text = screen.getByRole("button", { name: /Continue to Surah 2/i });
+  describe("swipe", () => {
     const at = (x: number) => ({ touches: [{ clientX: x, clientY: 100 }] });
-    fireEvent.touchStart(text, at(300));
-    fireEvent.touchMove(text, at(270));
-    fireEvent.touchEnd(text, { touches: [] });
-    expect(onNavigate).not.toHaveBeenCalled();
-    fireEvent.touchStart(text, at(300));
-    fireEvent.touchMove(text, at(150));
-    fireEvent.touchEnd(text, { touches: [] });
-    expect(onNavigate).toHaveBeenCalledWith({ scope: "surah", value: 2 });
+    // jsdom has no layout: give the list a width so 30% of it means something.
+    let width: { mockRestore: () => void };
+    beforeEach(() => {
+      width = vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockReturnValue(300);
+    });
+    afterEach(() => width.mockRestore());
+
+    it("goes to the next surah on a long swipe left, and not on a short one", () => {
+      const onNavigate = vi.fn();
+      renderReader({ onNavigate });
+      const text = screen.getByRole("article", { name: "1:2" });
+      fireEvent.touchStart(text, at(300));
+      fireEvent.touchMove(text, at(270));
+      fireEvent.touchEnd(text, { touches: [] });
+      expect(onNavigate).not.toHaveBeenCalled();
+      fireEvent.touchStart(text, at(300));
+      fireEvent.touchMove(text, at(150));
+      fireEvent.touchEnd(text, { touches: [] });
+      expect(onNavigate).toHaveBeenCalledWith({ scope: "surah", value: 2 });
+    });
+
+    it("stays at the last surah", () => {
+      const onNavigate = vi.fn();
+      const last = { ...verses[0], id: 6236, s: 114, a: 1 };
+      renderReader({
+        onNavigate,
+        verses: [last],
+        target: { scope: "surah", value: 114 },
+      });
+      const text = screen.getByRole("article", { name: "114:1" });
+      fireEvent.touchStart(text, at(300));
+      fireEvent.touchMove(text, at(100));
+      expect(document.querySelector("[inert][aria-hidden]")).toBeNull();
+      fireEvent.touchEnd(text, { touches: [] });
+      expect(onNavigate).not.toHaveBeenCalled();
+    });
+
+    it("shows the next surah's start, hidden from assistive tech, mid-drag", () => {
+      const next = { ...verses[0], id: 3, s: 2, a: 1, ar: "الٓمٓ" };
+      renderReader({
+        verses: [...verses, next],
+        surahs: [...surahs, { ...surahs[0], id: 2, number: 2, name: "Al-Baqara" }],
+      });
+      const text = screen.getByRole("article", { name: "1:1" });
+      expect(screen.queryByRole("article", { name: "2:1", hidden: true })).toBeNull();
+      fireEvent.touchStart(text, at(300));
+      fireEvent.touchMove(text, at(200));
+      const peek = document.querySelector<HTMLElement>("[inert][aria-hidden]")!;
+      expect(peek).not.toBeNull();
+      expect(
+        within(peek).getByRole("article", { name: "2:1", hidden: true }),
+      ).toBeInTheDocument();
+      fireEvent.touchEnd(text, { touches: [] });
+    });
   });
 
   it("covers the text in Hafalan mode and uncovers an ayah on a tap", () => {
@@ -361,5 +411,64 @@ describe("ReaderView", () => {
     await userEvent.click(screen.getAllByRole("button", { name: "More actions" })[1]);
     await userEvent.click(screen.getByRole("button", { name: "Copy ayah text" }));
     expect(await screen.findByText("Copy failed")).toBeInTheDocument();
+  });
+});
+
+describe("ReaderView recitation outlives the reader", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("keeps playing when the reader closes and shows the same ayah on reopening", async () => {
+    // A local reciter, so the reader offers playback. Fresh modules: the
+    // reciter index cache already holds "none" from the tests above.
+    globalThis.fetch = vi.fn((url: string) =>
+      Promise.resolve({
+        ok: true,
+        json: async () =>
+          String(url).includes("audio/shuraym/index.json")
+            ? { id: "shuraym", name: "Shuraym", files: 6236, total: 6236, complete: true }
+            : [null],
+      }),
+    ) as unknown as typeof fetch;
+    vi.resetModules();
+    const { ReaderView: Reader } = await import("./ReaderView");
+    const { RecitationProvider, useRecitationContext } =
+      await import("../../data/RecitationContext");
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
+    const pause = vi
+      .spyOn(HTMLMediaElement.prototype, "pause")
+      .mockImplementation(() => {});
+    function Probe() {
+      const { rec } = useRecitationContext();
+      return (
+        <output data-testid="probe">{`${rec.cursor?.id ?? "-"} ${rec.playing}`}</output>
+      );
+    }
+    // The reader mounted or not under one provider, as App does.
+    const Harness = ({ open }: { open: boolean }) => (
+      <RecitationProvider surahs={surahs} verses={verses} readerOpen={open}>
+        <Probe />
+        {open && <Reader {...(reader().props as ReaderProps)} />}
+      </RecitationProvider>
+    );
+
+    const { rerender } = render(<Harness open />);
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Play from this ayah.*1:2/ }),
+    );
+    expect(screen.getByTestId("probe")).toHaveTextContent("2 true");
+    pause.mockClear();
+
+    rerender(<Harness open={false} />);
+    expect(screen.queryByRole("article", { name: /1:2/ })).toBeNull();
+    expect(screen.getByTestId("probe")).toHaveTextContent("2 true");
+    expect(pause).not.toHaveBeenCalled();
+
+    rerender(<Harness open />);
+    expect(screen.getByTestId("probe")).toHaveTextContent("2 true");
+    // The recited row carries the rubric bar again.
+    expect(
+      (await screen.findByRole("article", { name: /1:2/ })).getAttribute("style"),
+    ).toContain("rubric");
+    expect(pause).not.toHaveBeenCalled();
   });
 });
