@@ -12,6 +12,7 @@ Called by build_data.py once verses.json and translations/ are written:
                                         ["s", surah] (surah name), ["sb",
                                         surah] (name and basmala on one
                                         line), ["b"] (basmala) or [] (blank)
+  clips/<reciter>.json                  whole-surah reciters: [fromMs, toMs] per ayah
   timings/<reciter>/<surah>.json        per ayah, flat [wordFrom, wordTo,
                                         startMs, endMs, ...] (0-based words,
                                         wordTo exclusive)
@@ -278,6 +279,22 @@ def export_timings(out: Path, write_json, verses: list[dict]) -> list[str]:
                 surah.append(flat)
                 i += 1
             write_json(d / f"{s}.json", surah)
+        done.append(rid)
+    return done
+
+
+def export_clips(out: Path, write_json) -> list[str]:
+    """clips/<reciter>.json: a whole-surah reciter's ayahs as slices of the
+    surah's file, flat [fromMs, toMs, …] by ayah id, then one [fromMs, toMs]
+    per surah for its basmalah (fetch_reader_data qul)."""
+    done = []
+    (out / "clips").mkdir(parents=True, exist_ok=True)
+    for path in sorted((DATA / "clips").glob("*.json.gz")):
+        rid = path.name.removesuffix(".json.gz")
+        clips = load_gz(path)
+        if len(clips) != 2 * (6236 + 114):
+            raise SystemExit(f"clips/{rid}: {len(clips)} numbers")
+        write_json(out / "clips" / f"{rid}.json", clips)
         done.append(rid)
     return done
 

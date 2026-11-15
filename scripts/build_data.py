@@ -1046,6 +1046,7 @@ def main() -> None:
     step("footnotes/: " + ", ".join(f"{k} {c} notes ({e} ayahs exact)" for k, (c, e) in notes.items()))
     step("mushaf/: " + ", ".join(reader_data.export_mushaf(OUT, write_json, verses, has_basmala)))
     step(f"timings/: {len(reader_data.export_timings(OUT, write_json, verses))} reciters")
+    step(f"clips/: {len(reader_data.export_clips(OUT, write_json))} whole-surah reciters")
     qul = sqlite3.connect(f"file:{QUL_DB}?mode=ro", uri=True)
     lemma_at = dict(qul.execute(
         "SELECT lw.location, l.text FROM lemma_words lw JOIN lemmas l ON l.id = lw.lemma_id"
@@ -1083,7 +1084,7 @@ def main() -> None:
 
 
 # Progress lines for the background-task band: "n/total · (pct%) · what · eta m:ss".
-ETL_STEPS = 28  # step() calls in a full run (tajweed/wordbyword/morphology count)
+ETL_STEPS = 29  # step() calls in a full run (tajweed/wordbyword/morphology count)
 _etl_start = datetime.now(timezone.utc)
 _etl_done = 0
 

@@ -215,17 +215,74 @@ export function basmalahAudioUrl(reciter: string, base?: string): string {
   return ayahAudioUrl(reciter, 1, 1, base);
 }
 
+/** SSS.mp3, a whole-surah reciter's file. */
+export function surahAudioUrl(
+  reciter: string,
+  surah: number,
+  base = WEB_AUDIO_BASE,
+): string {
+  return `${base}${reciter}/${pad3(surah)}.mp3`;
+}
+
+/** A whole-surah reciter's ayahs as slices of their surah's file: flat
+ *  [fromMs, toMs, …] by ayah id, then one [fromMs, toMs] per surah for its
+ *  basmalah (`clips/<reciter>.json`). */
+export type SurahClips = readonly number[];
+
+const AYAHS = 6236;
+
+/** What plays for a cursor: a file, from `from` seconds to `to` (null: to
+ *  the file's end). */
+export interface Clip {
+  src: string;
+  from: number;
+  to: number | null;
+}
+
+/** Shorter than this, a whole-surah file's basmalah clip is none (the
+ *  timings put it inside ayah 1), so none is played. */
+const MIN_BASMALAH_S = 1;
+
+/**
+ * The clip for `c`. Per-ayah reciters: the ayah's file, or 001001.mp3 for a
+ * basmalah. Whole-surah reciters (`clips` given): the ayah's slice of its
+ * surah's file, and for a basmalah its own slice; null when that is too
+ * short to hold one.
+ */
+export function clipOf(
+  c: Cursor,
+  reciter: string,
+  verse: { s: number; a: number } | undefined,
+  base: string,
+  clips?: SurahClips | null,
+): Clip | null {
+  if (!verse) return null;
+  if (!clips) {
+    return c.basmalah
+      ? { src: basmalahAudioUrl(reciter, base), from: 0, to: null }
+      : { src: ayahAudioUrl(reciter, verse.s, verse.a, base), from: 0, to: null };
+  }
+  const src = surahAudioUrl(reciter, verse.s, base);
+  const i = c.basmalah ? 2 * (AYAHS + verse.s - 1) : 2 * (c.id - 1);
+  const from = clips[i] / 1000;
+  const to = clips[i + 1] / 1000;
+  if (!c.basmalah) return { src, from, to };
+  return to - from >= MIN_BASMALAH_S ? { src, from, to } : null;
+}
+
 export function audioIndexUrl(reciter: string): string {
   return `${WEB_AUDIO_BASE}${reciter}/index.json`;
 }
 
 /** The files one surah needs: its ayahs, plus 001001.mp3 when the basmalah is
- *  recited before its first ayah. */
+ *  recited before its first ayah; for a whole-surah reciter, its one file. */
 export function surahAudioFiles(
   surah: number,
   ayahCount: number,
   hasBismillah: boolean,
+  surahFiles = false,
 ): string[] {
+  if (surahFiles) return [`${pad3(surah)}.mp3`];
   const files = Array.from({ length: ayahCount }, (_, i) => audioFileName(surah, i + 1));
   if (hasBismillah && surah !== 1) files.unshift(audioFileName(1, 1));
   return files;

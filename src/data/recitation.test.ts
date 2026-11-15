@@ -4,6 +4,7 @@ import {
   advance,
   audioFileName,
   ayahAudioUrl,
+  clipOf,
   estimateAudioBytes,
   formatBytes,
   outsideRange,
@@ -117,7 +118,53 @@ it("ayahAudioUrl uses the device folder when given one", () => {
   ).toBe("https://localhost/_capacitor_file_/d/audio/yasser/114006.mp3");
 });
 
+describe("clipOf", () => {
+  const at = (id: number, basmalah = false): Cursor => ({
+    id,
+    ayahPass: 0,
+    rangePass: 0,
+    basmalah,
+  });
+  // Ayahs 1–3 cut mid-pause, the rest zero; then per surah a basmalah:
+  // surah 7's after a 30 s announcement, surah 2's inside ayah 1.
+  const clips = new Array<number>(2 * (6236 + 114)).fill(0);
+  clips.splice(0, 6, 34000, 39000, 39000, 45500, 45500, 51000);
+  clips.splice(2 * (6236 + 6), 2, 30000, 33800);
+  clips.splice(2 * (6236 + 1), 2, 0, 300);
+
+  it("plays per-ayah files whole, the basmalah from 001001.mp3", () => {
+    expect(clipOf(at(2), "r", { s: 1, a: 2 }, "/a/")).toEqual({
+      src: "/a/r/001002.mp3",
+      from: 0,
+      to: null,
+    });
+    expect(clipOf(at(2, true), "r", { s: 1, a: 2 }, "/a/")?.src).toBe("/a/r/001001.mp3");
+  });
+
+  it("plays a whole-surah reciter's ayah as its slice of the surah file", () => {
+    expect(clipOf(at(2), "r", { s: 7, a: 2 }, "/a/", clips)).toEqual({
+      src: "/a/r/007.mp3",
+      from: 39,
+      to: 45.5,
+    });
+    // The basmalah is its own slice, skipping what the file opens with.
+    expect(clipOf(at(1, true), "r", { s: 7, a: 1 }, "/a/", clips)).toEqual({
+      src: "/a/r/007.mp3",
+      from: 30,
+      to: 33.8,
+    });
+  });
+
+  it("has no basmalah when its slice is too short to hold one", () => {
+    expect(clipOf(at(1, true), "r", { s: 2, a: 1 }, "/a/", clips)).toBeNull();
+  });
+});
+
 describe("surahAudioFiles", () => {
+  it("is the one SSS.mp3 for a whole-surah reciter", () => {
+    expect(surahAudioFiles(2, 286, true, true)).toEqual(["002.mp3"]);
+  });
+
   it("lists every ayah, with the basmalah first when it is recited", () => {
     expect(surahAudioFiles(112, 4, true)).toEqual([
       "001001.mp3",

@@ -21,6 +21,10 @@ so re-fetching unchanged data leaves git clean.
              (cpfair/quran-align, release 2016-11-24, CC BY 4.0), keyed by
              the app's reciter ids. The other bitrates of a set are the same
              recording (durations match within 0.1 s), so the timings hold.
+  qul        Word timings from a QUL (qul.tarteel.ai) ayah-by-ayah "Download
+             json" file, downloaded by hand since QUL needs a login. Not in
+             the default run: `qul --qul yasser=<file>` (QUL #103). Checked
+             against audio/<reciter>/ MP3s when present.
   words      Per-word transliteration and English / Indonesian glosses from
              the quran.com QDC API (`/verses/by_chapter/<n>?words=true&
              word_translation_language=<en|id>`, 2 × 114 requests), in
@@ -221,6 +225,143 @@ def fetch_timings() -> None:
         write_gz(DATA / "timings" / f"{rid}.json.gz", out)
 
 
+def fetch_qul(files: list[str]) -> None:
+    """QUL segment JSON, downloaded by hand (QUL needs a login): `qul --qul
+    yasser=file.json`. QUL segments are [word (1-based), startMs, endMs] in
+    quran.com's word numbering, as quran-align's are. Ayah-by-ayah files time
+    each ayah's own MP3; surah-by-surah ones (segments.json, with
+    `timestamp_from`/`timestamp_to`) time the surah's MP3, so the ayahs
+    become clips of it (`clips/<reciter>.json.gz`) and their words are
+    timed from the clip's start. `align_recitation.py` adds the basmalah as
+    "s:0"."""
+    if not files:
+        raise SystemExit("qul: pass --qul <reciter>=<file.json>")
+    counts = ayah_counts()
+    for spec in files:
+        rid, path = spec.split("=", 1)
+        d = json.loads(Path(path).expanduser().read_text("utf-8"))
+        # The download is keyed "surah:ayah"; the docs show a list of rows.
+        if isinstance(d, dict):
+            by = {tuple(map(int, k.split(":"))): r for k, r in d.items()}
+        else:
+            by = {(r["surah"], r["ayah"]): r for r in d}
+        basmalah = {k[0]: r for k, r in by.items() if k[1] == 0}
+        by = {k: r for k, r in by.items() if k[1]}
+        if len(by) != TOTAL:
+            raise SystemExit(f"{path}: {len(by)} ayahs")
+        # Some QUL segments carry only a word number: no time, skip.
+        segs = {k: [g for g in r.get("segments") or [] if len(g) >= 3] for k, r in by.items()}
+        if "timestamp_from" in next(iter(by.values())):
+            clips, opening = surah_clips(by, counts, basmalah)
+            out = [
+                [x for w, t0, t1, *_ in segs[k] for x in (w - 1, w, max(0, t0 - c0), max(0, t1 - c0))]
+                for k, (c0, _) in zip(ayah_keys(counts), clips)
+            ]
+            check_surah_files(rid, clips, counts)
+            write_gz(DATA / "clips" / f"{rid}.json.gz", [x for c in clips + opening for x in c])
+        else:
+            out = [[x for w, t0, t1, *_ in segs[k] for x in (w - 1, w, t0, t1)] for k in ayah_keys(counts)]
+            urls = {str(r.get("audio_url", "")).rsplit("/", 1)[0] for r in by.values()}
+            print(f"qul/{rid}: audio from {sorted(urls)[:3]}")
+            check_against_local_audio(rid, out, counts)
+        write_gz(DATA / "timings" / f"{rid}.json.gz", out)
+
+
+def ayah_keys(counts: list[int]) -> list[tuple[int, int]]:
+    return [(s, a) for s, n in enumerate(counts, 1) for a in range(1, n + 1)]
+
+
+LEAD_MS = 300  # before a surah's first ayah (after its basmalah)
+TAIL_MS = 1500  # after its last; the file's end comes first if sooner
+
+
+def surah_clips(
+    by: dict, counts: list[int], basmalah: dict
+) -> tuple[list[tuple[int, int]], list[tuple[int, int]]]:
+    """Each ayah's [fromMs, toMs) in its surah's file: the cut between two
+    ayahs is the middle of the pause between them, so a clip keeps its
+    breath, as an ayah-by-ayah file does. Then each surah's basmalah clip:
+    its own words when timed (a file can open with an announcement, and
+    002.mp3 has al-Fatiha between the basmalah and 2:1), else the part of the
+    file before the first clip."""
+    def span(r: dict) -> tuple[int, int]:
+        # The words, when timed: QUL's own ayah bounds slip (36:3 starts
+        # 3 s before its first word, inside 36:2).
+        w = [g for g in r.get("segments") or [] if len(g) >= 3]
+        return (w[0][1], w[-1][2]) if w else (r["timestamp_from"], r["timestamp_to"])
+
+    out, opening = [], []
+    for s, n in enumerate(counts, 1):
+        spans = [span(by[(s, a)]) for a in range(1, n + 1)]
+        cuts = [max(0, spans[0][0] - LEAD_MS)]
+        for (_, a), (b, _) in zip(spans, spans[1:]):
+            cuts.append(max(cuts[-1] + 1, (a + b) // 2 if b > a else b))
+        cuts.append(max(cuts[-1] + 1, spans[-1][1] + TAIL_MS))
+        out += list(zip(cuts, cuts[1:]))
+        if s in basmalah:
+            b0, b1 = span(basmalah[s])
+            gap = spans[0][0] - b1
+            opening.append((max(0, b0 - LEAD_MS), b1 + max(0, min(gap // 2, TAIL_MS))))
+        else:
+            opening.append((0, cuts[0]))
+    return out, opening
+
+
+def check_surah_files(rid: str, clips: list[tuple[int, int]], counts: list[int]) -> None:
+    """Every sampled surah's last ayah must end near the end of its local file."""
+    folder = APP / "audio" / rid
+    if not (folder / "001.mp3").exists():
+        print(f"qul/{rid}: no local surah files, recording not checked")
+        return
+    import subprocess
+
+    bad, last = [], 0
+    for s, n in enumerate(counts, 1):
+        last += n
+        mp3 = folder / f"{s:03}.mp3"
+        if s % 6 != 1 or not mp3.exists():
+            continue
+        dur = float(subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", mp3],
+            capture_output=True, text=True, check=True,
+        ).stdout) * 1000
+        end = clips[last - 1][1] - TAIL_MS
+        if not (dur - 15000 <= end <= dur + 300):
+            bad.append(f"surah {s} ends {end} ms, file {dur:.0f} ms")
+    if bad:
+        raise SystemExit(f"qul/{rid}: not the local recording?\n  " + "\n  ".join(bad))
+    print(f"qul/{rid}: clips fit the local surah files")
+
+
+def check_against_local_audio(rid: str, rows: list, counts: list[int]) -> None:
+    """Same recording? Each sampled ayah's last word must end inside its local
+    MP3, with little left over. Skipped when audio/<rid>/ isn't here."""
+    folder = APP / "audio" / rid
+    if not folder.is_dir():
+        print(f"qul/{rid}: no local audio, recording not checked")
+        return
+    import subprocess
+
+    keys = ayah_keys(counts)
+    bad, n = [], 0
+    for i in range(0, TOTAL, TOTAL // 40):
+        if not rows[i]:
+            continue
+        s, a = keys[i]
+        mp3 = folder / f"{s:03}{a:03}.mp3"
+        dur = float(subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", mp3],
+            capture_output=True, text=True, check=True,
+        ).stdout) * 1000
+        end, n = rows[i][-1], n + 1
+        if not (dur - 2500 <= end <= dur + 300):
+            bad.append(f"{s}:{a} ends {end} ms, file {dur:.0f} ms")
+    # A few ayahs trail long silence (Yasser: median gap 27 ms, one of 200 at 3 s).
+    if len(bad) > n // 10:
+        raise SystemExit(f"qul/{rid}: not the local recording?\n  " + "\n  ".join(bad))
+    print(f"qul/{rid}: timings fit the local MP3s")
+
+
 WORD_LANGS = ("en", "id")
 
 
@@ -258,6 +399,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("parts", nargs="*")
     ap.add_argument("--layout", action="append")
+    ap.add_argument("--qul", action="append", default=[])
     args = ap.parse_args()
     parts = args.parts or ["timings", "translit", "footnotes", "mushaf", "words"]
     if not SURAHS.exists():
@@ -265,6 +407,8 @@ def main() -> None:
     for p in parts:
         if p == "mushaf":
             fetch_mushaf(args.layout)
+        elif p == "qul":
+            fetch_qul(args.qul)
         else:
             globals()[f"fetch_{p}"]()
 
