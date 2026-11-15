@@ -3,19 +3,21 @@ import type { Verse } from "../types/quran";
 import { isNativeApp } from "./audioStore";
 import { bindMediaControls, clearNowPlaying, showNowPlaying } from "./mediaControls";
 import { setListening } from "../lib/readingStore";
+import { dataUrl } from "./base";
 import {
   RECITER_INFO,
   WEB_AUDIO_BASE,
   advance,
   gapSeconds,
   audioIndexUrl,
-  ayahAudioUrl,
-  basmalahAudioUrl,
+  clipOf,
   cursorAt,
+  type Clip,
   type Cursor,
   type LoopRange,
   type RecitationOptions,
   type ReciterId,
+  type SurahClips,
 } from "./recitation";
 
 export type { RecitationOptions };
@@ -86,6 +88,30 @@ export function useReciters(ids: readonly string[]): ReciterIndex[] | null {
   return list;
 }
 
+// Whole-surah reciters' ayah slices (`clips/<reciter>.json`, shipped with the
+// data, the APK too), loaded once per reciter.
+const clipsCache = new Map<string, Promise<SurahClips | null>>();
+
+function useClips(reciter: string | null): SurahClips | null {
+  const [clips, setClips] = useState<{ r: string; c: SurahClips | null } | null>(null);
+  useEffect(() => {
+    if (!reciter) return;
+    let p = clipsCache.get(reciter);
+    if (!p) {
+      p = fetch(dataUrl(`clips/${reciter}.json`))
+        .then((r) => (r.ok ? (r.json() as Promise<SurahClips>) : null))
+        .catch(() => null);
+      clipsCache.set(reciter, p);
+    }
+    let alive = true;
+    void p.then((c) => alive && setClips({ r: reciter, c }));
+    return () => {
+      alive = false;
+    };
+  }, [reciter]);
+  return reciter && clips?.r === reciter ? clips.c : null;
+}
+
 /** Where the audio element is, for the seek bar. It changes several times a
  *  second, so it is read through `subscribe` instead of React state (the
  *  reader would otherwise re-render on every tick). */
@@ -128,8 +154,9 @@ export interface Recitation {
 }
 
 /** Per-ayah playback through one <audio> element, looping over `range`.
- *  `range` and `options` are read when each file ends, so changing them never
- *  interrupts the ayah that is playing. */
+ *  `range` and `options` are read when each ayah ends, so changing them never
+ *  interrupts the ayah that is playing. An ayah is a file, or for a
+ *  whole-surah reciter (`surahFiles`) a slice of its surah's file (`Clip`). */
 export function useRecitation({
   reciter,
   enabled,
@@ -163,7 +190,13 @@ export function useRecitation({
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState<number | null>(null);
 
+  const surahFiles = !!RECITER_INFO[reciter as ReciterId]?.surahFiles;
+  const clips = useClips(surahFiles ? reciter : null);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  /** The clip loaded, and whether it has played to its end. */
+  const clipRef = useRef<Clip | null>(null);
+  const doneRef = useRef(false);
   const warmRef = useRef<HTMLAudioElement | null>(null);
   const gapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cursorRef = useRef<Cursor | null>(null);
@@ -176,6 +209,7 @@ export function useRecitation({
     estimate,
     describe,
     reciter,
+    clips,
   });
   useLayoutEffect(() => {
     live.current = {
@@ -187,6 +221,7 @@ export function useRecitation({
       estimate,
       describe,
       reciter,
+      clips,
     };
   });
 
@@ -207,9 +242,14 @@ export function useRecitation({
     get: () => clockRef.current,
   }));
   const lengthOf = useCallback((id: number) => {
-    const { reciter: r, estimate: est } = live.current;
+    const { reciter: r, estimate: est, clips: cl } = live.current;
+    if (cl) return (cl[2 * id - 1] - cl[2 * id - 2]) / 1000;
     return learned.get(`${r}/${id}`) ?? est?.(id) ?? 0;
   }, []);
+  // A whole-surah reciter's lengths are exact once its clips are in.
+  useEffect(() => {
+    if (clips) tick({ rev: clockRef.current.rev + 1 });
+  }, [clips, tick]);
   /** Seconds from the range's start to ayah `id`, and the range's length. */
   const rangeTimes = useCallback(
     (id: number) => {
@@ -242,14 +282,14 @@ export function useRecitation({
     [rangeTimes],
   );
 
-  const srcOf = useCallback(
-    (c: Cursor): string | null => {
+  const clipFor = useCallback(
+    (c: Cursor): Clip | null => {
       if (base === null) return null;
-      if (c.basmalah) return basmalahAudioUrl(reciter, base);
-      const v = live.current.verses[c.id - 1];
-      return v ? ayahAudioUrl(reciter, v.s, v.a, base) : null;
+      const { verses, clips: cl } = live.current;
+      if (surahFiles && !cl) return null;
+      return clipOf(c, reciter, verses[c.id - 1], base, cl);
     },
-    [reciter, base],
+    [reciter, base, surahFiles],
   );
 
   const clearGap = () => {
@@ -282,18 +322,31 @@ export function useRecitation({
         setMissing(c.id);
         return;
       }
-      const src = srcOf(c);
-      if (!src) return;
+      const clip = clipFor(c);
+      if (!clip) {
+        // A whole-surah file with no basmalah of its own: go to the ayah.
+        if (c.basmalah && live.current.clips)
+          start({ ...c, basmalah: false }, offset, paused);
+        return;
+      }
+      const src = clip.src;
       clearGap();
       setError(null);
       setMissing(null);
       setAt(c);
+      clipRef.current = clip;
+      doneRef.current = false;
+      const at = clip.from + offset;
       // Re-assigning the same src would not restart a repeat, so rewind instead.
+      // The next slice of the surah being played is where the audio already is:
+      // no seek, so it carries on without a break.
       pendingSeek.current = 0;
-      if (audio.src === new URL(src, location.href).href) audio.currentTime = offset;
-      else {
+      if (audio.src === new URL(src, location.href).href) {
+        if (clip.to === null || Math.abs(audio.currentTime - at) > 0.3)
+          audio.currentTime = at;
+      } else {
         audio.src = src;
-        pendingSeek.current = offset;
+        pendingSeek.current = at;
       }
       if (offset > 0) tick({ t: offset });
       announce(c, !paused, offset);
@@ -314,14 +367,14 @@ export function useRecitation({
       // Warm the cache with the next file so the gap between ayahs stays short.
       const { range: r, options: o, needsBasmalah: nb } = live.current;
       const nxt = advance(c, r, o, nb);
-      const nsrc = nxt && srcOf(nxt);
+      const nsrc = nxt && clipFor(nxt)?.src;
       if (nsrc && nsrc !== src) {
         const warm = warmRef.current ?? (warmRef.current = new Audio());
         warm.preload = "auto";
         warm.src = nsrc;
       }
     },
-    [srcOf, setAt, tick, announce],
+    [clipFor, setAt, tick, announce],
   );
 
   const onEnded = useCallback(() => {
@@ -335,9 +388,10 @@ export function useRecitation({
       return;
     }
     // No gap between the basmalah and its ayah.
-    const gap = cur.basmalah
-      ? 0
-      : gapSeconds(o.gap, audioRef.current?.duration ?? 0, o.rate);
+    const clip = clipRef.current;
+    const length =
+      clip && clip.to !== null ? clip.to - clip.from : (audioRef.current?.duration ?? 0);
+    const gap = cur.basmalah ? 0 : gapSeconds(o.gap, length, o.rate);
     if (gap > 0) gapTimer.current = setTimeout(() => start(nxt), gap * 1000);
     else start(nxt);
   }, [start, setAt]);
@@ -351,9 +405,24 @@ export function useRecitation({
       setPlaying(false);
       setError(audio.src.split("/").pop() ?? audio.src);
     };
+    const onEnd = () => {
+      if (doneRef.current) return;
+      doneRef.current = true;
+      onEnded();
+    };
     const onTime = () => {
       const cur = cursorRef.current;
-      if (cur && !cur.basmalah) tick({ t: audio.currentTime });
+      const clip = clipRef.current;
+      if (!cur || !clip) return;
+      // shortcut: timeupdate comes every ~250 ms, so a slice may run that far
+      // into the next; its cut is mid-pause, so that is silence. Use a timer
+      // if cuts ever land on speech.
+      if (clip.to !== null && audio.currentTime >= clip.to) {
+        if (!doneRef.current) audio.pause();
+        onEnd();
+        return;
+      }
+      if (!cur.basmalah) tick({ t: audio.currentTime - clip.from });
     };
     const onMeta = () => {
       const cur = cursorRef.current;
@@ -362,6 +431,7 @@ export function useRecitation({
         pendingSeek.current = 0;
       }
       if (!cur || cur.basmalah || !Number.isFinite(audio.duration)) return;
+      if (clipRef.current?.to !== null) return; // a slice's length is known
       const key = `${live.current.reciter}/${cur.id}`;
       if (learned.get(key) === audio.duration) return;
       learned.set(key, audio.duration);
@@ -369,12 +439,12 @@ export function useRecitation({
       // The range's length is now a little more exact.
       announce(cur, !audio.paused, audio.currentTime);
     };
-    audio.addEventListener("ended", onEnded);
+    audio.addEventListener("ended", onEnd);
     audio.addEventListener("error", onError);
     audio.addEventListener("timeupdate", onTime);
     audio.addEventListener("loadedmetadata", onMeta);
     return () => {
-      audio.removeEventListener("ended", onEnded);
+      audio.removeEventListener("ended", onEnd);
       audio.removeEventListener("error", onError);
       audio.removeEventListener("timeupdate", onTime);
       audio.removeEventListener("loadedmetadata", onMeta);
@@ -440,14 +510,14 @@ export function useRecitation({
       play(live.current.range.from);
       return;
     }
-    // Paused during the gap after a file ended: move on rather than replay it.
-    if (audio.ended) {
+    // Paused during the gap after an ayah ended: move on rather than replay it.
+    if (audio.ended || doneRef.current) {
       setPlaying(true);
       onEnded();
       return;
     }
     // Reciter changed while paused: restart this ayah in the new voice.
-    const want = srcOf(cur);
+    const want = clipFor(cur)?.src;
     if (want && audio.src !== new URL(want, location.href).href) {
       start(cur);
       return;
@@ -460,7 +530,7 @@ export function useRecitation({
     setPlaying(true);
     announce(cur, true, audio.currentTime);
     audio.play()?.catch(() => setPlaying(false));
-  }, [playing, play, onEnded, srcOf, start, announce]);
+  }, [playing, play, onEnded, clipFor, start, announce]);
 
   const step = useCallback(
     (delta: 1 | -1) => {
@@ -479,7 +549,7 @@ export function useRecitation({
     // Playing: start the ayah (not its basmalah) over. Paused: just rewind.
     if (playing) start({ ...cur, basmalah: false });
     else if (!cur.basmalah) {
-      audio.currentTime = 0;
+      audio.currentTime = clipRef.current?.from ?? 0;
       tick({ t: 0 });
       announce(cur, false, 0);
     }

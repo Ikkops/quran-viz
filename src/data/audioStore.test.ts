@@ -8,8 +8,8 @@ const dev = vi.hoisted(() => ({
   /** Copying a file of this name fails. */
   badCopy: "",
 }));
-const INTERNAL = "file:///int/audio/yasser";
-const CARD = "file:///card/audio/yasser";
+const INTERNAL = "file:///int/audio/basfar";
+const CARD = "file:///card/audio/basfar";
 
 vi.mock("@capacitor/core", () => ({
   Capacitor: { isNativePlatform: () => true, convertFileSrc: (s: string) => s },
@@ -88,7 +88,7 @@ const job = (surah: number, ayahCount: number) => ({
   ayahCount,
   hasBismillah: true,
 });
-// A fresh store per test (its state is module-wide). "yasser" has no word
+// A fresh store per test (its state is module-wide). "basfar" has no word
 // timings, so nothing is fetched besides the audio.
 const store = () => import("./audioStore");
 
@@ -102,11 +102,11 @@ beforeEach(() => {
 
 it("starts a surah asked for while a cancelled one is still landing", async () => {
   const a = await store();
-  a.downloadSurahs("yasser", [job(112, 4)]);
+  a.downloadSurahs("basfar", [job(112, 4)]);
   await settle();
   expect(flying()).toHaveLength(4);
   a.cancelDownloads();
-  a.downloadSurahs("yasser", [job(113, 5)]);
+  a.downloadSurahs("basfar", [job(113, 5)]);
   await settle();
   landAll();
   await settle();
@@ -115,18 +115,18 @@ it("starts a surah asked for while a cancelled one is still landing", async () =
 
 it("never downloads a file twice when retrying after a failure", async () => {
   const a = await store();
-  a.downloadSurahs("yasser", [job(2, 286)]);
+  a.downloadSurahs("basfar", [job(2, 286)]);
   await settle();
   dev.inFlight.shift()!.fail();
   await settle();
   // Three files are still on their way: the retry must not start them again.
-  a.downloadSurahs("yasser", [job(2, 286)]);
+  a.downloadSurahs("basfar", [job(2, 286)]);
   await settle();
   expect(new Set(flying()).size).toBe(flying().length);
   landAll();
   await settle();
   // Once they have landed, a retry fetches what is missing.
-  a.downloadSurahs("yasser", [job(2, 286)]);
+  a.downloadSurahs("basfar", [job(2, 286)]);
   await settle();
   expect(flying()).toContain("001001.mp3.part");
   expect(new Set(flying()).size).toBe(flying().length);
@@ -154,7 +154,7 @@ it("leaves the audio where it was when a move fails, and finishes on a retry", a
 
 it("deletes one surah and keeps the basmalah the others need", async () => {
   const a = await store();
-  a.downloadSurahs("yasser", [job(112, 4), job(113, 5)]);
+  a.downloadSurahs("basfar", [job(112, 4), job(113, 5)]);
   await settle();
   // Four files fly at a time: keep landing until both surahs are in.
   while (dev.inFlight.length > 0) {
@@ -165,7 +165,7 @@ it("deletes one surah and keeps the basmalah the others need", async () => {
     Object.keys(JSON.parse(String(dev.files.get(`${INTERNAL}/surahs.json`))));
   expect(manifest()).toEqual(["112", "113"]);
 
-  await a.deleteSurahAudio("yasser", job(112, 4));
+  await a.deleteSurahAudio("basfar", job(112, 4));
   expect(manifest()).toEqual(["113"]);
   const left = [...dev.files.keys()].map((p) => p.split("/").pop());
   expect(left.filter((n) => n?.startsWith("112"))).toEqual([]);

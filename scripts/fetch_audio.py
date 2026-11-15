@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Download per-ayah recitation audio into quran-viz/audio/<reciter>/.
+"""Download recitation audio into quran-viz/audio/<reciter>/.
 
 The audio is never committed or bundled: `audio/` is gitignored, and the Vite
 plugin in vite.config.ts serves it at `audio/` only in `dev` and `preview`.
 
 Files are named SSSAAA.mp3 (surah, ayah, zero-padded), as on everyayah.com.
 001001.mp3 doubles as the basmalah played before ayah 1 of other surahs.
+Reciters with `surahFiles` have one SSS.mp3 per surah instead.
 
 Usage (from quran-viz/):
     python3 scripts/fetch_audio.py                 # default reciter: shuraym
@@ -48,23 +49,37 @@ RECITERS = {
         # ID3 comment: "MP3s from download.quranicaudio.com/quran/yasser_ad-dussary/"
         "origin": "QuranicAudio.com",
     },
+    "shuraym-old": {
+        "name": "Sa'ud ash-Shuraym (older recording)",
+        "nameAr": "سعود الشريم (تسجيل قديم)",
+        # One file per surah (QUL recitation 402). Ayah and word times come
+        # from scripts/align_recitation.py, since QUL has none for it.
+        "source": "https://download.quranicaudio.com/quran/sa3ood_al-shuraym/older/",
+        "bitrate": 32,
+        "origin": "QuranicAudio.com",
+        "surahFiles": True,
+    },
 }
 
 UA = "quran-viz-audio-fetch/1.0"
 
 
-def ayah_list(surahs: list[int] | None) -> list[tuple[int, int]]:
+def ayah_list(surahs: list[int] | None, per_surah: bool = False) -> list[tuple[int, int | None]]:
+    """The files to fetch: (surah, ayah), or (surah, None) for one file per surah."""
     data = json.loads(SURAHS.read_text(encoding="utf-8"))
-    out = []
+    out: list[tuple[int, int | None]] = []
     for s in data:
         if surahs and s["id"] not in surahs:
             continue
-        out.extend((s["id"], a) for a in range(1, s["ayahCount"] + 1))
+        if per_surah:
+            out.append((s["id"], None))
+        else:
+            out.extend((s["id"], a) for a in range(1, s["ayahCount"] + 1))
     return out
 
 
-def fname(s: int, a: int) -> str:
-    return f"{s:03d}{a:03d}.mp3"
+def fname(s: int, a: int | None) -> str:
+    return f"{s:03d}.mp3" if a is None else f"{s:03d}{a:03d}.mp3"
 
 
 def looks_like_mp3(p: Path) -> bool:
@@ -76,7 +91,7 @@ def looks_like_mp3(p: Path) -> bool:
     return head == b"ID3" or (len(head) >= 2 and head[0] == 0xFF and head[1] & 0xE0 == 0xE0)
 
 
-def fetch_one(base: str, out: Path, s: int, a: int, retries: int = 4) -> tuple[str, str, int]:
+def fetch_one(base: str, out: Path, s: int, a: int | None, retries: int = 4) -> tuple[str, str, int]:
     name = fname(s, a)
     dest = out / name
     if dest.exists() and dest.stat().st_size > 0 and looks_like_mp3(dest):
@@ -86,7 +101,7 @@ def fetch_one(base: str, out: Path, s: int, a: int, retries: int = 4) -> tuple[s
     for attempt in range(retries):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": UA})
-            with urllib.request.urlopen(req, timeout=60) as r:
+            with urllib.request.urlopen(req, timeout=300) as r:
                 expected = int(r.headers.get("Content-Length") or 0)
                 body = r.read()
             if expected and len(body) != expected:
@@ -114,9 +129,10 @@ def progress_line(done: int, total: int, fetched: int, nbytes: int, fails: int, 
     return " · ".join(parts)
 
 
-def write_index(key: str, out: Path, ayahs: list[tuple[int, int]]) -> dict:
+def write_index(key: str, out: Path, ayahs: list) -> dict:
     meta = RECITERS[key]
-    total = len(ayah_list(None))
+    per_surah = bool(meta.get("surahFiles"))
+    total = len(ayah_list(None, per_surah))
     present = sum(1 for p in out.glob("*.mp3") if p.stat().st_size > 0)
     size = sum(p.stat().st_size for p in out.glob("*.mp3"))
     index = {
@@ -131,7 +147,7 @@ def write_index(key: str, out: Path, ayahs: list[tuple[int, int]]) -> dict:
         "total": total,
         "complete": present >= total,
         "bytes": size,
-        "pattern": "{surah3}{ayah3}.mp3",
+        "pattern": "{surah3}.mp3" if per_surah else "{surah3}{ayah3}.mp3",
     }
     (out / "index.json").write_text(json.dumps(index, indent=2) + "\n", encoding="utf-8")
     return index
@@ -148,7 +164,7 @@ def main() -> int:
     meta = RECITERS[args.reciter]
     out = AUDIO / args.reciter
     out.mkdir(parents=True, exist_ok=True)
-    ayahs = ayah_list(args.surah)
+    ayahs = ayah_list(args.surah, bool(meta.get("surahFiles")))
 
     if args.check:
         missing = [fname(s, a) for s, a in ayahs if not looks_like_mp3(out / fname(s, a))]
@@ -174,7 +190,7 @@ def main() -> int:
             elif status.startswith("fail"):
                 fails += 1
                 failed.append(f"{name}\t{status}")
-            if done % 25 == 0 or done == total:
+            if done % 25 == 0 or done == total or meta.get("surahFiles"):
                 print(progress_line(done, total, fetched, nbytes, fails, time.time() - t0), flush=True)
             if done % 250 == 0 or done == total:
                 write_index(args.reciter, out, ayahs)

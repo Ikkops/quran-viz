@@ -1241,7 +1241,7 @@ export const en = {
       ],
       [
         "Word timings",
-        "quran-align by Collin Fair (github.com/cpfair/quran-align), CC BY 4.0: when each word starts in twelve everyayah.com recitations.",
+        "quran-align by Collin Fair (github.com/cpfair/quran-align), CC BY 4.0: when each word starts in twelve everyayah.com recitations. Yasser ad-Dosari's word timings: Quranic Universal Library (QUL), recitation 103. The older Sa'ud ash-Shuraym recording (QuranicAudio.com, one file per surah) was timed for this app by forced alignment with Meta's MMS model, so its timings may be off by a few tenths of a second.",
       ],
       [
         "Topics, similar ayahs, surah introductions, rukuʿ and manzil",

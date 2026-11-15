@@ -83,3 +83,18 @@ def test_buckwalter_and_lemma_skeleton():
     assert rd.buckwalter("kita`b") == "كِتَٰب"
     assert rd._skeleton(rd.buckwalter("{ll~ah")) == rd._skeleton("ٱللَّه")
     assert rd._skeleton("مِن") != rd._skeleton("مَن")
+
+
+def test_surah_clips_cut_mid_pause_and_basmalah_clip():
+    import fetch_reader_data as frd
+
+    def row(*words):
+        return {"segments": [[i + 1, a, b] for i, (a, b) in enumerate(words)],
+                "timestamp_from": words[0][0], "timestamp_to": words[-1][1]}
+
+    # Surah 1: two ayahs, no timed basmalah. Surah 2: one ayah, after an
+    # announcement and a basmalah followed by a long stretch (al-Fatiha).
+    by = {(1, 1): row((2000, 3000)), (1, 2): row((4000, 5000)), (2, 1): row((80000, 85000))}
+    clips, opening = frd.surah_clips(by, [2, 1], {2: row((42000, 46000))})
+    assert clips == [(1700, 3500), (3500, 6500), (79700, 86500)]
+    assert opening == [(0, 1700), (41700, 47500)]

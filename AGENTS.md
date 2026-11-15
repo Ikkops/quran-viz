@@ -114,9 +114,29 @@ with difflib where the wording differs, never inside a word), `mushaf/<layout>.j
 as `[ayah id, first word]`, `["s", surah]`, `["b"]`; empty lines before a
 surah's first ayah, across a page break too, become its name and basmala;
 `check_layout` fails the ETL on gaps) and `timings/<reciter>/<surah>.json`
-(quran-align, CC BY 4.0, 12 reciters: per ayah flat `[wordFrom, wordTo,
-startMs, endMs, …]`; the other bitrates of those everyayah sets are the same
-recordings). Words are `split_words` / `splitWords` (pause marks join the
+(quran-align, CC BY 4.0, 12 reciters, plus `yasser` from QUL's ayah-by-ayah
+#103, which states no licence: per ayah flat `[wordFrom, wordTo, startMs,
+endMs, …]`; the other bitrates of those everyayah sets are the same
+recordings). QUL downloads need a login, so `fetch_reader_data.py qul --qul
+<reciter>=<file.json>` imports a hand-downloaded file and first checks the last
+word's end against `audio/<reciter>/` MP3s (Yasser: median 27 ms short of the
+file's end). A QUL surah-by-surah file (its `segments.json`, ayah and word
+times on the surah's clock) also writes `clips/<reciter>.json` (flat
+`[fromMs, toMs]` per ayah id, cut mid-pause between ayahs, 300 ms before
+ayah 1 and 1.5 s after the last; word times are then from the clip's start;
+bounds come from the words since QUL's own slip, e.g. 36:3), which `clips/`
+keeps in the APK; after the 6,236 ayah pairs come 114 basmalah pairs, the
+basmalah's own words (`"s:0"`) when timed, else the file before ayah 1.
+`shuraym-old` (QUL #402, the older Shuraym, which QUL
+has no timings for) gets that file from `scripts/align_recitation.py`:
+torchaudio MMS_FA forced alignment of the app's text (uroman; the opening
+letters by name, alif lam mim) in ~2-minute blocks with a minute of
+look-ahead (12 s let a repeated phrase pull 8:31 minutes late), run in its
+own uv environment (see its docstring). Its files can open with an
+announcement and the isti'adha, and 002.mp3 has al-Fatiha between the
+basmalah and 2:1, so stars around the basmalah absorb them. Checked on QUL
+#317 (the same recording as everyayah's Shuraym): ayah starts ~200 ms and
+word starts ~100 ms off (median). Words are `split_words` / `splitWords` (pause marks join the
 word before, ۞ the word after); quran.com and quran-align split بَعْدَمَا in
 three ayahs into two words, which `qc_word_map` maps back. Word details:
 `words/<surah>.json` (per ayah, per app word: `[translit, English, Indonesian,
@@ -687,8 +707,16 @@ Pages grid (`MushafPageMap`) is gone.
 `scripts/fetch_audio.py --reciter <id>` downloads per-ayah MP3s from
 everyayah.com into `audio/<id>/SSSAAA.mp3` plus `index.json` (name, bitrate,
 `origin`, `recorded`, file count, `complete`). Desktop reciters
-(`LOCAL_RECITERS`): `shuraym` (Sa'ud ash-Shuraym, 64 kbps, ~530 MB) and
-`yasser` (Yasser ad-Dosari, 128 kbps only).
+(`LOCAL_RECITERS`): `shuraym` (Sa'ud ash-Shuraym, 64 kbps, ~530 MB),
+`shuraym-old` (his older recording, QuranicAudio.com, 32 kbps, ~260 MB, one
+`SSS.mp3` per surah: `surahFiles` in `RECITERS`/`RECITER_INFO`) and `yasser`
+(Yasser ad-Dosari, 128 kbps only). A whole-surah reciter plays each ayah as
+a `Clip` of the surah's file (`clipOf` in `data/recitation.ts`, from
+`clips/<id>.json`): `useRecitation` seeks to its start, ends it when
+`timeupdate` passes its end (up to ~250 ms late, inside the pause), and does
+not seek when the next clip starts where the audio is, so a surah plays
+through without breaks; the basmalah is its own clip, none when under 1 s. In the app such a reciter downloads one
+file per surah.
 It resumes, validates the MP3 header, rewrites the index every 250 files, and
 `--check` reports what is missing. Neither source publishes a recording date
 (the ID3 tags only name the publisher: HidayahOnline.org, QuranicAudio.com), so
@@ -696,7 +724,7 @@ It resumes, validates the MP3 header, rewrites the index every 250 files, and
 reciter, add it to `RECITERS` in the script and to `LOCAL_RECITERS` in
 `data/reciters.ts`. That file is the Android app's catalogue (40 reciters
 from everyayah.com's `recitations.js`: Hafs only, no translations, one bitrate
-each, 64 kbps where published); `bytes` there is exact for the two desktop
+each, 64 kbps where published); `bytes` there is exact for the three desktop
 sets and otherwise estimated from 40 sampled ayahs. `audio/` is
 gitignored and is **never** copied into `dist/`: the `localAudio` plugin in
 `vite.config.ts` serves it at `audio/` only from `npm run dev` and `npm run

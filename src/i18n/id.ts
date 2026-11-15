@@ -1317,7 +1317,7 @@ export const id: Messages = {
       ],
       [
         "Waktu per kata",
-        "quran-align karya Collin Fair (github.com/cpfair/quran-align), CC BY 4.0: saat mulai tiap kata dalam dua belas rekaman everyayah.com.",
+        "quran-align karya Collin Fair (github.com/cpfair/quran-align), CC BY 4.0: saat mulai tiap kata dalam dua belas rekaman everyayah.com. Waktu kata Yasser ad-Dosari: Quranic Universal Library (QUL), resitasi 103. Rekaman lama Sa'ud asy-Syuraim (QuranicAudio.com, satu berkas per surah) diberi waktu untuk aplikasi ini dengan penjajaran otomatis memakai model MMS dari Meta, jadi waktunya bisa meleset beberapa persepuluh detik.",
       ],
       [
         "Topik, ayat mirip, pengantar surah, ruku', dan manzil",

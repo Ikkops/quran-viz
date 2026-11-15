@@ -3,7 +3,8 @@
 // The browser build plays the files fetch_audio.py put in `audio/`; the APK
 // ships without them. Instead the learner downloads a surah at a time from
 // everyayah.com into the app's own storage (`<volume>/audio/<reciter>/
-// SSSAAA.mp3`, the same layout), and playback is offline from then on. Each
+// SSSAAA.mp3`, the same layout; SSS.mp3 for a whole-surah reciter), and
+// playback is offline from then on. Each
 // reciter folder keeps `surahs.json`: surah number → bytes on disk, written
 // only once every file of that surah is in place.
 //
@@ -323,7 +324,12 @@ async function run() {
   try {
     while (state.queue.length > 0 && !state.moving) {
       const [{ reciter, job }, ...rest] = state.queue;
-      const files = surahAudioFiles(job.surah, job.ayahCount, job.hasBismillah);
+      const files = surahAudioFiles(
+        job.surah,
+        job.ayahCount,
+        job.hasBismillah,
+        RECITER_INFO[reciter].surahFiles,
+      );
       update({
         queue: rest,
         error: null,
@@ -415,7 +421,12 @@ export async function deleteSurahAudio(reciter: ReciterId, job: SurahJob): Promi
   if (Object.keys(m).length === 0) return deleteReciterAudio(reciter);
   await saveManifest(reciter, m);
   const shared = audioFileName(1, 1);
-  const names = surahAudioFiles(job.surah, job.ayahCount, job.hasBismillah)
+  const names = surahAudioFiles(
+    job.surah,
+    job.ayahCount,
+    job.hasBismillah,
+    RECITER_INFO[reciter].surahFiles,
+  )
     .filter((name) => name !== shared)
     .concat(`words-${job.surah}.json`);
   for (const name of names)

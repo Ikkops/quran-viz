@@ -8,6 +8,7 @@ import { dataUrl } from "./base";
 /** Reciters whose recordings have word timings. */
 export const TIMED_RECITERS: ReadonlySet<string> = new Set([
   "shuraym",
+  "shuraym-old",
   "abdulbasit-mujawwad",
   "abdulbasit",
   "sudais",
@@ -19,6 +20,7 @@ export const TIMED_RECITERS: ReadonlySet<string> = new Set([
   "minshawi-mujawwad",
   "minshawi",
   "tablawi",
+  "yasser",
 ]);
 
 export type SurahTimings = number[][];

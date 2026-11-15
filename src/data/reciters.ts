@@ -9,12 +9,16 @@
 export interface ReciterInfo {
   name: string;
   nameAr: string;
-  /** Folder of per-ayah MP3s on everyayah.com (ends in "/"). */
+  /** Folder of the MP3s (ends in "/"): per ayah, SSSAAA.mp3, as on
+   *  everyayah.com, or per surah, SSS.mp3, when `surahFiles`. */
   source: string;
   bitrate: number;
   origin: string;
   /** Size of the whole set, for download and length estimates. */
   bytes: number;
+  /** One file per surah; each ayah plays its slice of it, from
+   *  `clips/<id>.json` (see useRecitation). */
+  surahFiles?: true;
 }
 
 /** A key of `RECITER_INFO`; also the folder name under `audio/`. */
@@ -29,6 +33,17 @@ export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
     bitrate: 64,
     origin: "HidayahOnline.org",
     bytes: 529_942_267,
+  },
+  "shuraym-old": {
+    name: "Sa'ud ash-Shuraym (older recording)",
+    nameAr: "سعود الشريم (تسجيل قديم)",
+    // QUL recitation 402; its ayah and word times are ours
+    // (scripts/align_recitation.py), QUL has none.
+    source: "https://download.quranicaudio.com/quran/sa3ood_al-shuraym/older/",
+    bitrate: 32,
+    origin: "QuranicAudio.com",
+    bytes: 261_775_418,
+    surahFiles: true,
   },
   yasser: {
     name: "Yasser ad-Dosari",
@@ -348,4 +363,4 @@ export const RECITERS: readonly ReciterId[] = Object.keys(RECITER_INFO);
 
 /** The sets scripts/fetch_audio.py can download into `audio/` for the desktop
  *  (MIRRORS `RECITERS` in that script). */
-export const LOCAL_RECITERS: readonly ReciterId[] = ["shuraym", "yasser"];
+export const LOCAL_RECITERS: readonly ReciterId[] = ["shuraym", "shuraym-old", "yasser"];
