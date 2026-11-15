@@ -1,4 +1,6 @@
-import { BookOpen, Flame, History } from "lucide-react";
+import type { Hifdh } from "../lib/hifdh";
+import { useHifdhPlan } from "../components/hifdh/plan";
+import { ListChecks, BookOpen, Flame, History } from "lucide-react";
 import type { QuranData } from "../types/quran";
 import type { ReaderTarget } from "../components/charts/common";
 import { currentStreak, dayDate, dayKey } from "../data/readingLog";
@@ -41,6 +43,8 @@ export function HomeView({
   onOpen,
   onSearch,
   onActivity,
+  hifdh,
+  onHifdhPlan,
 }: {
   data: QuranData;
   /** Where recent reading stopped, newest first (already cut to the setting). */
@@ -48,6 +52,9 @@ export function HomeView({
   onOpen: (t: ReaderTarget) => void;
   onSearch: () => void;
   onActivity: () => void;
+  /** What the learner has memorised, and the way to today's plan. */
+  hifdh: Hifdh;
+  onHifdhPlan: () => void;
 }) {
   const { t, n } = useI18n();
   const h = t.home;
@@ -65,6 +72,8 @@ export function HomeView({
       : { scope: d, value: scopeField(v, d), anchor: e.id };
   };
   const ago = useWhen();
+  const { plan } = useHifdhPlan(hifdh, data.verses);
+  const hasHifdh = /[123]/.test(hifdh.status);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8">
@@ -140,6 +149,26 @@ export function HomeView({
             {h.streakLine(n(streak))}
           </span>
         </button>
+
+        {hasHifdh && (
+          <button
+            type="button"
+            onClick={onHifdhPlan}
+            className="flex min-h-11 items-center gap-3 rounded-xl border border-line bg-surface px-4 py-3 text-left shadow-soft transition-colors hover:bg-surface-sunken"
+          >
+            <ListChecks size={20} aria-hidden className="shrink-0 text-ink-subtle" />
+            <span className="min-w-0 flex-1 text-heading text-ink">
+              {t.hifdh.homeTitle}
+            </span>
+            <span className="shrink-0 text-sm tabular-nums text-ink-muted">
+              {t.hifdh.homeLine(
+                n(plan.learning.length),
+                n(plan.recent.length),
+                n(plan.old.length),
+              )}
+            </span>
+          </button>
+        )}
       </div>
 
       <QuranIndex data={data} onOpen={onOpen} onSearch={onSearch} />

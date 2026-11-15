@@ -116,7 +116,7 @@ export const en = {
 
   activity: {
     sections: "Activity sections",
-    tabs: { stats: "Statistics", marks: "Bookmarks" },
+    tabs: { stats: "Statistics", marks: "Bookmarks", hifdh: "Memorisation" },
     title: "Reading activity",
     today: "Today",
     ofGoal: (goal: number) => `goal ${goal} min`,
@@ -166,6 +166,15 @@ export const en = {
     places: (n: number) => (n === 1 ? "1 place" : `${n} places`),
     lastReadHelp:
       "Home lists where your recent reading stopped: one place per stretch of reading, so scrolling on through a surah moves its place along instead of adding more.",
+    backup: {
+      title: "Backup",
+      help: "Bookmarks, memorisation, reading activity and settings are kept only on this device. Save them to one file to keep them safe or to move to another device. Downloaded audio is not included.",
+      save: "Save a backup",
+      restore: "Restore from a backup",
+      confirm:
+        "Replace everything on this device (bookmarks, memorisation, reading activity, settings) with this backup?",
+      bad: "That file isn't a quran-viz backup.",
+    },
     audioStorage: "Audio storage",
     audio: {
       current: "Recitation audio is kept in",
@@ -760,6 +769,8 @@ export const en = {
     similarScore: (score: number, words: number) =>
       `${score}% alike · ${words} shared words`,
     similarSource: "Source: Quranic Universal Library (QUL), similar-ayah resource.",
+    similarThis: (ref: string) => `This ayah, ${ref}`,
+    similarHide: "Hide the words that differ",
     rootsHere: "Roots in this ayah",
     rootTotal: (n: string) => `${n}× in the Qur'an`,
     noRoots: "No roots recorded for this ayah.",
@@ -952,6 +963,45 @@ export const en = {
     },
     hideAgain: "Cover the text again",
     off: "Leave Hafalan mode",
+    rate: "Rate this recitation",
+    rateTitle: (pages: string) => `How did it go? · memorised pages: ${pages}`,
+    ratings: { forgot: "Forgot", hard: "Hard", smooth: "Smooth" },
+    ratingHelp: {
+      forgot: "Due again tomorrow, and marked as needing review.",
+      hard: "Due again after the same number of days.",
+      smooth: "The next review moves further away.",
+    },
+    planTitle: "Today",
+    planEmpty:
+      "Mark what you have memorised to get a daily review plan: in the reader, tap an ayah and choose Memorisation.",
+    planHelp:
+      "Open a page, recite it from memory, then rate it with the clipboard button in the Hafalan bar.",
+    learning: "New (ziyadah)",
+    recent: "Recent review",
+    old: "Older review",
+    none: "Nothing due.",
+    oldMore: (n: string) => `${n} more older pages are due.`,
+    quota: "Older pages a day",
+    pageLabel: (page: number) => `Page ${page}`,
+    homeLine: (fresh: string, recent: string, old: string) =>
+      `${fresh} new · ${recent} recent · ${old} older`,
+    homeTitle: "Memorisation today",
+    sambung: "Continue the ayah",
+    sambungHelp:
+      "An ayah you have memorised is shown. Recite the one after it, then check yourself.",
+    sambungNone: "Mark at least two ayahs in a row as memorised to use this.",
+    sambungStart: "Start",
+    sambungPrompt: "Recite the ayah that comes next.",
+    sambungShow: "Show the next ayah",
+    gotIt: "I knew it",
+    score: (ok: string, total: string) => `${ok} of ${total} right`,
+    mistakes: "Words you stumbled on",
+    mistakesNone:
+      "None yet. In Hafalan mode on a printed page, press and hold a hidden word to peek at it; it is kept here.",
+    mistakesMore: (n: string) => `${n} more not shown.`,
+    mistakeOpen: (ref: string) => `Open ${ref}`,
+    mistakeRemove: (ref: string) => `Remove the stumble at ${ref}`,
+    times: (n: string) => `${n}×`,
     mark: "Memorisation",
     markTitle: (ref: string) => `Memorisation · ${ref}`,
     applyTo: "Apply to",

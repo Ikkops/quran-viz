@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowLeft, ArrowRight, EyeOff, Plus, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ClipboardCheck, EyeOff, Plus, X } from "lucide-react";
 import type { EditionsIndex, Surah, Verse } from "../../types/quran";
 import { SCOPE_MAX, surahColorById, type ReaderScope } from "../charts/common";
 import type { ColorMode, ReaderTarget } from "../charts/common";
@@ -101,7 +101,15 @@ import { QuranStrip } from "../peta/QuranStrip";
 import { TajweedRules } from "./TajweedRules";
 import { nextHeadHidden } from "../../lib/hideOnScroll";
 import { HifdhSheet } from "./HifdhSheet";
-import { addStumble, stumbleCount, type Hifdh } from "../../lib/hifdh";
+import {
+  RATINGS,
+  addStumble,
+  pagesWith,
+  rateReview,
+  stumbleCount,
+  type Hifdh,
+} from "../../lib/hifdh";
+import { dayKey } from "../../data/readingLog";
 import {
   HIFDH_LEVELS,
   maskedParts,
@@ -360,6 +368,8 @@ export function ReaderView({
   // words they peeked at. Both start over with the window or the level.
   // The ayah whose memorisation is being marked.
   const [hifdhFor, setHifdhFor] = useState<number | null>(null);
+  // Rating how reciting this window from memory went.
+  const [rating, setRating] = useState(false);
   const [revealed, setRevealed] = useState<ReadonlySet<number>>(new Set());
   const [peeked, setPeeked] = useState<ReadonlySet<string>>(new Set());
   const hideAgain = useCallback(() => {
@@ -378,6 +388,11 @@ export function ReaderView({
           }
         : null,
     [p.hifdhOn, p.hifdhLevel, revealed, peeked, hifdh],
+  );
+  // The memorised pages in this window: what a rating applies to.
+  const ratePages = useMemo(
+    () => (p.hifdhOn ? pagesWith(hifdh, scopeVerses, [2, 3]) : []),
+    [p.hifdhOn, hifdh, scopeVerses],
   );
   const covered = (id: number) => !!mask && !revealed.has(id);
   const reveal = (id: number) => setRevealed((s) => new Set(s).add(id));
@@ -1621,6 +1636,14 @@ export function ReaderView({
             >
               <EyeOff size={18} />
             </QuietIconButton>
+            <QuietIconButton
+              label={t.hifdh.rate}
+              aria-haspopup="dialog"
+              disabled={ratePages.length === 0}
+              onClick={() => setRating(true)}
+            >
+              <ClipboardCheck size={18} />
+            </QuietIconButton>
             <QuietIconButton label={t.hifdh.off} onClick={() => p.setHifdhOn(false)}>
               <X size={18} />
             </QuietIconButton>
@@ -1867,6 +1890,33 @@ export function ReaderView({
           onClose={() => setAyahPick(null)}
         />
       )}
+
+      <Sheet
+        open={rating}
+        onClose={() => setRating(false)}
+        title={t.hifdh.rateTitle(n(ratePages.length))}
+        side={phone ? "bottom" : "right"}
+        closeLabel={t.common.close}
+      >
+        <ul className="flex flex-col gap-0.5 px-4 py-3">
+          {RATINGS.map((r) => (
+            <li key={r}>
+              <button
+                type="button"
+                onClick={() => {
+                  onHifdh(rateReview(hifdh, ratePages, r, dayKey(new Date())));
+                  setRating(false);
+                  hideAgain();
+                }}
+                className="flex min-h-11 w-full flex-col justify-center rounded-md px-2 py-1.5 text-left transition-colors hover:bg-surface-sunken"
+              >
+                <span className="text-sm font-medium text-ink">{t.hifdh.ratings[r]}</span>
+                <span className="text-xs text-ink-subtle">{t.hifdh.ratingHelp[r]}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </Sheet>
 
       <Sheet
         open={hifdhFor !== null}

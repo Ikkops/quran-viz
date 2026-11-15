@@ -407,6 +407,8 @@ its icon and a 600-weight ink label; the others are ink-subtle.
   word highlights' small radius), so the page keeps its shape; ayah-end medallions stay. A bar under the head holds
   the level (first word, first letters, hidden), cover again and leave. A word the learner
   stumbled on carries a dotted rubric underline while it is visible.
+- **Similar ayahs:** each look-alike sits above the open ayah; the words they do not share
+  carry a lapis tint at 15%, or become empty slots when the learner hides them.
 - **Konteks ayat:** a bottom sheet at every width.
 - **Head:** floats over the text and slides up out of the way while reading
   down; a scroll up brings it back. "Go to" drops from the top edge; About this

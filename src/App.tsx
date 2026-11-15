@@ -440,6 +440,12 @@ export default function App() {
                 onOpen={navigateReader}
                 onSearch={() => openSearch()}
                 onActivity={() => setView("activity")}
+                hifdh={hifdh}
+                onHifdhPlan={() => {
+                  presetTab(ACTIVITY_TAB_KEY, "hifdh");
+                  setActivityKey((k) => k + 1);
+                  setView("activity");
+                }}
               />
             )}
             {data && view === "dashboard" && (
@@ -472,6 +478,8 @@ export default function App() {
                 data={data}
                 marks={marks}
                 onMarks={setMarks}
+                hifdh={hifdh}
+                onHifdh={setHifdh}
                 onOpen={navigateReader}
               />
             )}

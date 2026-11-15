@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import { ArrowUpRight } from "lucide-react";
 import type { Surah, Verse } from "../../types/quran";
 import type { ReaderTarget } from "../charts/common";
@@ -22,8 +22,12 @@ import {
   topicsForAyah,
 } from "../../data/ayahContext";
 import type { LazyJsonState } from "../../data/useLazyJson";
-import { Badge, Button, SegmentedControl, Select } from "../ui";
-import { AyahText } from "./AyahText";
+import { Badge, Button, SegmentedControl, Select, Toggle } from "../ui";
+import { AyahEnd, AyahText } from "./AyahText";
+import { MaskedWord } from "./Masked";
+import { withRubrics } from "./rubrics";
+import { splitWords } from "../../data/mushafLayout";
+import { diffWords } from "../../data/similarDiff";
 import { CONTEXT_TABS, tafsirOptions, type ContextTab } from "./readerShared";
 
 export type ExploreTarget =
@@ -124,6 +128,8 @@ export function VerseContextPanel({
   const words = useWordByWord(tab === "words", glossLang);
   const asbab = useAsbab(tab === "asbab");
   const similar = useSimilar(tab === "similar");
+  // Similar ayahs as a self-test: the words that differ are left empty.
+  const [hideDiff, setHideDiff] = useState(false);
   const roots = useRoots(tab === "roots");
   const topics = useTopics(tab === "roots");
   const topicTree = useMemo(
@@ -263,45 +269,78 @@ export function VerseContextPanel({
       ));
   } else if (tab === "similar") {
     const list = similar.data ? similarTo(similar.data, verse.id).slice(0, 40) : [];
+    const here = splitWords(verse.ar);
+    // One ayah's words, those the other ayah does not share tinted (or, for
+    // a self-test, left as empty slots).
+    const line = (words: string[], differs: boolean[]) =>
+      words.map((w, i) => (
+        <Fragment key={i}>
+          {i > 0 && " "}
+          {!differs[i] ? (
+            withRubrics(w)
+          ) : hideDiff ? (
+            <MaskedWord show="" hide={w} />
+          ) : (
+            <span className="rounded-sm bg-illumination/15">{withRubrics(w)}</span>
+          )}
+        </Fragment>
+      ));
     body =
       similarNote ??
       (list.length === 0 ? (
         <Note>{t.reader.noSimilar}</Note>
       ) : (
         <>
-          <ul className="-mx-2 flex flex-col gap-1">
+          <Toggle
+            checked={hideDiff}
+            onChange={setHideDiff}
+            label={t.reader.similarHide}
+          />
+          <ul className="-mx-2 flex flex-col divide-y divide-line">
             {list.map((x) => {
               const v = verses[x.id - 1];
               if (!v) return null;
               const vs = surahMap.get(v.s);
               const r = `${v.s}:${v.a}`;
+              const there = splitWords(v.ar);
+              const d = diffWords(here, there);
               return (
-                <li key={x.id}>
+                <li key={x.id} className="py-1">
                   <button
                     type="button"
                     onClick={() => onRead({ scope: "surah", value: v.s, anchor: v.id })}
                     aria-label={t.reader.readAyah(r)}
-                    className="w-full rounded-md px-2 py-2 text-left transition-colors hover:bg-surface-sunken"
+                    className="flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-left transition-colors hover:bg-surface-sunken"
                   >
-                    <span className="flex items-center gap-2">
-                      <Badge color={verseColor(v)} className="tabular-nums">
-                        {r}
-                      </Badge>
-                      <span className="min-w-0 flex-1 truncate text-sm text-ink">
-                        {vs?.name}
-                      </span>
-                      <span className="shrink-0 text-xs tabular-nums text-ink-subtle">
-                        {t.reader.similarScore(x.score, x.words)}
-                      </span>
+                    <Badge color={verseColor(v)} className="tabular-nums">
+                      {r}
+                    </Badge>
+                    <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                      {vs?.name}
                     </span>
-                    <span
-                      lang="ar"
-                      dir="rtl"
-                      className="mt-1 block font-arabic text-lg leading-loose text-ink"
-                    >
-                      <AyahText v={v} />
+                    <span className="shrink-0 text-xs tabular-nums text-ink-subtle">
+                      {t.reader.similarScore(x.score, x.words)}
                     </span>
                   </button>
+                  <p
+                    lang="ar"
+                    dir="rtl"
+                    className="px-2 font-arabic text-lg leading-loose text-ink"
+                  >
+                    {line(there, d.b)}
+                    <AyahEnd n={v.a} />
+                  </p>
+                  <p className="mt-1 px-2 text-xs text-ink-subtle">
+                    {t.reader.similarThis(`${verse.s}:${verse.a}`)}
+                  </p>
+                  <p
+                    lang="ar"
+                    dir="rtl"
+                    className="px-2 pb-1 font-arabic text-lg leading-loose text-ink"
+                  >
+                    {line(here, d.a)}
+                    <AyahEnd n={verse.a} />
+                  </p>
                 </li>
               );
             })}

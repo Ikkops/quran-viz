@@ -1,4 +1,7 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { applyBackup, buildBackup, readBackup } from "../lib/backup";
+import { downloadText } from "../lib/export";
+import { dayKey } from "../data/readingLog";
 import { Check } from "lucide-react";
 import { Button, Card, Select, Slider, cx } from "../components/ui";
 import { PALETTES, type PaletteKey } from "../theme/palettes";
@@ -66,6 +69,24 @@ export function SettingsView({
   const { t, lang, setLang } = useI18n();
   const [themeCode, setThemeCode] = useState("");
   const [themeMsg, setThemeMsg] = useState<string | null>(null);
+  // Full backup: everything kept on this device, as one file. Restoring
+  // replaces it all and reloads, so each value is sanitized as it is read.
+  const backupFile = useRef<HTMLInputElement>(null);
+  const [backupNote, setBackupNote] = useState<string | null>(null);
+  const restoreBackup = async (file: File | undefined) => {
+    if (!file) return;
+    let data: Record<string, unknown> | null = null;
+    try {
+      data = readBackup(JSON.parse(await file.text()));
+    } catch {
+      // Not JSON: said below.
+    }
+    if (!data) setBackupNote(t.settings.backup.bad);
+    else if (window.confirm(t.settings.backup.confirm)) {
+      applyBackup(data, window.localStorage);
+      window.location.reload();
+    }
+  };
 
   return (
     <div className="mx-auto grid max-w-5xl grid-cols-[repeat(auto-fit,minmax(min(100%,22rem),1fr))] items-start gap-4">
@@ -290,6 +311,44 @@ export function SettingsView({
           <p aria-live="polite" className="text-sm text-ink-muted">
             {themeMsg}
           </p>
+        </div>
+      </Section>
+
+      <Section title={t.settings.backup.title}>
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-ink-muted">{t.settings.backup.help}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              onClick={() =>
+                void downloadText(
+                  JSON.stringify(buildBackup(window.localStorage, dayKey(new Date()))),
+                  `quran-viz-backup-${dayKey(new Date())}.json`,
+                  "application/json",
+                )
+              }
+            >
+              {t.settings.backup.save}
+            </Button>
+            <Button onClick={() => backupFile.current?.click()}>
+              {t.settings.backup.restore}
+            </Button>
+            <input
+              ref={backupFile}
+              type="file"
+              accept="application/json,.json"
+              hidden
+              aria-label={t.settings.backup.restore}
+              onChange={(e) => {
+                void restoreBackup(e.target.files?.[0]);
+                e.target.value = ""; // the same file can be chosen again
+              }}
+            />
+          </div>
+          {backupNote && (
+            <p className="text-sm text-rubric" role="status">
+              {backupNote}
+            </p>
+          )}
         </div>
       </Section>
 

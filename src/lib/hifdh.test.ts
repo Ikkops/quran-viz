@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  listStumbles,
+  pagesWith,
+  rateReview,
+  removeStumble,
+  sambungStarts,
+  todaysPlan,
   addStumble,
   ayahsWith,
   countStatus,
@@ -58,5 +64,87 @@ describe("sanitizeHifdh", () => {
     expect(h?.status).toHaveLength(6236);
     expect(h && statusOf(h, 4)).toBe(3);
     expect(h?.stumbles).toEqual({ "5:1": { n: 2, at: 9 } });
+  });
+});
+
+// Ten ayahs a page, two pages a surah.
+const verses = Array.from({ length: 60 }, (_, i) => ({
+  id: i + 1,
+  page: Math.floor(i / 10) + 1,
+  s: Math.floor(i / 20) + 1,
+}));
+
+describe("review", () => {
+  it("finds the pages that hold memorised ayahs", () => {
+    const h = setStatus(emptyHifdh(), 8, 12, 2);
+    expect(pagesWith(h, verses, [2, 3])).toEqual([
+      { page: 1, from: 1, to: 10 },
+      { page: 2, from: 11, to: 20 },
+    ]);
+    expect(pagesWith(h, verses, [1])).toEqual([]);
+  });
+
+  it("climbs the ladder on smooth, repeats on hard, restarts on forgot", () => {
+    const page = [{ page: 1, from: 1, to: 10 }];
+    let h = setStatus(emptyHifdh(), 1, 10, 2);
+    h = rateReview(h, page, "smooth", "2026-11-15");
+    expect(h.reviews[1]).toEqual({ step: 0, due: "2026-11-16" });
+    h = rateReview(h, page, "smooth", "2026-11-16");
+    expect(h.reviews[1]).toEqual({ step: 1, due: "2026-11-19" });
+    h = rateReview(h, page, "hard", "2026-11-19");
+    expect(h.reviews[1]).toEqual({ step: 1, due: "2026-11-22" });
+    h = rateReview(h, page, "forgot", "2026-11-22");
+    expect(h.reviews[1]).toEqual({ step: 0, due: "2026-11-23" });
+    expect(countStatus(h, 1, 10)).toEqual([0, 0, 0, 10]);
+    h = rateReview(h, page, "smooth", "2026-11-23");
+    expect(countStatus(h, 1, 10)).toEqual([0, 0, 10, 0]);
+  });
+
+  it("leaves ayahs that are not memorised alone", () => {
+    const h = rateReview(
+      setStatus(emptyHifdh(), 1, 5, 2),
+      [{ page: 1, from: 1, to: 10 }],
+      "forgot",
+      "2026-11-15",
+    );
+    expect(countStatus(h, 1, 10)).toEqual([5, 0, 0, 5]);
+  });
+});
+
+describe("todaysPlan", () => {
+  it("splits what is due into recent and old, and caps the old pages", () => {
+    let h = setStatus(emptyHifdh(), 1, 50, 2);
+    h = setStatus(h, 51, 55, 1);
+    // Page 1 reviewed yesterday (recent, due today); page 2 not due yet.
+    h = rateReview(h, [{ page: 1, from: 1, to: 10 }], "smooth", "2026-11-14");
+    h = rateReview(h, [{ page: 2, from: 11, to: 20 }], "smooth", "2026-11-15");
+    // Page 5 is far up the ladder and overdue.
+    h = { ...h, reviews: { ...h.reviews, 5: { step: 4, due: "2026-11-01" } } };
+    const plan = todaysPlan(h, verses, "2026-11-15", 2);
+    expect(plan.recent.map((p) => p.page)).toEqual([1]);
+    expect(plan.old.map((p) => p.page)).toEqual([5, 3]);
+    expect(plan.oldDue).toBe(3);
+    expect(plan.learning.map((p) => p.page)).toEqual([6]);
+  });
+});
+
+describe("stumble list", () => {
+  it("lists the most repeated first and removes one", () => {
+    let h = addStumble(emptyHifdh(), 5, 1, 10);
+    h = addStumble(h, 9, 0, 20);
+    h = addStumble(h, 9, 0, 30);
+    expect(listStumbles(h).map((x) => `${x.id}:${x.w}x${x.n}`)).toEqual([
+      "9:0x2",
+      "5:1x1",
+    ]);
+    expect(listStumbles(removeStumble(h, 9, 0))).toHaveLength(1);
+  });
+});
+
+describe("sambungStarts", () => {
+  it("needs the next ayah of the same surah memorised too", () => {
+    const h = setStatus(emptyHifdh(), 18, 22, 2);
+    // 20 is the last ayah of surah 1: 21 follows in another surah.
+    expect(sambungStarts(h, verses)).toEqual([18, 19, 21]);
   });
 });

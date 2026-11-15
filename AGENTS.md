@@ -464,8 +464,31 @@ Uncovered ayahs and peeks reset on navigation, a level change and leaving the
 mode. Peta Mushaf: the highlight kind "Memorisation" (`qv.peta.kind` =
 `hifdh`) keeps status 2 and 3 at full strength, dims the rest, dots status 3
 in rubric (`MapMarks.weak`), and shows the share memorised overall and for the
-juz under the pointer. Not built yet: review schedule, mistake list, backup of
-`qv.hifdh` (the plan's later priorities).
+juz under the pointer.
+
+Review (`lib/hifdh.ts`): the unit is the Madinah mushaf page (`verses.page`),
+kept in `reviews` as `{ due: dayKey, step }` on the `LADDER` 1-3-7-14-30-90
+days. `rateReview(h, pages, rating, today)`: smooth moves a page one step up
+and turns its status 3 back to 2; hard repeats the step; forgot returns it to
+step 0 and turns its status 2 into 3. In the reader the Hafalan bar's
+clipboard button rates the memorised pages of the current window
+(`pagesWith(hifdh, scopeVerses, [2, 3])`). `todaysPlan(h, verses, today,
+quota)` gives `learning` (pages with status 1), `recent` (due, step < 3) and
+`old` (due at step ≥ 3 or never reviewed, the longest overdue first, cut to
+`quota`, `qv.hifdh.quota`). Activity → Memorisation
+(`components/hifdh/HifdhPanel.tsx`, a `TABS` entry) shows that plan (a page
+opens in the reader with Hafalan mode switched on, `openForReview`), "Continue
+the ayah" (`sambungStarts`: a memorised ayah whose next ayah in the surah is
+memorised too; a miss marks the next ayah status 3, a hit clears it) and the
+stumbled words (`listStumbles`, `removeStumble`). Home shows a "Memorisation
+today" line once anything is marked. The context sheet's "Similar ayahs" tab
+compares each look-alike with the open ayah word by word
+(`data/similarDiff.ts` `diffWords`, an LCS over the words with pause marks
+ignored and vowel marks kept): differing words are tinted, or left as empty
+slots with "Hide the words that differ". Settings → Backup
+(`lib/backup.ts`, tested) saves every `qv.*` key and `quranviz.theme` except
+`qv.audio.location` to one JSON file; restoring replaces those keys after a
+confirm and reloads the page, so each value passes through its sanitizer.
 
 **Settings** (`views/SettingsView.tsx`, view id `settings`): language, theme,
 interface scale, accent, Qur'an font and size, last-read count, audio storage
