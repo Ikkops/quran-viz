@@ -116,7 +116,7 @@ export const en = {
 
   activity: {
     sections: "Activity sections",
-    tabs: { stats: "Statistics", marks: "Bookmarks" },
+    tabs: { stats: "Statistics", marks: "Bookmarks", hifdh: "Memorisation" },
     title: "Reading activity",
     today: "Today",
     ofGoal: (goal: number) => `goal ${goal} min`,
@@ -166,6 +166,15 @@ export const en = {
     places: (n: number) => (n === 1 ? "1 place" : `${n} places`),
     lastReadHelp:
       "Home lists where your recent reading stopped: one place per stretch of reading, so scrolling on through a surah moves its place along instead of adding more.",
+    backup: {
+      title: "Backup",
+      help: "Bookmarks, memorisation, reading activity and settings are kept only on this device. Save them to one file to keep them safe or to move to another device. Downloaded audio is not included.",
+      save: "Save a backup",
+      restore: "Restore from a backup",
+      confirm:
+        "Replace everything on this device (bookmarks, memorisation, reading activity, settings) with this backup?",
+      bad: "That file isn't a quran-viz backup.",
+    },
     audioStorage: "Audio storage",
     audio: {
       current: "Recitation audio is kept in",
@@ -186,6 +195,17 @@ export const en = {
       moveFailed: (f: string) =>
         `Moving stopped: ${f}. Files already moved are in the new place; the rest stayed.`,
       help: "Choosing a place moves the audio already downloaded. The choice stays until you change it here. Audio in a folder you chose is kept when the app is uninstalled.",
+      saved: "Saved audio",
+      savedTotal: (size: string) => `${size} on this device`,
+      savedEmpty:
+        "No audio has been downloaded yet. Download a surah from the player in the reader.",
+      savedLine: (n: number, size: string) => `${n} of 114 surahs · ${size}`,
+      deleteReciter: "Delete all",
+      deleteReciterConfirm: (name: string, size: string) =>
+        `Delete all of ${name}'s downloaded audio (${size})? You can download it again later.`,
+      deleteSurah: (surah: string) => `Delete ${surah}`,
+      deleteSurahConfirm: (surah: string, name: string, size: string) =>
+        `Delete ${surah} by ${name} (${size})? You can download it again later.`,
     },
     title: "Settings",
     language: "Language",
@@ -749,6 +769,8 @@ export const en = {
     similarScore: (score: number, words: number) =>
       `${score}% alike · ${words} shared words`,
     similarSource: "Source: Quranic Universal Library (QUL), similar-ayah resource.",
+    similarThis: (ref: string) => `This ayah, ${ref}`,
+    similarHide: "Hide the words that differ",
     rootsHere: "Roots in this ayah",
     rootTotal: (n: string) => `${n}× in the Qur'an`,
     noRoots: "No roots recorded for this ayah.",
@@ -892,6 +914,10 @@ export const en = {
       rate: "Speed",
       times: (n: number) => (n === 0 ? "∞" : n === 1 ? "none" : `${n - 1}×`),
       seconds: (s: number) => `${s} s`,
+      gapAyah: (x: number) => `${x}× the ayah`,
+      chain: "Build up (1, 2, 1–2, 3, 1–3…)",
+      chainHelp:
+        "Each new ayah plays with its repeats, then everything so far plays once. Set the gap to the ayah's length to recite it back.",
       restart: "Start this ayah again",
       repeatButton: (v: string) => `Repeat each ayah: ${v}`,
       seek: "Position in the range",
@@ -921,12 +947,78 @@ export const en = {
       onDevice: (n: number, size: string) =>
         n === 0 ? "Nothing downloaded yet." : `${n} of 114 surahs · ${size}`,
       downloadAll: (size: string) => `Download all (about ${size})`,
-      deleteAll: "Delete downloaded audio",
-      deleteConfirm: (name: string, size: string) =>
-        `Delete ${name}'s downloaded audio (${size})? You can download it again later.`,
       sourceNote:
-        "Audio is downloaded from everyayah.com once, then plays without a connection.",
+        "Audio is downloaded from everyayah.com once, then plays without a connection. To delete it, open Settings → Audio storage → Saved audio.",
     },
+  },
+
+  /** Hafalan (memorisation) mode in the reader. */
+  hifdh: {
+    mode: "Hafalan mode",
+    show: "How much stays visible",
+    levels: {
+      "first-word": "First word",
+      "first-letter": "First letters",
+      hidden: "Hidden",
+    },
+    hideAgain: "Cover the text again",
+    off: "Leave Hafalan mode",
+    rate: "Rate this recitation",
+    rateTitle: (pages: string) => `How did it go? · memorised pages: ${pages}`,
+    ratings: { forgot: "Forgot", hard: "Hard", smooth: "Smooth" },
+    ratingHelp: {
+      forgot: "Due again tomorrow, and marked as needing review.",
+      hard: "Due again after the same number of days.",
+      smooth: "The next review moves further away.",
+    },
+    planTitle: "Today",
+    planEmpty:
+      "Mark what you have memorised to get a daily review plan: in the reader, tap an ayah and choose Memorisation.",
+    planHelp:
+      "Open a page, recite it from memory, then rate it with the clipboard button in the Hafalan bar.",
+    learning: "New (ziyadah)",
+    recent: "Recent review",
+    old: "Older review",
+    none: "Nothing due.",
+    oldMore: (n: string) => `${n} more older pages are due.`,
+    quota: "Older pages a day",
+    pageLabel: (page: number) => `Page ${page}`,
+    homeLine: (fresh: string, recent: string, old: string) =>
+      `${fresh} new · ${recent} recent · ${old} older`,
+    homeTitle: "Memorisation today",
+    sambung: "Continue the ayah",
+    sambungHelp:
+      "An ayah you have memorised is shown. Recite the one after it, then check yourself.",
+    sambungNone: "Mark at least two ayahs in a row as memorised to use this.",
+    sambungStart: "Start",
+    sambungPrompt: "Recite the ayah that comes next.",
+    sambungShow: "Show the next ayah",
+    gotIt: "I knew it",
+    score: (ok: string, total: string) => `${ok} of ${total} right`,
+    mistakes: "Words you stumbled on",
+    mistakesNone:
+      "None yet. In Hafalan mode on a printed page, press and hold a hidden word to peek at it; it is kept here.",
+    mistakesMore: (n: string) => `${n} more not shown.`,
+    mistakeOpen: (ref: string) => `Open ${ref}`,
+    mistakeRemove: (ref: string) => `Remove the stumble at ${ref}`,
+    times: (n: string) => `${n}×`,
+    mark: "Memorisation",
+    markTitle: (ref: string) => `Memorisation · ${ref}`,
+    applyTo: "Apply to",
+    extents: { ayah: "This ayah", page: "Page", surah: "Surah", juz: "Juz" },
+    ayahCount: (n: string) => `${n} ayahs`,
+    statuses: {
+      0: "Not started",
+      1: "Memorising",
+      2: "Memorised",
+      3: "Memorised, needs review",
+    },
+    mapKind: "Memorisation",
+    mapEmpty:
+      "Nothing is marked yet. In the reader, tap an ayah and choose Memorisation.",
+    mapSummary: (pct: string, n: string, weak: string) =>
+      `${pct} of the Qur'an memorised (${n} ayahs) · ${weak} need review`,
+    mapJuz: (juz: number, pct: string) => `Juz ${juz}: ${pct}`,
   },
 
   /** Tajweed rule names, keyed by markup code. */

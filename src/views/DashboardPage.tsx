@@ -1,3 +1,4 @@
+import type { Hifdh } from "../lib/hifdh";
 import { lazy, Suspense, useMemo, type ReactNode } from "react";
 import { BarChart3, Map as MapIcon } from "lucide-react";
 import type { QuranData } from "../types/quran";
@@ -22,6 +23,7 @@ export function DashboardPage({
   charts,
   lastRead,
   marked,
+  hifdh,
   onOpen,
   onExplore,
 }: {
@@ -31,6 +33,8 @@ export function DashboardPage({
   /** Ayah id last read, and the ayahs carrying a pin or in a collection. */
   lastRead?: number;
   marked: number[];
+  /** What the learner has memorised, for the map's highlight. */
+  hifdh: Hifdh;
   onOpen: (t: ReaderTarget) => void;
   onExplore: (t: ExploreTarget) => void;
 }) {
@@ -69,6 +73,7 @@ export function DashboardPage({
             surahMap={surahMap}
             lastRead={lastRead}
             bookmarks={marked}
+            hifdh={hifdh}
             onOpen={onOpen}
             onExplore={onExplore}
           />

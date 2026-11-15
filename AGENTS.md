@@ -291,6 +291,20 @@ an id.
   only (`onClose` through a ref): callers pass inline `onClose`s, and re-running
   the effect on every parent render used to pull focus out of a focused input,
   so Android's keyboard closed the moment it opened (bookmark name field).
+  Closing is animated: the X, the backdrop and Escape (so Android back too) go
+  through `requestClose`, which plays the exit with the Web Animations API
+  (panel to its own edge, backdrop to 0, 180 ms) and then calls `onClose`; a
+  close the caller makes itself (`open` set to false) unmounts at once. A
+  bottom sheet can be dragged down: native touch listeners on the panel
+  (`touchmove` non-passive), starting from the handle or header, or from the
+  content while no scroller between the touch and the panel is scrolled; it
+  closes past 30% of its height or on a flick, else springs back. The drag
+  maths is `lib/drag.ts` (pure, tested: `axisLock`, `velocity`, `commits`,
+  `rubberBand`, `animateTo`), shared with the reader's swipe. Translations are
+  divided by `rootZoom`. jsdom has no `Element.animate`, so `animateTo`
+  resolves at once and `onClose` runs synchronously in tests. Under
+  `prefers-reduced-motion` nothing slides: sheets fade (120 ms) and a drag
+  closes without following the finger.
 
 **Design system.** `PRODUCT.md` (who the app is for) and
 `DESIGN.md` ("Mushaf sebagai instrumen": tokens, type, rules) are the design
@@ -427,10 +441,62 @@ through `sanitizeMarks`, replacing the current ones after a confirm. Stored
 state follows other tabs (`usePersistentState` and the reading log listen for
 `storage` events), so two open tabs don't overwrite each other.
 
+**Hifdh (memorisation)** (`lib/hifdh.ts`, pure, tested; `qv.hifdh`, owned by
+`App`). `status` is a 6,236-character string, one digit per ayah in mushaf
+order (0 not started, 1 memorising, 2 memorised, 3 memorised but weak), so it
+holds whichever printed layout is chosen; `stumbles` maps `"<ayah id>:<word
+index from 0>"` to a count and date. Marking: "Memorisation" in the ayah
+popover and in a row's "more" menu opens `components/reader/HifdhSheet.tsx`
+(apply to this ayah, its page, surah or juz; choosing a status saves and
+closes). Hafalan mode (`qv.reader.hifdh` on/off, `qv.reader.hifdhLevel`:
+`first-word` | `first-letter` | `hidden`) is switched on in the reader's
+settings; while on, a bar under the toolbar holds the level, "cover again" and
+"leave". `data/hifdh.ts` (`maskWord`, `maskedParts`, the `WordMask` the reader
+builds) decides what each word shows; `Masked.tsx` draws the hidden part
+transparent over a slot, `aria-hidden`, so words keep their width and printed
+pages their shape. It reaches all three text renderers: `MushafLinesPage`,
+`AyahWords` (ayah rows) and `AyahText` (flow pages). A tap on a covered ayah
+uncovers it (in rows, a tap on any of its words); a tap on an uncovered ayah
+opens the usual popup. In the printed layout a press-and-hold on a hidden word
+is a peek: only that word shows and `addStumble` records it; a word with
+stumbles gets a dotted rubric underline while visible in Hafalan mode.
+Uncovered ayahs and peeks reset on navigation, a level change and leaving the
+mode. Peta Mushaf: the highlight kind "Memorisation" (`qv.peta.kind` =
+`hifdh`) keeps status 2 and 3 at full strength, dims the rest, dots status 3
+in rubric (`MapMarks.weak`), and shows the share memorised overall and for the
+juz under the pointer.
+
+Review (`lib/hifdh.ts`): the unit is the Madinah mushaf page (`verses.page`),
+kept in `reviews` as `{ due: dayKey, step }` on the `LADDER` 1-3-7-14-30-90
+days. `rateReview(h, pages, rating, today)`: smooth moves a page one step up
+and turns its status 3 back to 2; hard repeats the step; forgot returns it to
+step 0 and turns its status 2 into 3. In the reader the Hafalan bar's
+clipboard button rates the memorised pages of the current window
+(`pagesWith(hifdh, scopeVerses, [2, 3])`). `todaysPlan(h, verses, today,
+quota)` gives `learning` (pages with status 1), `recent` (due, step < 3) and
+`old` (due at step ≥ 3 or never reviewed, the longest overdue first, cut to
+`quota`, `qv.hifdh.quota`). Activity → Memorisation
+(`components/hifdh/HifdhPanel.tsx`, a `TABS` entry) shows that plan (a page
+opens in the reader with Hafalan mode switched on, `openForReview`), "Continue
+the ayah" (`sambungStarts`: a memorised ayah whose next ayah in the surah is
+memorised too; a miss marks the next ayah status 3, a hit clears it) and the
+stumbled words (`listStumbles`, `removeStumble`). Home shows a "Memorisation
+today" line once anything is marked. The context sheet's "Similar ayahs" tab
+compares each look-alike with the open ayah word by word
+(`data/similarDiff.ts` `diffWords`, an LCS over the words with pause marks
+ignored and vowel marks kept): differing words are tinted, or left as empty
+slots with "Hide the words that differ". Settings → Backup
+(`lib/backup.ts`, tested) saves every `qv.*` key and `quranviz.theme` except
+`qv.audio.location` to one JSON file; restoring replaces those keys after a
+confirm and reloads the page, so each value passes through its sanitizer.
+
 **Settings** (`views/SettingsView.tsx`, view id `settings`): language, theme,
 interface scale, accent, Qur'an font and size, last-read count, audio storage
-(Android app only, `components/settings/AudioStorageSettings.tsx`), chart
-settings, theme sharing, keyboard shortcuts, About, Welcome.
+(Android app only, `components/settings/AudioStorageSettings.tsx`; its "Saved
+audio" button opens `SavedAudio.tsx` in a `Sheet`: every reciter with audio on
+the device, its surah count and size, a delete for the whole reciter and, once
+the row is opened, one per surah; this is the only place audio is deleted),
+chart settings, theme sharing, keyboard shortcuts, About, Welcome.
 
 **Themes** (`theme/tokens.ts` `THEMES`, `ThemeContext`). Six named themes on a
 light or dark base: light, cream, sepia, dark, warm-dark, black, plus "system"
@@ -528,9 +594,17 @@ up to `MAX_EXTRA` extra each, loaded by `useTranslations` /
 markers in the text (`TranslationText`); a pressed one shows its note below.
 Transliteration follows the UI language (`transliterationFor`). Reading by
 juz, hizb, rukuʿ or page, the head's title is the surah at the top and the
-division is the bold subtitle. A sideways swipe on the list (≥ 80 px, mostly
-horizontal, under 0.7 s) goes to the next (left) or previous (right) window,
-like ←/→. Every ayah has a play button whenever a reciter exists; with the
+division is the bold subtitle. A sideways swipe on the list goes to the next
+(left) or previous (right) window, like ←/→, and the text follows the finger:
+once `axisLock` says the touch is sideways, the list's inner wrapper
+(`slideRef`) is translated with it; let go past 80 px or flicked, it slides
+out (150 ms, held with `fill: forwards`) and `go()` navigates, otherwise it
+springs back, and at either end of the scope it only gives a little
+(`rubberBand`). `go` and the end-of-list buttons record the direction in
+`arriveFrom`; a layout effect keyed on the target cancels the held exit and
+slides the new window in from 48 px on that side (240 ms). Other jumps (Go to,
+the strip) do not animate. The scroller is `touch-pan-y overflow-x-hidden`.
+Reduced motion: no following, a 120 ms fade on arrival. Every ayah has a play button whenever a reciter exists; with the
 player hidden it opens it. While a reciter with word timings
 (`data/wordTimings.ts`, `TIMED_RECITERS`) plays, `AyahWords` (ayah rows)
 and `MushafLinesPage` light up the word being recited from `rec.clock`. Only an
@@ -647,8 +721,11 @@ written only when the whole surah is in place. One app-wide queue
 downloaded stops playback and sets `rec.missing`; once that surah is on the
 device, playback carries on from that ayah by itself (stopping forgets it).
 Meanwhile the `MiniPlayer` is the download offer (what, estimated size by word share, progress,
-cancel); the options sheet shows what is on the device, "download all" and
-"delete" (with a confirm). This, word timings and the downloadable tafsirs (see the ETL
+cancel); the options sheet shows what is on the device and "download all".
+Deleting lives in Settings → Audio storage → Saved audio: `deleteReciterAudio`
+for a whole reciter, `deleteSurahAudio(reciter, job)` for one surah (manifest
+saved first, then the surah's files and `words-<surah>.json`; the shared
+basmalah `001001.mp3` stays until the reciter's last surah goes). This, word timings and the downloadable tafsirs (see the ETL
 section) are the app's only network use, and only on the learner's tap.
 
 Settings → Audio storage chooses where audio lives: the two app-private
@@ -711,8 +788,15 @@ by CI (no Android SDK on the dev machine), so check the PR's `apk` job.
   the sheet's own close keeps the changes), then: reciter select (name · bitrate; `origin` stays in the data only), From/To as surah + ayah dropdowns between −/+ steppers
   (picking a surah jumps to its first ayah for From, its last for To), "set to
   the playing ayah", reset, and
-  repeat ayah / repeat range (0 = ∞) / gap / speed, persisted as
-  `qv.audio.options`. The player closes itself (X, `qv.reader.audio` off) and its
+  repeat ayah / repeat range (0 = ∞) / gap / speed and the "Build up" switch,
+  persisted as `qv.audio.options`. A negative gap is a multiple of the ayah's
+  own length (`GAP_CHOICES` −1 and −1.5, `gapSeconds(gap, duration, rate)`),
+  the pause for reciting the ayah back. "Build up" (`chain`) makes `advance`
+  go through `advanceChain`: each new ayah with its repeats, then the range
+  from its start up to that ayah once (`Cursor.joinTo`), so ayahs 1–3 with two
+  plays each run 1 1 2 2 1 2 3 3 1 2 3; range repeats then replay the whole
+  range, and a cursor without `joinTo` (a fresh start, a seek) is on a new
+  ayah. The seek bar's length estimate ignores the extra passes. The player closes itself (X, `qv.reader.audio` off) and its
 options button is the sliders icon (reader settings keep the gear). In the
 app the reciter list puts reciters with audio on the device first (check mark,
 `Select` option `icon`), then a dividing line (`separator`), then the rest;

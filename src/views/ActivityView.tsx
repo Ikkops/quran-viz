@@ -9,11 +9,15 @@ import { useI18n } from "../i18n/I18nContext";
 import { SegmentedControl } from "../components/ui";
 import { ActivityPanel } from "../components/home/ActivityPanel";
 import { MarksPanel } from "../components/marks/MarksPanel";
+import { HifdhPanel } from "../components/hifdh/HifdhPanel";
+import type { Hifdh } from "../lib/hifdh";
 
 type ActivityProps = {
   data: QuranData;
   marks: Marks;
   onMarks: (m: Marks) => void;
+  hifdh: Hifdh;
+  onHifdh: (h: Hifdh) => void;
   onOpen: (t: ReaderTarget) => void;
 };
 
@@ -28,7 +32,16 @@ const TABS = [
   {
     id: "marks",
     label: (t: Messages) => t.activity.tabs.marks,
-    render: (p: ActivityProps): ReactNode => <MarksPanel {...p} />,
+    render: (p: ActivityProps): ReactNode => (
+      <MarksPanel data={p.data} marks={p.marks} onMarks={p.onMarks} onOpen={p.onOpen} />
+    ),
+  },
+  {
+    id: "hifdh",
+    label: (t: Messages) => t.activity.tabs.hifdh,
+    render: (p: ActivityProps): ReactNode => (
+      <HifdhPanel data={p.data} hifdh={p.hifdh} onHifdh={p.onHifdh} onOpen={p.onOpen} />
+    ),
   },
 ] as const;
 

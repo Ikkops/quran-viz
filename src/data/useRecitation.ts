@@ -7,6 +7,7 @@ import {
   RECITER_INFO,
   WEB_AUDIO_BASE,
   advance,
+  gapSeconds,
   audioIndexUrl,
   ayahAudioUrl,
   basmalahAudioUrl,
@@ -334,7 +335,9 @@ export function useRecitation({
       return;
     }
     // No gap between the basmalah and its ayah.
-    const gap = cur.basmalah ? 0 : o.gap;
+    const gap = cur.basmalah
+      ? 0
+      : gapSeconds(o.gap, audioRef.current?.duration ?? 0, o.rate);
     if (gap > 0) gapTimer.current = setTimeout(() => start(nxt), gap * 1000);
     else start(nxt);
   }, [start, setAt]);

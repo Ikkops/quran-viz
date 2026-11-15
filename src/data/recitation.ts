@@ -19,6 +19,9 @@ export interface LoopRange {
 export interface LoopOptions {
   ayahRepeat: number;
   rangeRepeat: number;
+  /** Build the range up the way a portion is memorised: each new ayah with
+   *  its repeats, then everything so far once (1, 2, 1–2, 3, 1–3, …). */
+  chain?: boolean;
 }
 
 /** Where playback is. `ayahPass`/`rangePass` count completed plays. */
@@ -28,6 +31,9 @@ export interface Cursor {
   rangePass: number;
   /** Playing the basmalah that precedes ayah `id`. */
   basmalah: boolean;
+  /** Chain mode, while joining: the pass from the range's start runs up to
+   *  this ayah. Absent while a new ayah is being repeated. */
+  joinTo?: number;
 }
 
 /** Loop counts plus playback feel, persisted as `qv.audio.options`. */
@@ -59,7 +65,17 @@ export function nextRepeat(plays: number): number {
 export function repeatBadge(plays: number): string {
   return plays === 0 ? "∞" : plays <= 1 ? "" : `${plays - 1}×`;
 }
-export const GAP_CHOICES = [0, 0.5, 1, 2, 3] as const;
+/** Seconds of silence after an ayah; a negative value is that many times the
+ *  ayah's own length, the pause for reciting it back (talqin). */
+export const GAP_CHOICES = [0, 0.5, 1, 2, 3, -1, -1.5] as const;
+
+/** The silence after an ayah that took `duration` seconds to play at `rate`. */
+export function gapSeconds(gap: number, duration: number, rate: number): number {
+  if (gap >= 0) return gap;
+  return Number.isFinite(duration) && duration > 0 && rate > 0
+    ? (-gap * duration) / rate
+    : 0;
+}
 export const RATE_CHOICES = [0.75, 0.9, 1, 1.1, 1.25, 1.5] as const;
 
 export const DEFAULT_RECITATION: RecitationOptions = {
@@ -67,6 +83,7 @@ export const DEFAULT_RECITATION: RecitationOptions = {
   rangeRepeat: 1,
   gap: 0,
   rate: 1,
+  chain: false,
 };
 
 /** Keep stored options only where each value is still one of the choices. */
@@ -81,6 +98,7 @@ export function sanitizeRecitationOptions(raw: unknown): RecitationOptions | und
     rangeRepeat: pick(r.rangeRepeat, REPEAT_CHOICES, d.rangeRepeat),
     gap: pick(r.gap, GAP_CHOICES, d.gap),
     rate: pick(r.rate, RATE_CHOICES, d.rate),
+    chain: r.chain === true,
   };
 }
 
@@ -106,6 +124,8 @@ export function advance(
   needsBasmalah: (id: number) => boolean,
 ): Cursor | null {
   if (cur.basmalah) return { ...cur, basmalah: false };
+  if (opts.chain && range.to > range.from && !outsideRange(cur.id, range))
+    return advanceChain(cur, range, opts, needsBasmalah);
   const ayahPass = cur.ayahPass + 1;
   if (opts.ayahRepeat === 0 || ayahPass < opts.ayahRepeat) return { ...cur, ayahPass };
   if (cur.id < range.from) return cursorAt(range.from, needsBasmalah, cur.rangePass);
@@ -114,6 +134,36 @@ export function advance(
   const rangePass = cur.rangePass + 1;
   if (opts.rangeRepeat !== 0 && rangePass >= opts.rangeRepeat) return null;
   return cursorAt(range.from, needsBasmalah, rangePass);
+}
+
+/**
+ * Chain mode: a new ayah plays with its repeats, then the range from its
+ * start up to that ayah plays once to join them, then the next new ayah, and
+ * so on to the range's end. Range repeats then replay the whole range. A
+ * cursor without `joinTo` (a fresh start, a seek) is on a new ayah.
+ */
+function advanceChain(
+  cur: Cursor,
+  range: LoopRange,
+  opts: LoopOptions,
+  needsBasmalah: (id: number) => boolean,
+): Cursor | null {
+  const at = (id: number, joinTo?: number, rangePass = cur.rangePass): Cursor => ({
+    ...cursorAt(id, needsBasmalah, rangePass),
+    ...(joinTo === undefined ? {} : { joinTo }),
+  });
+  if (cur.joinTo === undefined) {
+    const ayahPass = cur.ayahPass + 1;
+    if (opts.ayahRepeat === 0 || ayahPass < opts.ayahRepeat) return { ...cur, ayahPass };
+    // The first ayah has nothing before it to join with.
+    return cur.id === range.from ? at(cur.id + 1) : at(range.from, cur.id);
+  }
+  const joinTo = Math.min(cur.joinTo, range.to);
+  if (cur.id < joinTo) return at(cur.id + 1, joinTo);
+  if (joinTo < range.to) return at(joinTo + 1);
+  const rangePass = cur.rangePass + 1;
+  if (opts.rangeRepeat !== 0 && rangePass >= opts.rangeRepeat) return null;
+  return at(range.from, range.to, rangePass);
 }
 
 /** Move one end of the range by `delta`, clamped to [1, max]; the other end

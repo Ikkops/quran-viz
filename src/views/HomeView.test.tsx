@@ -1,3 +1,4 @@
+import { emptyHifdh } from "../lib/hifdh";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -45,6 +46,8 @@ function home(over: Partial<Parameters<typeof HomeView>[0]> = {}) {
         onOpen={onOpen}
         onSearch={() => {}}
         onActivity={() => {}}
+        hifdh={emptyHifdh()}
+        onHifdhPlan={() => {}}
         {...over}
       />
     </ThemeProvider>,

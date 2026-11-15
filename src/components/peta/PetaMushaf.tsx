@@ -1,3 +1,4 @@
+import { ayahsWith, type Hifdh } from "../../lib/hifdh";
 import { useId, useMemo, useState } from "react";
 import { ArrowUpRight, BookOpen, Play, X } from "lucide-react";
 import type { Surah, Verse } from "../../types/quran";
@@ -15,7 +16,7 @@ import { Button, Card, SectionTitle, SegmentedControl, cx } from "../ui";
 import type { ExploreTarget } from "../reader/VerseContextPanel";
 import { MushafMap, type MapMarks, type PickHow } from "./MushafMap";
 
-type HighlightKind = "none" | "root" | "topic";
+type HighlightKind = "none" | "root" | "topic" | "hifdh";
 
 /** sessionStorage flag: the opening reveal has played in this session. */
 const REVEAL_SEEN = "qv.peta.revealed";
@@ -63,6 +64,7 @@ export function PetaMushaf({
   surahMap,
   lastRead,
   bookmarks,
+  hifdh,
   onOpen,
   onExplore,
 }: {
@@ -71,6 +73,8 @@ export function PetaMushaf({
   /** Ayah id of the last-read position, if any. */
   lastRead?: number;
   bookmarks: number[];
+  /** What the learner has memorised (the "Memorisation" highlight). */
+  hifdh: Hifdh;
   onOpen: (t: ReaderTarget) => void;
   onExplore: (t: ExploreTarget) => void;
 }) {
@@ -96,7 +100,7 @@ export function PetaMushaf({
   const [kind, setKind] = usePersistentState<HighlightKind>(
     "qv.peta.kind",
     "none",
-    persisted.oneOf(["none", "root", "topic"] as const),
+    persisted.oneOf(["none", "root", "topic", "hifdh"] as const),
   );
   const [rootBw, setRootBw] = usePersistentState<string | null>("qv.peta.root", null);
   const [topicKey, setTopicKey] = usePersistentState<string | null>(
@@ -131,11 +135,21 @@ export function PetaMushaf({
 
   const root = kind === "root" ? roots.data?.find((r) => r.bw === rootBw) : undefined;
   const topicIdx = kind === "topic" && topicKey ? tree?.byKey.get(topicKey) : undefined;
+  // Memorised ayahs (solid or needing review) stand out; the rest dim.
+  const memorised = useMemo(
+    () => (kind === "hifdh" ? ayahsWith(hifdh, [2, 3]) : []),
+    [kind, hifdh],
+  );
+  const weak = useMemo(
+    () => (kind === "hifdh" ? ayahsWith(hifdh, [3]) : []),
+    [kind, hifdh],
+  );
   const highlight = useMemo<Set<number> | null>(() => {
     if (root) return new Set(root.v);
     if (tree && topicIdx !== undefined) return new Set(tree.all[topicIdx]);
+    if (memorised.length > 0) return new Set(memorised);
     return null;
-  }, [root, tree, topicIdx]);
+  }, [root, tree, topicIdx, memorised]);
 
   const suggestions = useMemo(() => {
     const q = query.trim();
@@ -158,8 +172,9 @@ export function PetaMushaf({
       sajda: showSajda,
       lastRead: showLast ? lastRead : undefined,
       bookmarks: showMarks ? bookmarks : undefined,
+      weak,
     }),
-    [showSajda, showLast, lastRead, showMarks, bookmarks],
+    [showSajda, showLast, lastRead, showMarks, bookmarks, weak],
   );
 
   const open = (id: number) => {
@@ -201,6 +216,26 @@ export function PetaMushaf({
     : tree && topicIdx !== undefined
       ? t.peta.topicHits(topicName(tree.nodes[topicIdx], lang), n(highlight?.size ?? 0))
       : null;
+  // Memorisation: the share of the whole Qur'an, and of the juz under the
+  // pointer or selection.
+  const pct = (part: number, whole: number) =>
+    `${n(Math.round((1000 * part) / Math.max(1, whole)) / 10)}%`;
+  const hifdhLine =
+    kind !== "hifdh"
+      ? null
+      : memorised.length === 0
+        ? t.hifdh.mapEmpty
+        : t.hifdh.mapSummary(
+            pct(memorised.length, verses.length),
+            n(memorised.length),
+            n(weak.length),
+          );
+  const hifdhJuz = useMemo(() => {
+    if (kind !== "hifdh" || !shown || memorised.length === 0) return null;
+    const inJuz = verses.filter((v) => v.juz === shown.juz);
+    const done = inJuz.filter((v) => highlight?.has(v.id)).length;
+    return { juz: shown.juz, done, total: inJuz.length };
+  }, [kind, shown, memorised.length, verses, highlight]);
   const loadingHighlight =
     (kind === "root" && !roots.data) || (kind === "topic" && !tree);
 
@@ -250,9 +285,10 @@ export function PetaMushaf({
             { value: "none", label: t.peta.none },
             { value: "root", label: t.peta.root },
             { value: "topic", label: t.peta.topic },
+            { value: "hifdh", label: t.hifdh.mapKind },
           ]}
         />
-        {kind !== "none" && (
+        {(kind === "root" || kind === "topic") && (
           <div className="relative min-w-[14rem] flex-1">
             <input
               value={query}
@@ -293,6 +329,14 @@ export function PetaMushaf({
           </div>
         )}
       </div>
+
+      {hifdhLine && (
+        <p className="mb-3 text-sm tabular-nums text-ink">
+          {hifdhLine}
+          {hifdhJuz &&
+            ` · ${t.hifdh.mapJuz(hifdhJuz.juz, pct(hifdhJuz.done, hifdhJuz.total))}`}
+        </p>
+      )}
 
       {hits && (
         <p className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink">

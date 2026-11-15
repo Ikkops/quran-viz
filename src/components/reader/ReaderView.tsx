@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowLeft, ArrowRight, Plus, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, ClipboardCheck, EyeOff, Plus, X } from "lucide-react";
 import type { EditionsIndex, Surah, Verse } from "../../types/quran";
 import { SCOPE_MAX, surahColorById, type ReaderScope } from "../charts/common";
 import type { ColorMode, ReaderTarget } from "../charts/common";
@@ -85,7 +85,6 @@ import {
 import { useReciters, useRecitation } from "../../data/useRecitation";
 import {
   cancelDownloads,
-  deleteReciterAudio,
   deviceTimings,
   downloadSurahs,
   isNativeApp,
@@ -101,6 +100,34 @@ import {
 import { QuranStrip } from "../peta/QuranStrip";
 import { TajweedRules } from "./TajweedRules";
 import { nextHeadHidden } from "../../lib/hideOnScroll";
+import { HifdhSheet } from "./HifdhSheet";
+import {
+  RATINGS,
+  addStumble,
+  pagesWith,
+  rateReview,
+  stumbleCount,
+  type Hifdh,
+} from "../../lib/hifdh";
+import { dayKey } from "../../data/readingLog";
+import {
+  HIFDH_LEVELS,
+  maskedParts,
+  type HifdhLevel,
+  type WordMask,
+} from "../../data/hifdh";
+import { splitWords } from "../../data/mushafLayout";
+import {
+  EASE_IN,
+  EASE_OUT,
+  animateTo,
+  axisLock,
+  commits,
+  prefersReducedMotion,
+  rubberBand,
+  velocity,
+  type DragSample,
+} from "../../lib/drag";
 import { ReaderToolbar } from "./ReaderToolbar";
 import {
   VerseRow,
@@ -153,6 +180,9 @@ export interface ReaderViewProps {
   /** Pins and collections (owned by App, persisted). */
   marks: Marks;
   onMarks: (m: Marks) => void;
+  /** Memorisation status and stumbles (owned by App, persisted). */
+  hifdh: Hifdh;
+  onHifdh: (h: Hifdh) => void;
   /** The ayah being read (it stayed on screen, or is being recited). */
   onRead?: (id: number) => void;
   /** Open a root or topic in the dashboard explorers. */
@@ -183,6 +213,8 @@ export function ReaderView({
   onClose,
   marks,
   onMarks,
+  hifdh,
+  onHifdh,
   onRead,
   onExplore,
   phone,
@@ -332,13 +364,59 @@ export function ReaderView({
     const v = verses[id - 1];
     return v ? wordsAt(v.s, v.a) : undefined;
   };
-  // One popup at a time: a word's or an ayah's.
-  const onWord = (id: number, w: number, el: Element) => {
+  // Hafalan mode: ayahs the learner uncovered to check themselves, and single
+  // words they peeked at. Both start over with the window or the level.
+  // The ayah whose memorisation is being marked.
+  const [hifdhFor, setHifdhFor] = useState<number | null>(null);
+  // Rating how reciting this window from memory went.
+  const [rating, setRating] = useState(false);
+  const [revealed, setRevealed] = useState<ReadonlySet<number>>(new Set());
+  const [peeked, setPeeked] = useState<ReadonlySet<string>>(new Set());
+  const hideAgain = useCallback(() => {
+    setRevealed(new Set());
+    setPeeked(new Set());
+  }, []);
+  useEffect(hideAgain, [hideAgain, target.scope, target.value, p.hifdhLevel, p.hifdhOn]);
+  const mask = useMemo<WordMask | null>(
+    () =>
+      p.hifdhOn
+        ? {
+            level: p.hifdhLevel,
+            ayahShown: (id) => revealed.has(id),
+            wordShown: (id, w) => peeked.has(`${id}:${w}`),
+            stumbled: (id, w) => stumbleCount(hifdh, id, w) > 0,
+          }
+        : null,
+    [p.hifdhOn, p.hifdhLevel, revealed, peeked, hifdh],
+  );
+  // The memorised pages in this window: what a rating applies to.
+  const ratePages = useMemo(
+    () => (p.hifdhOn ? pagesWith(hifdh, scopeVerses, [2, 3]) : []),
+    [p.hifdhOn, hifdh, scopeVerses],
+  );
+  const covered = (id: number) => !!mask && !revealed.has(id);
+  const reveal = (id: number) => setRevealed((s) => new Set(s).add(id));
+  const openWord = (id: number, w: number, el: Element) => {
     setMenuFor(null);
     setAyahPick(null);
     setWordPick(pickOf(id, w, el));
   };
+  // One popup at a time: a word's or an ayah's. While an ayah is covered, a
+  // tap uncovers it instead (to check a recitation from memory).
+  const onWord = (id: number, w: number, el: Element) => {
+    if (covered(id)) reveal(id);
+    else openWord(id, w, el);
+  };
+  // Press-and-hold on a printed word. On a hidden word it is a peek: only
+  // that word shows, and it is kept as a stumble.
+  const onWordHold = (id: number, w: number, el: Element) => {
+    const text = splitWords(verses[id - 1]?.ar ?? "")[w] ?? "";
+    if (!maskedParts(mask, id, w, text)[1]) return openWord(id, w, el);
+    setPeeked((s) => new Set(s).add(`${id}:${w}`));
+    onHifdh(addStumble(hifdh, id, w, Date.now()));
+  };
   const onAyah = (id: number, rect: PickRect) => {
+    if (covered(id)) return reveal(id);
     setWordPick(null);
     setAyahPick({ id, rect });
   };
@@ -489,16 +567,6 @@ export function ReaderView({
           reciterId,
           jobsFor(surahs.map((x) => x.id).filter((n) => !onDevice[n])),
         ),
-      onDeleteAll: () => {
-        if (
-          window.confirm(
-            t.reader.audio.deleteConfirm(reciter?.name ?? "", formatBytes(bytes)),
-          )
-        ) {
-          rec.stop();
-          void deleteReciterAudio(reciterId);
-        }
-      },
     };
   }
   const audioOn = !!reciter && p.showAudio;
@@ -846,12 +914,37 @@ export function ReaderView({
 
   // ← / → step through the scope (not while typing).
   const max = SCOPE_MAX[target.scope];
+  // The side the next window arrives from: +1 going forward, -1 going back.
+  const arriveFrom = useRef(0);
+  const leaving = useRef<Animation | null>(null);
+  const slideRef = useRef<HTMLDivElement>(null);
   const go = useCallback(
     (value: number) => {
-      if (value >= 1 && value <= max) onNavigate({ scope: target.scope, value });
+      if (value < 1 || value > max) return;
+      arriveFrom.current = Math.sign(value - target.value);
+      onNavigate({ scope: target.scope, value });
     },
-    [max, onNavigate, target.scope],
+    [max, onNavigate, target.scope, target.value],
   );
+  // A window reached by stepping (a swipe, ← / →, the end-of-list buttons)
+  // slides in from the side it lies on; any other jump just appears. A short
+  // offset, not the full width: the list is still settling on its anchor.
+  useLayoutEffect(() => {
+    const dir = arriveFrom.current;
+    arriveFrom.current = 0;
+    leaving.current?.cancel();
+    leaving.current = null;
+    if (!dir) return;
+    const reduced = prefersReducedMotion();
+    animateTo(
+      slideRef.current,
+      [
+        { opacity: 0, transform: reduced ? "none" : `translateX(${dir * 48}px)` },
+        { opacity: 1, transform: "none" },
+      ],
+      { duration: reduced ? 120 : 240, easing: EASE_OUT },
+    );
+  }, [target.scope, target.value]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement as HTMLElement | null;
@@ -873,27 +966,98 @@ export function ReaderView({
   }, [go, target.value]);
 
   // A sideways swipe moves to the next (swipe left) or previous (swipe right)
-  // surah, juz, hizb, rukuʿ or page, like ← / →. Not from inputs and sliders,
-  // nor while text is being selected.
-  const swipe = useRef<{ x: number; y: number; at: number } | null>(null);
+  // surah, juz, hizb, rukuʿ or page, like ← / →. The text follows the finger;
+  // let go past 80 px (or flicked) it slides away and the next window comes
+  // in, otherwise it springs back, and at either end of the scope it only
+  // gives a little. Not from inputs and sliders, nor while text is selected.
+  const swipe = useRef<{
+    x: number;
+    y: number;
+    locked: boolean;
+    raw: number;
+    dx: number;
+    samples: DragSample[];
+  } | null>(null);
   const onSwipeStart = (e: React.TouchEvent) => {
     const el = e.target as Element;
     swipe.current =
       e.touches.length === 1 &&
+      !leaving.current &&
       !el.closest("input, textarea, [role='slider'], [data-no-swipe]")
-        ? { x: e.touches[0].clientX, y: e.touches[0].clientY, at: Date.now() }
+        ? {
+            x: e.touches[0].clientX,
+            y: e.touches[0].clientY,
+            locked: false,
+            raw: 0,
+            dx: 0,
+            samples: [],
+          }
         : null;
   };
-  const onSwipeEnd = (e: React.TouchEvent) => {
+  const onSwipeMove = (e: React.TouchEvent) => {
+    const st = swipe.current;
+    if (!st) return;
+    const tch = e.touches[0];
+    const dx = tch.clientX - st.x;
+    if (!st.locked) {
+      const axis = axisLock(dx, tch.clientY - st.y);
+      if (!axis) return;
+      if (axis !== "x" || window.getSelection?.()?.toString()) {
+        swipe.current = null;
+        return;
+      }
+      st.locked = true;
+    }
+    const next = target.value + (dx < 0 ? 1 : -1);
+    st.raw = dx;
+    // The app root is zoomed: a px inside it is `zoom` px of the finger's.
+    st.dx = (next >= 1 && next <= max ? dx : rubberBand(dx)) / rootZoom(popupRoot());
+    st.samples.push({ p: tch.clientX, t: e.timeStamp });
+    if (slideRef.current && !prefersReducedMotion())
+      slideRef.current.style.transform = `translateX(${st.dx}px)`;
+  };
+  const onSwipeEnd = () => {
     const st = swipe.current;
     swipe.current = null;
-    if (!st || Date.now() - st.at > 700) return;
-    if (window.getSelection?.()?.toString()) return;
-    const tch = e.changedTouches[0];
-    const dx = tch.clientX - st.x;
-    const dy = tch.clientY - st.y;
-    if (Math.abs(dx) < 80 || Math.abs(dx) < 2.5 * Math.abs(dy)) return;
-    go(target.value + (dx < 0 ? 1 : -1));
+    if (!st?.locked) return;
+    const el = slideRef.current;
+    if (el) el.style.transform = "";
+    const follow = !prefersReducedMotion();
+    const dir = st.raw < 0 ? 1 : -1;
+    const next = target.value + dir;
+    const forward = velocity(st.samples) * Math.sign(st.raw);
+    if (next < 1 || next > max || !commits(Math.abs(st.raw), 80, forward, 1)) {
+      if (follow)
+        animateTo(el, [{ transform: `translateX(${st.dx}px)` }, { transform: "none" }], {
+          duration: 200,
+          easing: EASE_OUT,
+        });
+      return;
+    }
+    const out = follow
+      ? animateTo(
+          el,
+          [
+            { transform: `translateX(${st.dx}px)`, opacity: 1 },
+            { transform: `translateX(${-dir * (el?.offsetWidth ?? 0)}px)`, opacity: 0 },
+          ],
+          { duration: 150, easing: EASE_IN, fill: "forwards" },
+        )
+      : null;
+    // No animation to wait for (reduced motion, tests): go now.
+    if (!out?.animation) return go(next);
+    const mine = out.animation;
+    leaving.current = mine;
+    void out.done.then(() => {
+      go(next);
+      // The arrival clears the exit; if the reader did not move, undo it.
+      setTimeout(() => {
+        if (leaving.current !== mine) return;
+        mine.cancel();
+        leaving.current = null;
+        arriveFrom.current = 0;
+      }, 400);
+    });
   };
 
   // A row's "more" menu closes on any press outside it.
@@ -1063,6 +1227,7 @@ export function ReaderView({
     tajweed: tajweedState.data,
     wordsOf,
     onWord,
+    mask,
     glossLang: p.glossLang,
     inlineTafsirs,
     search: searchHits,
@@ -1094,6 +1259,7 @@ export function ReaderView({
     playFrom,
     marksAt,
     openMark: (id, kind) => setMarkFor({ id, kind }),
+    openHifdh: setHifdhFor,
     copied,
     copyText,
     copyLink,
@@ -1314,6 +1480,7 @@ export function ReaderView({
           label={t.reader.themes}
         />
         <Toggle checked={p.showAsbab} onChange={p.setShowAsbab} label={t.reader.asbab} />
+        <Toggle checked={p.hifdhOn} onChange={p.setHifdhOn} label={t.hifdh.mode} />
       </div>
       <div className="flex flex-col gap-3">
         <Slider
@@ -1444,6 +1611,45 @@ export function ReaderView({
           settings={settings}
         />
 
+        {/* Hafalan mode is on: how much shows, cover again, leave the mode. */}
+        {p.hifdhOn && (
+          <div
+            role="group"
+            aria-label={t.hifdh.mode}
+            className="flex items-center gap-0.5 border-b border-line bg-paper px-2 py-1"
+          >
+            <div className="min-w-0 flex-1">
+              <SegmentedControl<HifdhLevel>
+                ariaLabel={t.hifdh.show}
+                value={p.hifdhLevel}
+                onChange={p.setHifdhLevel}
+                options={HIFDH_LEVELS.map((l) => ({
+                  value: l,
+                  label: t.hifdh.levels[l],
+                }))}
+              />
+            </div>
+            <QuietIconButton
+              label={t.hifdh.hideAgain}
+              disabled={revealed.size + peeked.size === 0}
+              onClick={hideAgain}
+            >
+              <EyeOff size={18} />
+            </QuietIconButton>
+            <QuietIconButton
+              label={t.hifdh.rate}
+              aria-haspopup="dialog"
+              disabled={ratePages.length === 0}
+              onClick={() => setRating(true)}
+            >
+              <ClipboardCheck size={18} />
+            </QuietIconButton>
+            <QuietIconButton label={t.hifdh.off} onClick={() => p.setHifdhOn(false)}>
+              <X size={18} />
+            </QuietIconButton>
+          </div>
+        )}
+
         {/* Where this scope sits in the whole Qur'an, and where you are in it. */}
         <QuranStrip
           verses={verses}
@@ -1470,10 +1676,12 @@ export function ReaderView({
           ref={scrollRef}
           onScroll={onListScroll}
           onTouchStart={onSwipeStart}
+          onTouchMove={onSwipeMove}
           onTouchEnd={onSwipeEnd}
-          className="min-w-0 flex-1 overflow-y-auto px-3 pb-4 pt-1"
+          onTouchCancel={onSwipeEnd}
+          className="min-w-0 flex-1 touch-pan-y overflow-y-auto overflow-x-hidden px-3 pb-4 pt-1"
         >
-          <div className="mx-auto max-w-4xl">
+          <div ref={slideRef} className="mx-auto max-w-4xl">
             <div
               style={{
                 height: `${rowVirtualizer.getTotalSize()}px`,
@@ -1520,7 +1728,8 @@ export function ReaderView({
                         audioRange={audioOn && loopRange ? range : null}
                         glosses={p.showWords ? wordsOf : null}
                         glossLang={p.glossLang}
-                        onWord={onWord}
+                        mask={mask}
+                        onWord={onWordHold}
                         onAyah={onAyah}
                       />
                     </div>
@@ -1549,6 +1758,7 @@ export function ReaderView({
                         tajweed={p.showTajweed ? tajweedState.data : null}
                         selectedId={contextSheet ? highlightId : ayahPick?.id}
                         playingId={audioOn ? playingId : undefined}
+                        mask={mask}
                         onAyah={onAyah}
                       />
                     ) : (
@@ -1566,7 +1776,10 @@ export function ReaderView({
               <div className="flex flex-wrap items-center justify-center gap-2 pb-4 pt-6">
                 {prevTarget && (
                   <Button
-                    onClick={() => onNavigate(prevTarget)}
+                    onClick={() => {
+                      arriveFrom.current = -1;
+                      onNavigate(prevTarget);
+                    }}
                     icon={<ArrowLeft size={16} aria-hidden />}
                     className={END_NAV}
                   >
@@ -1576,7 +1789,10 @@ export function ReaderView({
                 {nextTarget && (
                   <Button
                     variant="primary"
-                    onClick={() => onNavigate(nextTarget)}
+                    onClick={() => {
+                      arriveFrom.current = 1;
+                      onNavigate(nextTarget);
+                    }}
                     className={END_NAV}
                   >
                     {t.reader.continueTo(t.scope[target.scope], nextTarget.value)}
@@ -1667,9 +1883,58 @@ export function ReaderView({
             playFrom(ayahPick.id);
           }}
           onContext={() => openContext(ayahPick.id)}
+          onHifdh={() => {
+            setHifdhFor(ayahPick.id);
+            setAyahPick(null);
+          }}
           onClose={() => setAyahPick(null)}
         />
       )}
+
+      <Sheet
+        open={rating}
+        onClose={() => setRating(false)}
+        title={t.hifdh.rateTitle(n(ratePages.length))}
+        side={phone ? "bottom" : "right"}
+        closeLabel={t.common.close}
+      >
+        <ul className="flex flex-col gap-0.5 px-4 py-3">
+          {RATINGS.map((r) => (
+            <li key={r}>
+              <button
+                type="button"
+                onClick={() => {
+                  onHifdh(rateReview(hifdh, ratePages, r, dayKey(new Date())));
+                  setRating(false);
+                  hideAgain();
+                }}
+                className="flex min-h-11 w-full flex-col justify-center rounded-md px-2 py-1.5 text-left transition-colors hover:bg-surface-sunken"
+              >
+                <span className="text-sm font-medium text-ink">{t.hifdh.ratings[r]}</span>
+                <span className="text-xs text-ink-subtle">{t.hifdh.ratingHelp[r]}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </Sheet>
+
+      <Sheet
+        open={hifdhFor !== null}
+        onClose={() => setHifdhFor(null)}
+        title={hifdhFor !== null ? t.hifdh.markTitle(refOf(hifdhFor)) : ""}
+        side={phone ? "bottom" : "right"}
+        closeLabel={t.common.close}
+      >
+        {hifdhFor !== null && (
+          <HifdhSheet
+            ayah={hifdhFor}
+            verses={verses}
+            hifdh={hifdh}
+            onHifdh={onHifdh}
+            onDone={() => setHifdhFor(null)}
+          />
+        )}
+      </Sheet>
 
       <Sheet
         open={!!wordDetail}

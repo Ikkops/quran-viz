@@ -1,5 +1,6 @@
+import { emptyHifdh } from "../../lib/hifdh";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MARK_COLORS, initialMarks, movePin } from "../../lib/marks";
 import type { EditionsIndex, Surah, Verse } from "../../types/quran";
@@ -126,6 +127,8 @@ function renderReader(overrides?: Partial<Parameters<typeof ReaderView>[0]>) {
       onClose={() => {}}
       marks={initialMarks({ pin: "Tilawah", collection: "Favourites" })}
       onMarks={() => {}}
+      hifdh={emptyHifdh()}
+      onHifdh={() => {}}
       {...overrides}
     />,
   );
@@ -201,6 +204,41 @@ describe("ReaderView", () => {
     renderReader({ onNavigate });
     await user.click(screen.getByRole("button", { name: /Continue to Surah 2/i }));
     expect(onNavigate).toHaveBeenCalledWith({ scope: "surah", value: 2 });
+  });
+
+  it("goes to the next surah on a swipe left, and not on a short one", () => {
+    const onNavigate = vi.fn();
+    renderReader({ onNavigate });
+    const text = screen.getByRole("button", { name: /Continue to Surah 2/i });
+    const at = (x: number) => ({ touches: [{ clientX: x, clientY: 100 }] });
+    fireEvent.touchStart(text, at(300));
+    fireEvent.touchMove(text, at(270));
+    fireEvent.touchEnd(text, { touches: [] });
+    expect(onNavigate).not.toHaveBeenCalled();
+    fireEvent.touchStart(text, at(300));
+    fireEvent.touchMove(text, at(150));
+    fireEvent.touchEnd(text, { touches: [] });
+    expect(onNavigate).toHaveBeenCalledWith({ scope: "surah", value: 2 });
+  });
+
+  it("covers the text in Hafalan mode and uncovers an ayah on a tap", () => {
+    localStorage.setItem("qv.reader.hifdh", "true");
+    try {
+      const { container } = renderReader();
+      const covered = () =>
+        container.querySelectorAll("span[aria-hidden].text-transparent").length;
+      const before = covered();
+      expect(before).toBeGreaterThan(0);
+      expect(screen.getByRole("group", { name: "Hafalan mode" })).toBeInTheDocument();
+      fireEvent.click(
+        container.querySelector("span[aria-hidden].text-transparent")!.parentElement!,
+      );
+      expect(covered()).toBeLessThan(before);
+      fireEvent.click(screen.getByRole("button", { name: "Cover the text again" }));
+      expect(covered()).toBe(before);
+    } finally {
+      localStorage.removeItem("qv.reader.hifdh");
+    }
   });
 
   it("switches the division from settings and stays on the ayah", async () => {

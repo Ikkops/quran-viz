@@ -1,3 +1,4 @@
+import { BookCheck } from "lucide-react";
 import { useI18n } from "../../i18n/I18nContext";
 import { PopoverActions, PopoverCard, PopoverClose } from "./PopoverCard";
 import type { AyahPick } from "./wordPick";
@@ -16,6 +17,7 @@ export function AyahPopover({
   canPlay,
   onPlay,
   onContext,
+  onHifdh,
   onClose,
 }: {
   pick: AyahPick;
@@ -32,6 +34,8 @@ export function AyahPopover({
   canPlay: boolean;
   onPlay: () => void;
   onContext: () => void;
+  /** Mark this ayah (or its page, surah, juz) as memorised. */
+  onHifdh: () => void;
   onClose: () => void;
 }) {
   const { t } = useI18n();
@@ -49,7 +53,17 @@ export function AyahPopover({
       >
         {loading ? t.common.loading : text || "—"}
       </p>
-      <PopoverActions canPlay={canPlay} onPlay={onPlay} onContext={onContext} />
+      <PopoverActions canPlay={canPlay} onPlay={onPlay} onContext={onContext}>
+        <button
+          type="button"
+          onClick={onHifdh}
+          aria-haspopup="dialog"
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-illumination transition-colors hover:bg-surface-sunken touch:min-h-11"
+        >
+          <BookCheck size={15} aria-hidden />
+          {t.hifdh.mark}
+        </button>
+      </PopoverActions>
       {holdHint && <p className="mt-2 text-xs text-ink-subtle">{t.reader.holdHint}</p>}
     </PopoverCard>
   );

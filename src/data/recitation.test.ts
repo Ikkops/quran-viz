@@ -9,6 +9,7 @@ import {
   outsideRange,
   surahAudioFiles,
   cursorAt,
+  gapSeconds,
   setRangeEnd,
   shiftRange,
   type Cursor,
@@ -147,7 +148,7 @@ it("sanitizeRecitationOptions drops values that are no longer choices", async ()
   const { sanitizeRecitationOptions } = await import("./recitation");
   expect(
     sanitizeRecitationOptions({ ayahRepeat: 3, rangeRepeat: 7, gap: 1, rate: 9 }),
-  ).toEqual({ ayahRepeat: 3, rangeRepeat: 1, gap: 1, rate: 1 });
+  ).toEqual({ ayahRepeat: 3, rangeRepeat: 1, gap: 1, rate: 1, chain: false });
   expect(sanitizeRecitationOptions("x")).toBeUndefined();
 });
 
@@ -197,5 +198,54 @@ describe("outsideRange", () => {
     expect(outsideRange(10, r)).toBe(false);
     expect(outsideRange(12, r)).toBe(false);
     expect(outsideRange(13, r)).toBe(true);
+  });
+});
+
+describe("chain mode", () => {
+  const chain = (ayahRepeat: number, rangeRepeat = 1): LoopOptions => ({
+    ayahRepeat,
+    rangeRepeat,
+    chain: true,
+  });
+
+  it("repeats each new ayah, then joins everything so far", () => {
+    expect(run({ from: 1, to: 3 }, chain(2)).join(" ")).toBe("1 1 2 2 1 2 3 3 1 2 3");
+  });
+
+  it("replays the whole range for each range repeat", () => {
+    expect(run({ from: 5, to: 6 }, chain(1, 3)).join(" ")).toBe("5 6 5 6 5 6 5 6");
+  });
+
+  it("is the plain loop for a single ayah", () => {
+    expect(run({ from: 7, to: 7 }, chain(2))).toEqual(["7", "7"]);
+  });
+
+  it("starts the chain again from an ayah that was jumped to", () => {
+    const heard: number[] = [];
+    let cur: Cursor | null = cursorAt(3, none);
+    while (cur) {
+      heard.push(cur.id);
+      cur = advance(cur, { from: 1, to: 4 }, chain(1), none);
+    }
+    expect(heard.join(" ")).toBe("3 1 2 3 4 1 2 3 4");
+  });
+
+  it("plays the basmalah each time the joining pass reaches the surah's start", () => {
+    const needs = (id: number) => id === 8;
+    expect(run({ from: 8, to: 9 }, chain(1), needs).join(" ")).toBe("b8 8 9 b8 8 9");
+  });
+});
+
+describe("gapSeconds", () => {
+  it("keeps a fixed gap", () => {
+    expect(gapSeconds(2, 10, 1)).toBe(2);
+    expect(gapSeconds(0, 10, 1)).toBe(0);
+  });
+  it("matches the ayah's length as it was played", () => {
+    expect(gapSeconds(-1, 10, 1)).toBe(10);
+    expect(gapSeconds(-1.5, 10, 1.25)).toBe(12);
+  });
+  it("is nothing while the length is unknown", () => {
+    expect(gapSeconds(-1, NaN, 1)).toBe(0);
   });
 });

@@ -401,6 +401,30 @@ export async function deleteReciterAudio(reciter: ReciterId): Promise<void> {
   void refreshVolumes();
 }
 
+/**
+ * Delete one downloaded surah of a reciter. The basmalah file (001001.mp3)
+ * is recited before every surah, so it stays until the reciter's last surah
+ * goes. The manifest is saved first: a surah half deleted must not count as
+ * on the device.
+ */
+export async function deleteSurahAudio(reciter: ReciterId, job: SurahJob): Promise<void> {
+  if (state.active?.reciter === reciter && state.active.surah === job.surah)
+    cancelDownloads();
+  const m = { ...(await loadManifest(reciter)) };
+  delete m[job.surah];
+  if (Object.keys(m).length === 0) return deleteReciterAudio(reciter);
+  await saveManifest(reciter, m);
+  const shared = audioFileName(1, 1);
+  const names = surahAudioFiles(job.surah, job.ayahCount, job.hasBismillah)
+    .filter((name) => name !== shared)
+    .concat(`words-${job.surah}.json`);
+  for (const name of names)
+    await Filesystem.deleteFile({ path: `${folder(reciter)}/${name}` }).catch(
+      () => undefined,
+    );
+  void refreshVolumes();
+}
+
 /** Files under `dir` (name and size); none when it doesn't exist. */
 async function listFiles(dir: string): Promise<{ name: string; size: number }[]> {
   try {

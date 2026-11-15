@@ -151,3 +151,24 @@ it("leaves the audio where it was when a move fails, and finishes on a retry", a
   }
   expect(localStorage.getItem("qv.audio.location")).toBe("/card");
 });
+
+it("deletes one surah and keeps the basmalah the others need", async () => {
+  const a = await store();
+  a.downloadSurahs("yasser", [job(112, 4), job(113, 5)]);
+  await settle();
+  // Four files fly at a time: keep landing until both surahs are in.
+  while (dev.inFlight.length > 0) {
+    landAll();
+    await settle();
+  }
+  const manifest = () =>
+    Object.keys(JSON.parse(String(dev.files.get(`${INTERNAL}/surahs.json`))));
+  expect(manifest()).toEqual(["112", "113"]);
+
+  await a.deleteSurahAudio("yasser", job(112, 4));
+  expect(manifest()).toEqual(["113"]);
+  const left = [...dev.files.keys()].map((p) => p.split("/").pop());
+  expect(left.filter((n) => n?.startsWith("112"))).toEqual([]);
+  expect(left).toContain("001001.mp3");
+  expect(left.filter((n) => n?.startsWith("113"))).toHaveLength(5);
+});

@@ -231,7 +231,7 @@ export const id: Messages = {
 
   activity: {
     sections: "Bagian aktivitas",
-    tabs: { stats: "Statistik", marks: "Penanda" },
+    tabs: { stats: "Statistik", marks: "Penanda", hifdh: "Hafalan" },
     title: "Aktivitas membaca",
     today: "Hari ini",
     ofGoal: (goal) => `target ${goal} mnt`,
@@ -281,6 +281,15 @@ export const id: Messages = {
     places: (n) => `${n} tempat`,
     lastReadHelp:
       "Beranda menampilkan tempat bacaan terakhir berhenti: satu tempat untuk tiap rentang bacaan, jadi menggulir terus dalam satu surah hanya memindahkan tempatnya, tidak menambah yang baru.",
+    backup: {
+      title: "Cadangan",
+      help: "Penanda, hafalan, aktivitas membaca dan pengaturan hanya tersimpan di perangkat ini. Simpan semuanya ke satu berkas agar aman atau untuk dipindahkan ke perangkat lain. Audio yang diunduh tidak ikut.",
+      save: "Simpan cadangan",
+      restore: "Pulihkan dari cadangan",
+      confirm:
+        "Ganti semua yang ada di perangkat ini (penanda, hafalan, aktivitas membaca, pengaturan) dengan cadangan ini?",
+      bad: "Berkas itu bukan cadangan quran-viz.",
+    },
     audioStorage: "Penyimpanan audio",
     audio: {
       current: "Audio murattal disimpan di",
@@ -302,6 +311,17 @@ export const id: Messages = {
       moveFailed: (f) =>
         `Pemindahan berhenti: ${f}. Berkas yang sudah pindah ada di tempat baru; sisanya tetap.`,
       help: "Memilih tempat akan memindahkan audio yang sudah diunduh. Pilihan ini berlaku sampai Anda mengubahnya di sini. Audio di folder pilihan Anda tetap ada saat aplikasi dihapus.",
+      saved: "Audio tersimpan",
+      savedTotal: (size) => `${size} di perangkat ini`,
+      savedEmpty:
+        "Belum ada audio yang diunduh. Unduh surah dari pemutar di halaman baca.",
+      savedLine: (n, size) => `${n} dari 114 surah · ${size}`,
+      deleteReciter: "Hapus semua",
+      deleteReciterConfirm: (name, size) =>
+        `Hapus semua audio ${name} yang sudah diunduh (${size})? Anda bisa mengunduhnya lagi nanti.`,
+      deleteSurah: (surah) => `Hapus ${surah}`,
+      deleteSurahConfirm: (surah, name, size) =>
+        `Hapus ${surah} bacaan ${name} (${size})? Anda bisa mengunduhnya lagi nanti.`,
     },
     title: "Pengaturan",
     language: "Bahasa",
@@ -839,6 +859,8 @@ export const id: Messages = {
     noSimilar: "Tidak ada ayat mirip yang tercatat untuk ayat ini.",
     similarScore: (score, words) => `kemiripan ${score}% · ${words} kata sama`,
     similarSource: "Sumber: Quranic Universal Library (QUL), sumber ayat mirip.",
+    similarThis: (ref) => `Ayat ini, ${ref}`,
+    similarHide: "Tutup kata yang berbeda",
     rootsHere: "Akar kata di ayat ini",
     rootTotal: (n) => `${n}× dalam Al-Qur'an`,
     noRoots: "Tidak ada akar kata yang tercatat untuk ayat ini.",
@@ -975,6 +997,10 @@ export const id: Messages = {
       rate: "Kecepatan",
       times: (n) => (n === 0 ? "∞" : n === 1 ? "tidak" : `${n - 1}×`),
       seconds: (s) => `${s} dtk`,
+      gapAyah: (x) => `${x}× ayat`,
+      chain: "Sambung bertahap (1, 2, 1–2, 3, 1–3…)",
+      chainHelp:
+        "Setiap ayat baru diputar dengan ulangannya, lalu semua yang sudah dilalui diputar sekali. Atur jarak sepanjang ayat untuk menirukannya.",
       restart: "Ulangi ayat ini dari awal",
       repeatButton: (v) => `Ulangi tiap ayat: ${v}`,
       seek: "Posisi dalam rentang",
@@ -1002,11 +1028,8 @@ export const id: Messages = {
       onDevice: (n, size) =>
         n === 0 ? "Belum ada yang diunduh." : `${n} dari 114 surah · ${size}`,
       downloadAll: (size) => `Unduh semua (sekitar ${size})`,
-      deleteAll: "Hapus audio yang diunduh",
-      deleteConfirm: (name, size) =>
-        `Hapus audio ${name} yang sudah diunduh (${size})? Anda bisa mengunduhnya lagi nanti.`,
       sourceNote:
-        "Audio diunduh sekali dari everyayah.com, lalu bisa diputar tanpa koneksi.",
+        "Audio diunduh sekali dari everyayah.com, lalu bisa diputar tanpa koneksi. Untuk menghapusnya, buka Pengaturan → Penyimpanan audio → Audio tersimpan.",
     },
   },
 
@@ -1096,6 +1119,73 @@ export const id: Messages = {
       SP_kaAn: "kana dan saudaranya",
       SP_kaAd: "kada dan saudaranya",
     } as Record<string, string>,
+  },
+
+  /** Mode hafalan di halaman baca. */
+  hifdh: {
+    mode: "Mode hafalan",
+    show: "Seberapa banyak yang terlihat",
+    levels: {
+      "first-word": "Kata awal",
+      "first-letter": "Huruf awal",
+      hidden: "Tertutup",
+    },
+    hideAgain: "Tutup lagi teksnya",
+    off: "Keluar dari mode hafalan",
+    rate: "Nilai bacaan ini",
+    rateTitle: (pages) => `Bagaimana tadi? · halaman hafalan: ${pages}`,
+    ratings: { forgot: "Lupa", hard: "Sulit", smooth: "Lancar" },
+    ratingHelp: {
+      forgot: "Diulang lagi besok, dan ditandai perlu diulang.",
+      hard: "Diulang lagi setelah jumlah hari yang sama.",
+      smooth: "Jadwal ulang berikutnya makin jauh.",
+    },
+    planTitle: "Hari ini",
+    planEmpty:
+      "Tandai yang sudah Anda hafal untuk mendapat rencana muraja'ah harian: di halaman baca, ketuk ayat lalu pilih Hafalan.",
+    planHelp:
+      "Buka satu halaman, baca dari hafalan, lalu nilai dengan tombol papan klip di bilah hafalan.",
+    learning: "Hafalan baru (ziyadah)",
+    recent: "Muraja'ah dekat",
+    old: "Muraja'ah jauh",
+    none: "Tidak ada yang jatuh tempo.",
+    oldMore: (n) => `${n} halaman lama lainnya sudah jatuh tempo.`,
+    quota: "Halaman lama per hari",
+    pageLabel: (page) => `Hal. ${page}`,
+    homeLine: (fresh, recent, old) => `${fresh} baru · ${recent} dekat · ${old} jauh`,
+    homeTitle: "Hafalan hari ini",
+    sambung: "Sambung ayat",
+    sambungHelp:
+      "Satu ayat yang sudah Anda hafal ditampilkan. Baca ayat sesudahnya, lalu periksa sendiri.",
+    sambungNone: "Tandai sedikitnya dua ayat berurutan sebagai hafal untuk memakai ini.",
+    sambungStart: "Mulai",
+    sambungPrompt: "Baca ayat yang datang sesudahnya.",
+    sambungShow: "Tampilkan ayat berikutnya",
+    gotIt: "Saya hafal",
+    score: (ok, total) => `${ok} dari ${total} benar`,
+    mistakes: "Kata yang tersendat",
+    mistakesNone:
+      "Belum ada. Dalam mode hafalan di halaman mushaf cetak, tekan dan tahan kata yang tertutup untuk mengintipnya; kata itu dicatat di sini.",
+    mistakesMore: (n) => `${n} lainnya tidak ditampilkan.`,
+    mistakeOpen: (ref) => `Buka ${ref}`,
+    mistakeRemove: (ref) => `Hapus catatan tersendat di ${ref}`,
+    times: (n) => `${n}×`,
+    mark: "Hafalan",
+    markTitle: (ref) => `Hafalan · ${ref}`,
+    applyTo: "Berlaku untuk",
+    extents: { ayah: "Ayat ini", page: "Halaman", surah: "Surah", juz: "Juz" },
+    ayahCount: (n) => `${n} ayat`,
+    statuses: {
+      0: "Belum dihafal",
+      1: "Sedang dihafal",
+      2: "Sudah hafal",
+      3: "Hafal, perlu diulang",
+    },
+    mapKind: "Hafalan",
+    mapEmpty: "Belum ada yang ditandai. Di halaman baca, ketuk ayat lalu pilih Hafalan.",
+    mapSummary: (pct, n, weak) =>
+      `${pct} Al-Qur'an sudah hafal (${n} ayat) · ${weak} perlu diulang`,
+    mapJuz: (juz, pct) => `Juz ${juz}: ${pct}`,
   },
 
   tajweed: {

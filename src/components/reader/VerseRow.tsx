@@ -1,7 +1,9 @@
+import type { WordMask } from "../../data/hifdh";
 import type { ReactNode } from "react";
 import {
   Bookmark as BookmarkIcon,
   Pin as PinIcon,
+  BookCheck,
   ClipboardCopy,
   ExternalLink,
   Link2,
@@ -66,6 +68,8 @@ export interface RowContext {
   wordsOf: (id: number) => WordInfo[] | undefined;
   /** A word was tapped (0-based), for its popup. */
   onWord: (id: number, w: number, el: Element) => void;
+  /** Hafalan mode: which words are hidden. */
+  mask: WordMask | null;
   glossLang: "en" | "id";
   /** Tafsirs under each ayah (or passage), when on; empty when off. */
   inlineTafsirs: RowTafsir[];
@@ -92,6 +96,8 @@ export interface RowContext {
   marksAt: Map<number, { pins: Pin[]; collections: Collection[] }>;
   /** Open the sheet that pins this ayah or files it in collections. */
   openMark: (id: number, kind: "pin" | "collection") => void;
+  /** Open the sheet that marks memorisation from this ayah. */
+  openHifdh: (id: number) => void;
   copied: { id: number; ok: boolean; what: "text" | "link" } | null;
   copyText: (v: Verse) => void;
   copyLink: (v: Verse) => void;
@@ -146,6 +152,7 @@ function WordByWord({
       onWord={ctx.onWord}
       gloss={(i) => (ws?.[i] ? glossOf(ws[i], ctx.glossLang) : "")}
       glossLang={ctx.glossLang}
+      mask={ctx.mask}
       end={<AyahEnd n={v.a} />}
     />
   );
@@ -335,6 +342,15 @@ export function VerseRow({
                   className="absolute right-0 top-full z-20 mt-1 w-64 rounded-xl border border-line bg-surface p-1 shadow-float"
                 >
                   <MenuItem
+                    icon={<BookCheck size={15} />}
+                    onClick={() => {
+                      ctx.openHifdh(v.id);
+                      close();
+                    }}
+                  >
+                    {t.hifdh.mark}
+                  </MenuItem>
+                  <MenuItem
                     icon={<ClipboardCopy size={15} />}
                     onClick={() => {
                       ctx.copyText(v);
@@ -388,6 +404,7 @@ export function VerseRow({
                 clock={timing ? ctx.recited?.clock : undefined}
                 timing={timing}
                 onWord={ctx.onWord}
+                mask={ctx.mask}
                 end={<AyahEnd n={v.a} />}
               />
             )}

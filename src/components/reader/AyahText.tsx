@@ -4,6 +4,9 @@ import { parseTajweed, tajweedColor, type TajweedSegment } from "../../data/tajw
 import { useArabicFont, useTheme } from "../../theme/ThemeContext";
 import { ayahEndMark } from "../../data/ayahContext";
 import { withRubrics } from "./rubrics";
+import { maskedParts, type WordMask } from "../../data/hifdh";
+import { splitWords } from "../../data/mushafLayout";
+import { MaskedWord } from "./Masked";
 
 /** Tajweed-coloured pieces of text (one word, or a whole ayah). */
 export function TajweedSegs({ segs }: { segs: TajweedSegment[] }) {
@@ -39,19 +42,38 @@ export function AyahEnd({ n }: { n: number }) {
 }
 
 /** One ayah's Arabic: tajweed-coloured when markup is given, red-ink signs
- *  otherwise, and the end medallion unless `noEnd`. */
+ *  otherwise, and the end medallion unless `noEnd`. With a `mask` (Hafalan
+ *  mode) an ayah not yet revealed is drawn word by word, hidden parts as
+ *  empty slots. */
 export function AyahText({
   v,
   tajweed,
   noEnd,
+  mask,
 }: {
   v: Verse;
   tajweed?: string | null;
   noEnd?: boolean;
+  mask?: WordMask | null;
 }) {
+  const hidden = !!mask && !mask.ayahShown(v.id);
   return (
     <>
-      {tajweed ? <TajweedSegs segs={parseTajweed(tajweed)} /> : withRubrics(v.ar)}
+      {hidden ? (
+        splitWords(v.ar).map((w, i) => {
+          const [show, hide] = maskedParts(mask, v.id, i, w);
+          return (
+            <Fragment key={i}>
+              {i > 0 && " "}
+              {hide ? <MaskedWord show={show} hide={hide} /> : withRubrics(w)}
+            </Fragment>
+          );
+        })
+      ) : tajweed ? (
+        <TajweedSegs segs={parseTajweed(tajweed)} />
+      ) : (
+        withRubrics(v.ar)
+      )}
       {!noEnd && <AyahEnd n={v.a} />}
     </>
   );
