@@ -25,10 +25,10 @@ export function SajdaMarkers({
           <button
             key={v.id}
             onClick={() => ctx.onOpen?.({ scope: "surah", value: v.s, anchor: v.id })}
-            className="rounded-xl border border-line bg-surface p-3 text-right transition hover:shadow-md dark:bg-surface/60"
+            className="rounded-lg border border-line p-3 text-right transition-colors hover:bg-surface-sunken"
           >
             <div className="mb-1.5 flex items-center justify-between" dir="ltr">
-              <span className="text-sm font-semibold text-ink">
+              <span className="text-sm font-semibold tabular-nums text-ink">
                 {s?.name} · {v.s}:{v.a}
               </span>
               <div className="flex gap-1">

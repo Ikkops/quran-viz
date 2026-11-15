@@ -47,7 +47,7 @@ function Popover({
       {open && (
         <div
           className={cx(
-            "absolute right-0 top-full z-30 mt-1 max-h-[calc(70*var(--zvh))] max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border border-line bg-surface p-4 shadow-float",
+            "absolute right-0 top-full z-30 mt-1.5 max-h-[calc(70*var(--zvh))] max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-xl border border-line bg-surface p-4 shadow-float",
             width,
           )}
         >
@@ -116,7 +116,7 @@ export function ReaderToolbar({
     <header className="shrink-0 border-b border-line bg-paper">
       <div className="flex items-center gap-0.5 px-2 py-1">
         <QuietIconButton label={t.reader.close} onClick={onBack}>
-          <ArrowLeft size={19} />
+          <ArrowLeft size={18} />
         </QuietIconButton>
         <h1 className="min-w-0 flex-1">
           <button
@@ -125,15 +125,15 @@ export function ReaderToolbar({
             aria-haspopup="dialog"
             title={t.reader.goTo}
             className={cx(
-              "flex min-h-11 max-w-full items-center gap-1.5 rounded-lg text-left hover:bg-surface-sunken",
+              "flex min-h-11 max-w-full items-center gap-1.5 rounded-lg text-left transition-colors hover:bg-surface-sunken",
               compact ? "px-1" : "px-2",
             )}
           >
             <span className="min-w-0">
               <span
                 className={cx(
-                  "block truncate font-semibold leading-tight text-ink",
-                  compact ? "text-base" : "text-lg",
+                  "block truncate text-ink",
+                  compact ? "text-heading" : "text-title",
                 )}
               >
                 {title}
@@ -145,7 +145,7 @@ export function ReaderToolbar({
               )}
             </span>
             {!compact && (
-              <ChevronDown size={17} aria-hidden className="shrink-0 text-ink-subtle" />
+              <ChevronDown size={16} aria-hidden className="shrink-0 text-ink-subtle" />
             )}
           </button>
         </h1>

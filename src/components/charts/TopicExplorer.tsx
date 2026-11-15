@@ -185,13 +185,13 @@ export function TopicExplorer({
         key={i}
         onClick={() => select(i)}
         className={cx(
-          "flex w-full items-center gap-2.5 rounded-lg border border-line px-2.5 py-2 text-left text-sm transition hover:bg-paper dark:hover:bg-surface",
+          "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors hover:bg-surface-sunken touch:min-h-11",
           c === 0 && "opacity-50",
         )}
       >
         {Icon && (
           <span
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-sunken dark:bg-surface"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line bg-surface-sunken"
             style={{ color: ctx.primary }}
           >
             <Icon size={16} aria-hidden />
@@ -203,9 +203,7 @@ export function TopicExplorer({
             <span className="block truncate text-xs text-ink-subtle">{opts.hint}</span>
           )}
         </span>
-        <span className="shrink-0 text-xs tabular-nums text-ink-muted dark:text-ink-subtle">
-          {n(c)}
-        </span>
+        <span className="shrink-0 text-xs tabular-nums text-ink-muted">{n(c)}</span>
         {hasKids && (
           <ChevronRight size={14} className="shrink-0 text-ink-subtle" aria-hidden />
         )}
@@ -221,7 +219,7 @@ export function TopicExplorer({
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t2.charts.findTopic}
           aria-label={t2.charts.findTopicAria}
-          className="w-64 max-w-full rounded-lg min-h-10 touch:min-h-11 border border-line bg-surface px-2.5 py-1.5 text-sm text-ink"
+          className="w-64 max-w-full h-9 rounded border border-line bg-surface px-2.5 text-sm text-ink placeholder:text-ink-subtle touch:min-h-11"
         />
         {node && (
           <SegmentedControl<Measure>
@@ -243,7 +241,7 @@ export function TopicExplorer({
         <button
           onClick={() => select(null)}
           className={cx(
-            "hover:underline",
+            "rounded hover:underline touch:min-h-11",
             sel == null ? "font-semibold text-ink" : "text-ink-muted",
           )}
         >
@@ -255,7 +253,7 @@ export function TopicExplorer({
             <button
               onClick={() => select(i)}
               className={cx(
-                "hover:underline",
+                "rounded hover:underline touch:min-h-11",
                 i === sel ? "font-semibold text-ink" : "text-ink-muted",
               )}
             >
@@ -283,7 +281,7 @@ export function TopicExplorer({
         <>
           {node && sel != null && (
             <div className="text-sm text-ink-muted">
-              <span className="text-base font-semibold text-ink">{name(sel)}</span>
+              <span className="text-heading text-ink">{name(sel)}</span>
               {other(sel) !== name(sel) && (
                 <span className="text-ink-subtle"> · {other(sel)}</span>
               )}
@@ -303,7 +301,9 @@ export function TopicExplorer({
           {kids.length > 0 && (
             <div>
               {sel != null && (
-                <div className="mb-1 text-xs text-ink-subtle">{t2.charts.subtopics}</div>
+                <div className="mb-1 px-2.5 text-eyebrow text-ink-subtle">
+                  {t2.charts.subtopics}
+                </div>
               )}
               {sel == null && (
                 <p className="mb-2 text-xs text-ink-subtle">{t2.charts.pickTopic}</p>
@@ -341,18 +341,18 @@ export function TopicExplorer({
                   >
                     <XAxis
                       dataKey="s"
-                      tick={{ fontSize: 10, fill: ac }}
+                      tick={{ fontSize: 12, fill: ac }}
                       interval={rows.length > 40 ? 9 : 0}
                       label={{
                         value: t2.common.surah,
                         position: "insideBottom",
                         offset: -12,
-                        fontSize: 11,
+                        fontSize: 12,
                         fill: ac,
                       }}
                     />
                     <YAxis
-                      tick={{ fontSize: 11, fill: ac }}
+                      tick={{ fontSize: 12, fill: ac }}
                       allowDecimals={measure === "density"}
                     />
                     <Tooltip
@@ -382,11 +382,11 @@ export function TopicExplorer({
                 </ResponsiveContainer>
               </div>
 
-              <div className="rounded-lg border border-line p-2 text-sm">
-                <div className="mb-1.5 text-xs text-ink-subtle">
+              <div className="rounded-lg border border-line px-3 py-2 text-sm">
+                <div className="mb-1.5 text-eyebrow text-ink-subtle">
                   {t2.charts.versesBySurah}
                 </div>
-                <ul className="divide-y divide-surface-sunken dark:divide-surface">
+                <ul className="divide-y divide-line">
                   {(showAll ? groups : groups.slice(0, SURAH_PREVIEW)).map((g) => (
                     <li
                       key={g.s}
@@ -404,7 +404,7 @@ export function TopicExplorer({
                           <button
                             key={r[2]}
                             onClick={() => openAyah(r[2])}
-                            className="text-ink-muted hover:underline"
+                            className="text-ink-muted hover:text-ink hover:underline"
                           >
                             {formatRun(r)}
                           </button>

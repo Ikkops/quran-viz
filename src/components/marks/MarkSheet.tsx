@@ -10,7 +10,7 @@ import {
   type Marks,
 } from "../../lib/marks";
 import { useI18n } from "../../i18n/I18nContext";
-import { cx } from "../ui";
+import { Button, cx } from "../ui";
 import { MarkForm } from "./MarksPanel";
 
 /**
@@ -36,20 +36,20 @@ export function MarkSheet({
   const m = t.marks;
   const [adding, setAdding] = useState(false);
   const row =
-    "flex min-h-12 w-full items-center gap-3 rounded-lg px-2 text-left hover:bg-surface-sunken";
+    "flex min-h-12 w-full items-center gap-3 rounded-md px-2 text-left hover:bg-surface-sunken";
   const addButton = (label: string) => (
-    <button
-      type="button"
+    <Button
+      className="self-start"
+      icon={<Plus size={16} aria-hidden />}
       onClick={() => setAdding(true)}
-      className="inline-flex min-h-10 items-center gap-1.5 self-start rounded-lg border border-line px-3 text-sm font-medium text-ink hover:border-ink-subtle touch:min-h-11"
     >
-      <Plus size={16} aria-hidden /> {label}
-    </button>
+      {label}
+    </Button>
   );
 
   if (kind === "pin")
     return (
-      <div className="flex flex-col gap-2 p-4">
+      <div className="flex flex-col gap-2 px-4 py-3">
         <p className="text-sm text-ink-muted">{m.pinHere}</p>
         <ul>
           {marks.pins.map((p) => {
@@ -104,7 +104,7 @@ export function MarkSheet({
     );
 
   return (
-    <div className="flex flex-col gap-2 p-4">
+    <div className="flex flex-col gap-2 px-4 py-3">
       <p className="text-sm text-ink-muted">{m.saveTo}</p>
       <ul>
         {marks.collections.map((c) => {
@@ -152,7 +152,7 @@ export function MarkSheet({
                   placeholder={t.reader.notePh}
                   aria-label={t.reader.noteAria}
                   rows={2}
-                  className="mb-2 ml-8 w-[calc(100%-2rem)] rounded-lg border border-line bg-surface px-2 py-1 text-sm text-ink placeholder:text-ink-subtle"
+                  className="mb-2 ml-8 w-[calc(100%-2rem)] rounded border border-line bg-surface px-2 py-1 text-sm text-ink placeholder:text-ink-subtle"
                 />
               )}
             </li>

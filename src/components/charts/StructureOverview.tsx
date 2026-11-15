@@ -19,7 +19,7 @@ function Figure({
         {label}
         {sub && <span className="block text-xs tabular-nums text-ink-subtle">{sub}</span>}
       </dt>
-      <dd className="text-2xl font-semibold tabular-nums text-ink">{value}</dd>
+      <dd className="text-display tabular-nums text-ink">{value}</dd>
     </div>
   );
 }
@@ -28,7 +28,7 @@ function Figure({
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="border-t border-line pt-3">
-      <h3 className="mb-3 text-sm font-semibold text-ink">{title}</h3>
+      <h3 className="mb-3 text-heading text-ink">{title}</h3>
       {children}
     </section>
   );
@@ -137,7 +137,7 @@ export function StructureOverview({ surahs, meta }: { surahs: Surah[]; meta: Met
                   </span>
                 </span>
               </dt>
-              <dd className="text-2xl font-semibold tabular-nums text-ink">
+              <dd className="text-display tabular-nums text-ink">
                 {n(p.count)}{" "}
                 <span className="text-sm font-normal text-ink-muted">
                   {share(p.count)}

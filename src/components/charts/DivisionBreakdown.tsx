@@ -94,17 +94,17 @@ export function DivisionBreakdown({
       >
         <XAxis
           dataKey="n"
-          tick={{ fontSize: 10, fill: axisColor(ctx.dark) }}
+          tick={{ fontSize: 12, fill: axisColor(ctx.dark) }}
           interval={many ? 49 : 0}
           label={{
             value: t.scope[division],
             position: "insideBottom",
             offset: -12,
-            fontSize: 11,
+            fontSize: 12,
             fill: axisColor(ctx.dark),
           }}
         />
-        <YAxis tick={{ fontSize: 11, fill: axisColor(ctx.dark) }} />
+        <YAxis tick={{ fontSize: 12, fill: axisColor(ctx.dark) }} />
         <Tooltip
           content={<DivisionTooltip division={division} surahMap={surahMap} />}
           cursor={{ fill: CURSOR_FILL }}

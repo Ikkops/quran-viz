@@ -39,16 +39,16 @@ export function JuzBreakdown({ verses, ctx }: { verses: Verse[]; ctx: ChartConte
       <BarChart data={rows} margin={{ top: 8, right: 12, bottom: 24, left: 0 }}>
         <XAxis
           dataKey="juz"
-          tick={{ fontSize: 10, fill: axisColor(ctx.dark) }}
+          tick={{ fontSize: 12, fill: axisColor(ctx.dark) }}
           label={{
             value: t.scope.juz,
             position: "insideBottom",
             offset: -12,
-            fontSize: 11,
+            fontSize: 12,
             fill: axisColor(ctx.dark),
           }}
         />
-        <YAxis tick={{ fontSize: 11, fill: axisColor(ctx.dark) }} />
+        <YAxis tick={{ fontSize: 12, fill: axisColor(ctx.dark) }} />
         <Tooltip
           content={<GenericTooltip unit={t.tooltip.units.words} />}
           cursor={{ fill: CURSOR_FILL }}

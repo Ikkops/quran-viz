@@ -3,7 +3,7 @@ import type { Surah, Verse } from "../../types/quran";
 import { READER_SCOPES, type ReaderScope, type ReaderTarget } from "../charts/common";
 import { useI18n } from "../../i18n/I18nContext";
 import { searchKeyArabic } from "../../data/arabic";
-import { Select, cx } from "../ui";
+import { Button, Select, cx } from "../ui";
 import { scopeField } from "./readerShared";
 
 const plain = (s: string) =>
@@ -44,7 +44,7 @@ function Column<T extends { key: number; label: string }>({
   }, [value, q]);
   return (
     <div className={cx("flex min-w-0 flex-col gap-1", grow ? "flex-[2]" : "flex-1")}>
-      <label className="flex flex-col gap-1 text-xs font-medium text-ink-muted">
+      <label className="flex flex-col gap-1 text-eyebrow text-ink-muted">
         {title}
         <input
           value={q}
@@ -57,14 +57,14 @@ function Column<T extends { key: number; label: string }>({
           }}
           inputMode={numeric ? "numeric" : undefined}
           placeholder={placeholder}
-          className="min-h-10 w-full rounded-lg border border-line bg-surface px-2.5 text-base font-normal text-ink placeholder:text-ink-subtle touch:min-h-11"
+          className="min-h-10 w-full rounded-lg border border-line bg-surface px-2.5 text-base font-normal tracking-normal text-ink placeholder:text-ink-subtle touch:min-h-11"
         />
       </label>
       <div
         ref={list}
         role="listbox"
         aria-label={title}
-        className="h-[calc(34*var(--zvh))] min-h-[10rem] overflow-y-auto rounded-lg border border-line/70"
+        className="h-[calc(34*var(--zvh))] min-h-[10rem] overflow-y-auto rounded-lg border border-line/70 p-1"
       >
         {shown.map((it) => (
           <button
@@ -74,7 +74,7 @@ function Column<T extends { key: number; label: string }>({
             aria-selected={it.key === value}
             onClick={() => onPick(it.key)}
             className={cx(
-              "block min-h-10 w-full truncate px-2.5 text-left text-base tabular-nums touch:min-h-11",
+              "block min-h-10 w-full truncate rounded-md px-2 text-left text-base tabular-nums transition-colors touch:min-h-11",
               it.key === value
                 ? "bg-surface-sunken font-semibold text-ink"
                 : "text-ink-muted hover:bg-surface-sunken/60",
@@ -144,7 +144,7 @@ export function GoToSheet({
   };
 
   return (
-    <div className="flex flex-col gap-3 p-4">
+    <div className="flex flex-col gap-4 px-4 py-3">
       <div className="flex gap-2">
         <Column
           grow
@@ -194,13 +194,9 @@ export function GoToSheet({
             options={READER_SCOPES.map((s) => ({ value: s, label: t.scope[s] }))}
           />
         </div>
-        <button
-          type="button"
-          onClick={go}
-          className="ml-auto min-h-10 flex-1 rounded-lg bg-illumination px-5 text-base font-semibold text-white hover:opacity-90 dark:text-paper touch:min-h-11"
-        >
+        <Button variant="primary" onClick={go} className="ml-auto flex-1 px-5">
           {g.go(`${surah?.name ?? ""} ${v.s}:${v.a}`)}
-        </button>
+        </Button>
       </div>
     </div>
   );

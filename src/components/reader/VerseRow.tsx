@@ -105,8 +105,8 @@ export interface RowContext {
 export function SurahHeading({ s }: { s: Surah | undefined }) {
   if (!s) return null;
   return (
-    <div className="mb-1 mt-4 flex items-baseline gap-2 border-b border-line pb-1.5">
-      <span className="text-base font-semibold text-ink">
+    <div className="mb-2 mt-6 flex items-baseline gap-2 border-b border-line pb-2">
+      <span className="text-heading text-ink">
         {s.number}. {s.name}
       </span>
       <span lang="ar" dir="rtl" className="font-arabic text-lg text-ink-muted">
@@ -118,7 +118,7 @@ export function SurahHeading({ s }: { s: Surah | undefined }) {
 
 export function Basmala() {
   return (
-    <p lang="ar" dir="rtl" className="quran-text mb-1 text-center text-ink">
+    <p lang="ar" dir="rtl" className="quran-text mb-2 mt-3 text-center text-ink">
       {BASMALA}
     </p>
   );
@@ -163,7 +163,7 @@ function MenuItem({
   href?: string;
 }) {
   const cls =
-    "flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm text-ink hover:bg-surface-sunken";
+    "flex min-h-9 w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-sunken touch:min-h-11";
   return href ? (
     <a href={href} target="_blank" rel="noreferrer" className={cls} onClick={onClick}>
       <span className="text-ink-subtle">{icon}</span>
@@ -222,19 +222,17 @@ export function VerseRow({
     <>
       {ctx.multiSurah && (!prev || prev.s !== v.s) && <SurahHeading s={s} />}
       {labels.length > 0 && (
-        <div className="my-3 flex items-center gap-3 text-xs font-medium text-ink-subtle">
-          <span className="h-px flex-1 bg-line" />
+        <div className="mb-3 mt-5 rounded-lg bg-illumination/10 px-3 py-1.5 text-center text-xs font-medium text-illumination">
           {labels.join(" · ")}
-          <span className="h-px flex-1 bg-line" />
         </div>
       )}
       {v.a === 1 && s?.hasBismillah && <Basmala />}
-      {theme && <p className="mb-1 mt-3 text-sm font-semibold text-ink-muted">{theme}</p>}
+      {theme && <p className="mb-1 mt-5 text-heading text-ink-muted">{theme}</p>}
       <article
         aria-label={ref}
         data-match-current={refHit?.current === 0 || undefined}
         className={cx(
-          "relative border-b border-line/70 py-3 pl-3 pr-1 transition-colors",
+          "relative border-b border-line/70 py-4 pl-3 pr-1 transition-colors",
           selected && "bg-surface-sunken/70 dark:bg-surface/60",
           refHit && "bg-illumination/10",
           refHit?.current === 0 && "ring-2 ring-inset ring-illumination",
@@ -247,13 +245,13 @@ export function VerseRow({
               : undefined
         }
       >
-        <div className="mb-1 flex items-center gap-2">
+        <div className="mb-2 flex items-center gap-2">
           <button
             type="button"
             onClick={() => ctx.openContext(v.id)}
             aria-label={t.reader.openContext(ref)}
             title={exception ?? t.reader.openContext(ref)}
-            className="inline-flex min-w-8 items-center justify-center rounded-full border border-line px-2 py-0.5 text-sm tabular-nums text-ink-muted hover:border-ink-subtle hover:text-ink touch:min-h-11 touch:min-w-11 touch:border-0"
+            className="inline-flex h-7 min-w-7 items-center justify-center rounded-full border border-line px-2 text-sm tabular-nums text-ink-muted transition-colors hover:border-ink-subtle hover:text-ink touch:min-h-11 touch:min-w-11 touch:border-0"
           >
             {v.a}
             {v.p && <span aria-hidden>{v.p === "Hijra" ? " ⇢" : " •"}</span>}
@@ -266,7 +264,7 @@ export function VerseRow({
               type="button"
               onClick={() => ctx.inlineAsbab!.toggle(v.id)}
               aria-expanded={ctx.inlineAsbab.open.has(v.id)}
-              className="rounded px-1.5 py-0.5 text-xs font-medium text-illumination hover:bg-surface-sunken touch:min-h-11"
+              className="rounded px-1.5 py-0.5 text-xs font-medium text-illumination transition-colors hover:bg-surface-sunken touch:min-h-11"
             >
               {t.reader.asbab} ({asbab.reduce((n, e) => n + e.texts.length, 0)})
             </button>
@@ -334,7 +332,7 @@ export function VerseRow({
               {menuOpen && (
                 <div
                   data-row-menu
-                  className="absolute right-0 top-full z-20 mt-1 w-64 rounded-lg border border-line bg-surface p-1 shadow-float"
+                  className="absolute right-0 top-full z-20 mt-1 w-64 rounded-xl border border-line bg-surface p-1 shadow-float"
                 >
                   <MenuItem
                     icon={<ClipboardCopy size={15} />}
@@ -403,9 +401,9 @@ export function VerseRow({
         )}
 
         {ctx.translations.map((tr, i) => (
-          <div key={tr.id} className={i === 0 ? "mt-2" : "mt-3"}>
+          <div key={tr.id} className={i === 0 ? "mt-3" : "mt-4"}>
             {ctx.translations.length > 1 && (
-              <p className="mb-0.5 text-xs font-medium text-ink-subtle">{tr.name}</p>
+              <p className="mb-1 text-eyebrow text-ink-subtle">{tr.name}</p>
             )}
             <p
               lang={tr.lang}
@@ -441,7 +439,7 @@ export function VerseRow({
         ))}
 
         {asbab && ctx.inlineAsbab?.open.has(v.id) && (
-          <div className="mt-2 rounded-lg bg-surface-sunken p-3 dark:bg-surface">
+          <div className="mt-4 border-s-2 border-line ps-3">
             {asbab.map((e) => {
               const last = ctx.verses[e.last - 1];
               return (
@@ -490,15 +488,15 @@ function InlineTafsir({
 }) {
   const { t } = useI18n();
   const title = named ? (
-    <p className="mb-1 text-xs font-semibold text-ink-subtle">{tf.label}</p>
+    <p className="mb-1 text-eyebrow text-ink-subtle">{tf.label}</p>
   ) : null;
-  if (tf.loading) return <p className="mt-2 text-sm text-ink-subtle">…</p>;
+  if (tf.loading) return <p className="mt-4 text-sm text-ink-subtle">…</p>;
   if (tf.kind === "ayah") {
     const text = tf.ayah?.[v.id];
     if (!text) return null;
     if (tf.lang === "ar")
       return (
-        <div className="mt-2 rounded-lg bg-surface-sunken p-3 dark:bg-surface">
+        <div className="mt-4 border-s-2 border-line ps-3">
           {title}
           <p
             lang="ar"
@@ -510,10 +508,7 @@ function InlineTafsir({
         </div>
       );
     return (
-      <div
-        lang={tf.lang}
-        className="mt-2 rounded-lg bg-surface-sunken p-3 dark:bg-surface"
-      >
+      <div lang={tf.lang} className="mt-4 border-s-2 border-line ps-3">
         {title}
         <p
           className="max-w-[68ch] whitespace-pre-line font-reading text-ink-muted"
@@ -521,7 +516,7 @@ function InlineTafsir({
         >
           {text}
         </p>
-        <p className="mt-1 text-xs text-ink-subtle">
+        <p className="mt-1.5 text-xs text-ink-subtle">
           {tf.source}. {tf.published}.
         </p>
       </div>
@@ -530,7 +525,7 @@ function InlineTafsir({
   const g = tf.groupAt(v.id, prev?.id ?? null);
   if (!g) return null;
   return (
-    <div lang={tf.lang} className="mt-2 rounded-lg bg-surface-sunken p-3 dark:bg-surface">
+    <div lang={tf.lang} className="mt-4 border-s-2 border-line ps-3">
       {title}
       {g.to !== g.from && (
         <p className="mb-1 text-xs font-medium text-ink-subtle">
@@ -543,7 +538,7 @@ function InlineTafsir({
       >
         {g.text}
       </p>
-      <p className="mt-1 text-xs text-ink-subtle">
+      <p className="mt-1.5 text-xs text-ink-subtle">
         {tf.source}. {tf.published}.
       </p>
     </div>

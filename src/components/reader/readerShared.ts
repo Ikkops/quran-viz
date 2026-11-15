@@ -6,6 +6,7 @@ import { needsDownload, type TafsirDownloads } from "../../data/tafsirStore";
 import type { GlossLang } from "../../data/useWordByWord";
 import type { InfoLang } from "../../data/useSurahInfo";
 import { persisted, usePersistentState } from "../../lib/usePersistentState";
+import { useI18n } from "../../i18n/I18nContext";
 import {
   DEFAULT_RECITATION,
   RECITERS,
@@ -135,9 +136,11 @@ export function useReaderPrefs() {
   const [showThemes, setShowThemes] = useBool("themes", false);
   const [showAsbab, setShowAsbab] = useBool("asbab", false);
   const [showAudio, setShowAudio] = useBool("audio", true);
+  // Nothing stored: word meanings follow the UI language.
+  const { lang } = useI18n();
   const [glossLang, setGlossLang] = usePersistentState<GlossLang>(
     K + "glossLang",
-    "en",
+    lang === "id" ? "id" : "en",
     persisted.oneOf(LANGS),
   );
   const [division, setDivision] = usePersistentState<Division>(

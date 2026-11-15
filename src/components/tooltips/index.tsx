@@ -4,7 +4,7 @@ import { useI18n } from "../../i18n/I18nContext";
 
 function Shell({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-line bg-surface/95 px-3 py-2 text-xs shadow-lg backdrop-blur dark:border-ink-subtle/50">
+    <div className="rounded-lg border border-line bg-surface px-3 py-2 text-xs shadow-float">
       {children}
     </div>
   );
@@ -21,7 +21,7 @@ function Row({
 }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <span className="flex items-center gap-1.5 text-ink-muted dark:text-ink-subtle">
+      <span className="flex items-center gap-1.5 text-ink-muted">
         {color && (
           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
         )}
@@ -80,7 +80,7 @@ export function SurahTooltip({
   return (
     <Shell>
       <div className="mb-1 flex items-center justify-between gap-3">
-        <span className="font-semibold text-ink">
+        <span className="font-semibold tabular-nums text-ink">
           {d.id}. {d.name}
         </span>
         <span lang="ar" className="font-arabic text-base text-ink-muted">
@@ -100,12 +100,8 @@ export function SurahTooltip({
           minimumFractionDigits: 1,
         })}
       />
-      {note && (
-        <p className="mt-1 max-w-56 text-xs text-ink-muted dark:text-ink-subtle">
-          {note}
-        </p>
-      )}
-      <p className="mt-1.5 border-t border-surface-sunken pt-1 text-xs text-ink-subtle dark:border-line">
+      {note && <p className="mt-1 max-w-56 text-xs text-ink-muted">{note}</p>}
+      <p className="mt-1.5 border-t border-line pt-1.5 text-xs text-ink-subtle">
         {t.tooltip.opening(i.category(d.category))}
       </p>
     </Shell>
@@ -127,7 +123,9 @@ export function GenericTooltip({
   if (!active || !payload?.length) return null;
   return (
     <Shell>
-      {label !== undefined && <div className="mb-1 font-semibold text-ink">{label}</div>}
+      {label !== undefined && (
+        <div className="mb-1 font-semibold tabular-nums text-ink">{label}</div>
+      )}
       {payload.map((p, i) => (
         <Row
           key={i}

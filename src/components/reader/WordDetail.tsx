@@ -1,13 +1,5 @@
-import {
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
-import { createPortal } from "react-dom";
-import { ArrowRight, BookOpen, Play, X } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { ArrowRight } from "lucide-react";
 import type { Surah, Verse } from "../../types/quran";
 import { splitWords } from "../../data/mushafLayout";
 import {
@@ -21,12 +13,11 @@ import {
 } from "../../data/words";
 import type { GlossLang } from "../../data/useWordByWord";
 import { useI18n } from "../../i18n/I18nContext";
-import { useDismiss } from "../../lib/useDismiss";
-import { cx } from "../ui";
-import { popupRoot, rootZoom } from "../ui/popup";
+import { Button, cx } from "../ui";
 import type { ExploreTarget } from "./VerseContextPanel";
 import type { ReaderTarget } from "../charts/common";
 import type { WordPick } from "./wordPick";
+import { PopoverActions, PopoverCard, PopoverClose } from "./PopoverCard";
 
 const ARABIC = { fontFamily: "var(--font-arabic, 'Amiri Quran', serif)" };
 
@@ -56,37 +47,12 @@ export function WordPopover({
   onClose: () => void;
 }) {
   const { t } = useI18n();
-  const ref = useRef<HTMLDivElement>(null);
-  useDismiss(ref, true, onClose);
-  const [style, setStyle] = useState<CSSProperties>({ visibility: "hidden" });
   const lex = useLexicon(!!info?.[5]);
   const root = info?.[5] ? lex.data?.roots[info[5] - 1] : undefined;
   const word = splitWords(verse.ar)[pick.w] ?? "";
 
-  // Under the word, or above it when there is no room; inside the screen.
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const z = rootZoom(popupRoot());
-    const vw = window.innerWidth / z;
-    const vh = (window.visualViewport?.height ?? window.innerHeight) / z;
-    const w = Math.min(320, vw - 24);
-    const h = el.offsetHeight;
-    const mid = (pick.rect.left + pick.rect.right) / 2 / z;
-    const left = Math.min(Math.max(12, mid - w / 2), vw - 12 - w);
-    const below = pick.rect.bottom / z + 6;
-    const top = below + h + 12 > vh ? Math.max(12, pick.rect.top / z - 6 - h) : below;
-    setStyle({ position: "fixed", left, top, width: w });
-  }, [pick, info, loading, root]);
-
-  return createPortal(
-    <div
-      ref={ref}
-      role="dialog"
-      aria-label={t.word.title}
-      style={style}
-      className="z-50 rounded-xl border border-line bg-surface p-3 text-ink shadow-lg"
-    >
+  return (
+    <PopoverCard rect={pick.rect} label={t.word.title} onClose={onClose}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p
@@ -99,10 +65,12 @@ export function WordPopover({
           </p>
           {info ? (
             <>
-              <p className="mt-1 font-reading text-sm italic text-ink-muted">{info[0]}</p>
+              <p className="mt-1.5 font-reading text-sm italic text-ink-muted">
+                {info[0]}
+              </p>
               <p className="mt-0.5 text-base font-semibold">{glossOf(info, glossLang)}</p>
               {root && (
-                <p className="mt-1 text-xs text-ink-subtle">
+                <p className="mt-1.5 text-xs text-ink-subtle">
                   {t.word.root}:{" "}
                   <span lang="ar" dir="rtl" className="text-sm text-ink" style={ARABIC}>
                     {root[0].split("").join(" ")}
@@ -111,55 +79,26 @@ export function WordPopover({
               )}
             </>
           ) : (
-            <p className="mt-1 text-sm text-ink-subtle">
+            <p className="mt-1.5 text-sm text-ink-subtle">
               {loading ? t.word.loading : t.word.unavailable}
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={t.common.close}
-          className="-mr-1 -mt-1 rounded-md p-1.5 text-ink-subtle hover:bg-surface-sunken touch:min-h-11 touch:min-w-11"
-        >
-          <X size={16} aria-hidden />
-        </button>
+        <PopoverClose onClose={onClose} />
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1 border-t border-line pt-2">
+      <PopoverActions canPlay={canPlay} onPlay={onPlay} onContext={onContext}>
         {info && (
           <button
             type="button"
             onClick={onMore}
-            className="inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-sm font-medium text-illumination hover:bg-surface-sunken touch:min-h-11"
+            className="inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-sm font-medium text-illumination transition-colors hover:bg-surface-sunken touch:min-h-11"
           >
             {t.word.more}
             <ArrowRight size={14} aria-hidden />
           </button>
         )}
-        <span className="flex-1" />
-        {canPlay && (
-          <button
-            type="button"
-            onClick={onPlay}
-            aria-label={t.word.playAyah}
-            title={t.word.playAyah}
-            className="rounded-md p-2 text-ink-muted hover:bg-surface-sunken touch:min-h-11 touch:min-w-11"
-          >
-            <Play size={16} aria-hidden />
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={onContext}
-          aria-label={t.word.ayahContext}
-          title={t.word.ayahContext}
-          className="rounded-md p-2 text-ink-muted hover:bg-surface-sunken touch:min-h-11 touch:min-w-11"
-        >
-          <BookOpen size={16} aria-hidden />
-        </button>
-      </div>
-    </div>,
-    popupRoot(),
+      </PopoverActions>
+    </PopoverCard>
   );
 }
 
@@ -206,7 +145,7 @@ export function WordDetailPage({
   };
 
   return (
-    <div className="space-y-5 pb-4">
+    <div className="mx-auto max-w-2xl space-y-6 px-4 pb-6 pt-4">
       <header className="text-center">
         <p lang="ar" dir="rtl" className="text-5xl leading-normal" style={ARABIC}>
           {word}
@@ -218,7 +157,7 @@ export function WordDetailPage({
       </header>
 
       <Section title={t.word.meaning}>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+        <dl className={DL}>
           <dt className="text-ink-subtle">{t.word.meaningId}</dt>
           <dd className="font-medium">{id || "—"}</dd>
           <dt className="text-ink-subtle">{t.word.meaningEn}</dt>
@@ -228,7 +167,7 @@ export function WordDetailPage({
 
       {(pos || features.length > 0) && (
         <Section title={t.word.grammar}>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+          <dl className={DL}>
             {pos && (
               <>
                 <dt className="text-ink-subtle">{t.word.partOfSpeech}</dt>
@@ -260,8 +199,8 @@ export function WordDetailPage({
 
       {rt && (
         <Section title={t.word.root}>
-          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span lang="ar" dir="rtl" className="text-3xl" style={ARABIC}>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span lang="ar" dir="rtl" className="text-3xl leading-normal" style={ARABIC}>
               {rt[0].split("").join(" ")}
             </span>
             <span className="text-sm text-ink-muted">{t.word.rootCount(n(rt[2]))}</span>
@@ -269,7 +208,7 @@ export function WordDetailPage({
               <button
                 type="button"
                 onClick={() => onExplore({ kind: "root", key: rt[1] })}
-                className="inline-flex items-center gap-1 text-sm text-illumination hover:underline touch:min-h-11"
+                className="ml-auto inline-flex min-h-9 items-center gap-1 rounded-lg px-2 text-sm font-medium text-illumination transition-colors hover:bg-surface-sunken touch:min-h-11"
               >
                 {t.word.openExplorer}
                 <ArrowRight size={14} aria-hidden />
@@ -278,24 +217,19 @@ export function WordDetailPage({
           </div>
           {family.length > 0 && (
             <>
-              <p className="mt-3 text-xs font-medium uppercase tracking-wide text-ink-subtle">
-                {t.word.fromRoot}
-              </p>
-              <ul className="mt-1 divide-y divide-line rounded-lg border border-line">
+              <h4 className={cx(HEADING, "mt-4")}>{t.word.fromRoot}</h4>
+              <ul className={LIST}>
                 {family.map((li) => {
                   const l = L!.lemmas[li - 1];
                   return (
                     <li
                       key={li}
-                      className={cx(
-                        "flex items-center gap-3 px-3 py-1.5",
-                        li === lemma && "bg-illumination/10",
-                      )}
+                      className={cx(ROW, li === lemma && "bg-illumination/10")}
                     >
                       <span
                         lang="ar"
                         dir="rtl"
-                        className="min-w-[4.5rem] text-xl"
+                        className="w-20 shrink-0 truncate text-right text-xl"
                         style={ARABIC}
                       >
                         {l[0]}
@@ -303,7 +237,7 @@ export function WordDetailPage({
                       <span className="min-w-0 flex-1 truncate text-sm">
                         {i18n.lang === "id" ? l[4] || l[3] : l[3] || l[4]}
                       </span>
-                      <span className="text-xs tabular-nums text-ink-subtle">
+                      <span className="shrink-0 text-xs tabular-nums text-ink-subtle">
                         {n(l[2])}×
                       </span>
                     </li>
@@ -317,7 +251,7 @@ export function WordDetailPage({
 
       {lemma > 0 && occ.length > 0 && (
         <Section title={t.word.occurrences(n(occ.length))}>
-          <ul className="space-y-2">
+          <ul className={LIST}>
             {occ.slice(0, shown).map(([vid, wi]) => {
               const v = verses[vid - 1];
               if (!v) return null;
@@ -330,12 +264,14 @@ export function WordDetailPage({
                   <button
                     type="button"
                     onClick={() => onRead({ scope: "surah", value: v.s, anchor: vid })}
+                    aria-current={here || undefined}
                     className={cx(
-                      "flex w-full items-center gap-3 rounded-lg border border-line px-3 py-2 text-left hover:bg-surface-sunken",
-                      here && "border-illumination",
+                      ROW,
+                      "w-full text-left transition-colors hover:bg-surface-sunken",
+                      here && "bg-illumination/10",
                     )}
                   >
-                    <span className="shrink-0 text-xs tabular-nums text-ink-subtle">
+                    <span className="w-14 shrink-0 text-xs tabular-nums text-ink-subtle">
                       {ref(vid)}
                     </span>
                     <span
@@ -364,28 +300,32 @@ export function WordDetailPage({
             })}
           </ul>
           {occ.length > shown && (
-            <button
-              type="button"
+            <Button
               onClick={() => setShown((s) => s + OCC_PAGE * 2)}
-              className="mt-2 w-full rounded-lg border border-line px-3 py-2 text-sm text-ink-muted hover:bg-surface-sunken touch:min-h-11"
+              className="mt-3 w-full"
             >
               {t.word.showMore(n(Math.min(OCC_PAGE * 2, occ.length - shown)))}
-            </button>
+            </Button>
           )}
         </Section>
       )}
 
-      <p className="text-xs text-ink-subtle">{t.word.source}</p>
+      <p className="border-t border-line pt-3 text-xs text-ink-subtle">{t.word.source}</p>
     </div>
   );
 }
 
+/** Section headings, the definition lists and the list rows of the page. */
+const HEADING = "mb-2 text-eyebrow text-ink-subtle";
+const DL =
+  "grid grid-cols-[minmax(6.5rem,auto)_1fr] items-baseline gap-x-4 gap-y-1.5 text-sm";
+const LIST = "divide-y divide-line border-y border-line";
+const ROW = "flex min-h-11 items-center gap-3 px-2 py-1";
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
-      <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-subtle">
-        {title}
-      </h3>
+      <h3 className={HEADING}>{title}</h3>
       {children}
     </section>
   );

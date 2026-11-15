@@ -36,9 +36,7 @@ export function QuestionList({
     >
       {groups.map((g) => (
         <div key={g} role="group" aria-label={t.viz.groups[g]}>
-          <div className="mb-1 px-2 text-sm font-medium text-ink-subtle">
-            {t.viz.groups[g]}
-          </div>
+          <div className="mb-1 px-2 text-eyebrow text-ink-subtle">{t.viz.groups[g]}</div>
           {defs
             .filter((d) => d.group === g)
             .map((d) => {
@@ -56,10 +54,10 @@ export function QuestionList({
                   tabIndex={active ? 0 : -1}
                   onClick={() => onChange(d.value)}
                   className={cx(
-                    "flex w-full items-start gap-2.5 rounded-lg px-2 py-2 text-left text-sm leading-snug transition-colors",
+                    "flex w-full items-start gap-2.5 rounded-md px-2 py-2 text-left text-sm leading-snug transition-colors touch:min-h-11",
                     active
-                      ? "bg-surface-sunken font-medium text-ink dark:bg-paper"
-                      : "text-ink-muted hover:bg-surface-sunken/60 hover:text-ink dark:hover:bg-paper/60",
+                      ? "bg-illumination/10 font-medium text-ink"
+                      : "text-ink-muted hover:bg-surface-sunken hover:text-ink",
                   )}
                 >
                   <Icon

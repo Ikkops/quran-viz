@@ -22,7 +22,7 @@ import {
   topicsForAyah,
 } from "../../data/ayahContext";
 import type { LazyJsonState } from "../../data/useLazyJson";
-import { Badge, SegmentedControl, Select } from "../ui";
+import { Badge, Button, SegmentedControl, Select } from "../ui";
 import { AyahText } from "./AyahText";
 import { CONTEXT_TABS, tafsirOptions, type ContextTab } from "./readerShared";
 
@@ -49,13 +49,9 @@ function useLoadNote<T>(s: LazyJsonState<T>): ReactNode {
       <div className="flex items-center gap-3">
         <Note error>{t.common.failedToLoad(s.error)}</Note>
         {s.retry && (
-          <button
-            type="button"
-            onClick={s.retry}
-            className="rounded-md border border-line px-2 py-1 text-sm text-ink-muted hover:bg-surface-sunken"
-          >
+          <Button size="sm" onClick={s.retry}>
             {t.common.retry}
-          </button>
+          </Button>
         )}
       </div>
     );
@@ -64,7 +60,7 @@ function useLoadNote<T>(s: LazyJsonState<T>): ReactNode {
 }
 
 function Heading({ children }: { children: ReactNode }) {
-  return <h3 className="mb-2 text-sm font-semibold text-ink">{children}</h3>;
+  return <h3 className="mb-2 text-heading text-ink">{children}</h3>;
 }
 
 /**
@@ -210,7 +206,7 @@ export function VerseContextPanel({
           ) : (
             <ol className="divide-y divide-line">
               {ws.map(([ar, gloss], i) => (
-                <li key={i} className="flex items-baseline gap-3 py-1.5">
+                <li key={i} className="flex items-baseline gap-3 py-2">
                   <span className="w-6 shrink-0 text-xs tabular-nums text-ink-subtle">
                     {i + 1}
                   </span>
@@ -273,7 +269,7 @@ export function VerseContextPanel({
         <Note>{t.reader.noSimilar}</Note>
       ) : (
         <>
-          <ul className="flex flex-col gap-1">
+          <ul className="-mx-2 flex flex-col gap-1">
             {list.map((x) => {
               const v = verses[x.id - 1];
               if (!v) return null;
@@ -285,7 +281,7 @@ export function VerseContextPanel({
                     type="button"
                     onClick={() => onRead({ scope: "surah", value: v.s, anchor: v.id })}
                     aria-label={t.reader.readAyah(r)}
-                    className="w-full rounded-lg px-2 py-2 text-left hover:bg-surface-sunken"
+                    className="w-full rounded-md px-2 py-2 text-left transition-colors hover:bg-surface-sunken"
                   >
                     <span className="flex items-center gap-2">
                       <Badge color={verseColor(v)} className="tabular-nums">
@@ -317,7 +313,7 @@ export function VerseContextPanel({
     const rs = roots.data ? rootsInAyah(roots.data, verse.id) : [];
     const ts = topicTree ? topicsForAyah(topicTree, verse.id) : [];
     const exploreCls =
-      "flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left hover:bg-surface-sunken";
+      "flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-surface-sunken touch:min-h-11";
     body = (
       <>
         <section className="mb-5">
@@ -326,7 +322,7 @@ export function VerseContextPanel({
             (rs.length === 0 ? (
               <Note>{t.reader.noRoots}</Note>
             ) : (
-              <ul className="flex flex-col">
+              <ul className="-mx-2 flex flex-col">
                 {rs.map((r) => (
                   <li key={r.root.bw}>
                     <button
@@ -367,7 +363,7 @@ export function VerseContextPanel({
             (ts.length === 0 || !topicTree ? (
               <Note>{t.reader.noTopics}</Note>
             ) : (
-              <ul className="flex flex-col">
+              <ul className="-mx-2 flex flex-col">
                 {ts.map((i) => {
                   const path = topicPath(topicTree, i);
                   const name = topicName(topicTree.nodes[i], lang);
@@ -428,7 +424,7 @@ export function VerseContextPanel({
           </p>
         </div>
       )}
-      <div className="border-b border-line px-3 py-2">
+      <div className="border-b border-line px-4 py-2">
         <SegmentedControl<ContextTab>
           value={tab}
           onChange={onTab}

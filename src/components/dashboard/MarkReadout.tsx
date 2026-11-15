@@ -1,6 +1,7 @@
 import { BookOpen, X } from "lucide-react";
 import type { ReaderTarget } from "../charts/common";
 import { useI18n } from "../../i18n/I18nContext";
+import { Button } from "../ui";
 
 /** What a tapped mark (or a histogram bucket) stands for, pinned above the
  *  chart until cleared, with a way into the reader. */
@@ -30,10 +31,10 @@ export function MarkReadout({
   return (
     <div
       role="status"
-      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-line bg-surface-sunken/60 px-3 py-2 dark:bg-paper/60"
+      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-line bg-surface-sunken px-3 py-2"
     >
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-ink">{pinned.title}</p>
+        <p className="text-sm font-semibold tabular-nums text-ink">{pinned.title}</p>
         {pinned.detail && <p className="text-sm text-ink-muted">{pinned.detail}</p>}
         {pinned.target && (
           <p className="text-xs text-ink-subtle">{t.dashboard.tapAgain}</p>
@@ -46,7 +47,7 @@ export function MarkReadout({
                 key={e.label}
                 type="button"
                 onClick={() => onOpen(e.target)}
-                className="h-8 touch:min-h-11 rounded-md border border-line bg-surface px-2 text-sm tabular-nums text-illumination hover:border-illumination/50"
+                className="h-8 rounded-md border border-line bg-surface px-2 text-sm font-medium tabular-nums text-illumination transition-colors hover:border-illumination/40 touch:min-h-11"
               >
                 {e.label}
               </button>
@@ -55,19 +56,19 @@ export function MarkReadout({
         )}
       </div>
       {pinned.target && (
-        <button
-          type="button"
+        <Button
+          variant="primary"
           onClick={() => onOpen(pinned.target!)}
-          className="inline-flex h-9 touch:min-h-11 items-center gap-1.5 rounded-lg bg-illumination px-3 text-sm font-semibold text-white dark:text-paper"
+          icon={<BookOpen size={16} aria-hidden />}
         >
-          <BookOpen size={15} aria-hidden /> {t.dashboard.openInReader}
-        </button>
+          {t.dashboard.openInReader}
+        </Button>
       )}
       <button
         type="button"
         onClick={onClear}
         aria-label={t.dashboard.clearSelection}
-        className="inline-flex h-9 w-9 touch:min-h-11 touch:min-w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-surface hover:text-ink"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-surface hover:text-ink touch:min-h-11 touch:min-w-11"
       >
         <X size={16} aria-hidden />
       </button>

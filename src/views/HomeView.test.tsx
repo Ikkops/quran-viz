@@ -119,4 +119,19 @@ describe("HomeView", () => {
     await userEvent.click(card);
     expect(onActivity).toHaveBeenCalled();
   });
+
+  it("resets sort, filter and layout but keeps the search", async () => {
+    home();
+    await userEvent.type(screen.getByRole("searchbox"), "al");
+    await userEvent.click(screen.getByRole("button", { name: "Sort and filter" }));
+    expect(screen.queryByRole("button", { name: "Reset controls" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /Cards/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Reset controls" }));
+    expect(screen.getByRole("button", { name: /List/ })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.queryByRole("button", { name: "Reset controls" })).toBeNull();
+    expect(screen.getByRole("searchbox")).toHaveValue("al");
+  });
 });

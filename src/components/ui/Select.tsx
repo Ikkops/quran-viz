@@ -336,20 +336,20 @@ export function Select<T extends string | number>({
           role="listbox"
           aria-labelledby={label ? labelId : undefined}
           aria-label={label ? undefined : ariaLabel}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-1"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1"
         >
           {rows.map((r) =>
             r.kind === "sep" ? (
               <li
                 key={`s-${r.i}`}
                 role="separator"
-                className="mx-3 my-1 border-t border-line"
+                className="mx-2 my-1 border-t border-line"
               />
             ) : r.kind === "group" ? (
               <li
                 key={`g-${r.label}`}
                 role="presentation"
-                className="px-3 pb-1 pt-2.5 text-xs font-semibold text-ink-subtle"
+                className="px-2.5 pb-1 pt-2.5 text-eyebrow text-ink-subtle"
               >
                 {r.label}
               </li>
@@ -365,7 +365,7 @@ export function Select<T extends string | number>({
                 }}
                 onClick={() => pick(r.o)}
                 className={join(
-                  "flex min-h-9 cursor-pointer select-none items-center gap-2 px-3 py-1.5 text-sm touch:min-h-11",
+                  "flex min-h-9 cursor-pointer select-none items-center gap-2 rounded-md px-2.5 py-1.5 text-sm touch:min-h-11",
                   r.i === active && "bg-surface-sunken",
                   r.o.value === value ? "font-medium text-illumination" : "text-ink",
                   r.o.disabled && "cursor-not-allowed opacity-40",
@@ -385,7 +385,7 @@ export function Select<T extends string | number>({
             ),
           )}
           {shown.length === 0 && (
-            <li role="presentation" className="px-3 py-2 text-sm text-ink-subtle">
+            <li role="presentation" className="px-2.5 py-2 text-sm text-ink-subtle">
               {t.ui.noMatches}
             </li>
           )}
@@ -399,7 +399,7 @@ export function Select<T extends string | number>({
       {label && (
         <span
           id={labelId}
-          className={join("text-ink-muted", sm ? "text-sm" : "text-xs font-medium")}
+          className={join("text-ink-muted", sm ? "text-sm" : "text-eyebrow")}
           onClick={() => triggerRef.current?.focus()}
         >
           {label}
@@ -421,12 +421,12 @@ export function Select<T extends string | number>({
         onClick={() => (open ? close() : openList())}
         onKeyDown={onKeyDown}
         className={join(
-          "flex w-full min-w-0 items-center gap-2 rounded-lg border bg-surface text-left text-ink transition",
-          "hover:border-ink-subtle disabled:cursor-not-allowed disabled:opacity-50",
+          "flex w-full min-w-0 items-center gap-2 rounded-lg border bg-surface text-left text-ink transition-colors",
+          "enabled:hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-50",
           open ? "border-illumination" : "border-line",
           sm
             ? "min-h-9 px-2 text-sm touch:min-h-11"
-            : "min-h-10 px-2.5 text-sm touch:min-h-11",
+            : "min-h-9 px-3 text-sm touch:min-h-11",
         )}
       >
         <span id={`${id}-value`} className="min-w-0 flex-1 truncate">

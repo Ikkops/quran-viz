@@ -18,10 +18,10 @@ function VerseCard({
   return (
     <button
       onClick={() => ctx.onOpen?.({ scope: "surah", value: v.s, anchor: v.id })}
-      className="w-full rounded-xl border border-line bg-paper p-3 text-right transition hover:border-ink-subtle/50 hover:shadow-sm dark:bg-surface/60"
+      className="w-full rounded-lg border border-line p-3 text-right transition-colors hover:bg-surface-sunken"
     >
       <div className="mb-1 flex items-center justify-between" dir="ltr">
-        <span className="text-xs font-medium text-ink-muted dark:text-ink-subtle">
+        <span className="text-xs font-medium tabular-nums text-ink-muted">
           {s?.name} {v.s}:{v.a}
         </span>
         <Badge color={ctx.primary}>{t.charts.nWords(v.w)}</Badge>
@@ -56,7 +56,7 @@ export function ExtremesPanel({
   return (
     <div className="grid h-full grid-cols-1 gap-4 overflow-y-auto md:grid-cols-2">
       <div className="space-y-2">
-        <h4 className="sticky top-0 bg-surface/80 py-1 text-sm font-semibold text-ink backdrop-blur">
+        <h4 className="sticky top-0 z-10 bg-surface py-1 text-heading text-ink">
           {t.charts.longest}
         </h4>
         {longest.map((v) => (
@@ -64,7 +64,7 @@ export function ExtremesPanel({
         ))}
       </div>
       <div className="space-y-2">
-        <h4 className="sticky top-0 bg-surface/80 py-1 text-sm font-semibold text-ink backdrop-blur">
+        <h4 className="sticky top-0 z-10 bg-surface py-1 text-heading text-ink">
           {t.charts.shortest}
         </h4>
         {shortest.map((v) => (

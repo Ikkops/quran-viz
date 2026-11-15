@@ -29,11 +29,9 @@ export function Card({
 }) {
   return (
     <div
-      className={cx(
-        "rounded-2xl border border-line bg-surface shadow-sm",
-        "dark:border-line dark:bg-surface/60",
-        className,
-      )}
+      // A solid surface one step up the ladder from paper; `shadow-soft` is a
+      // faint shadow on light themes and a top-edge highlight on dark ones.
+      className={cx("rounded-xl border border-line bg-surface shadow-soft", className)}
     >
       {children}
     </div>
@@ -52,8 +50,8 @@ export function SectionTitle({
   return (
     <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-[12rem] flex-1">
-        <h2 className="text-base font-semibold text-ink">{title}</h2>
-        {subtitle && <p className="text-sm text-ink-subtle">{subtitle}</p>}
+        <h2 className="text-heading text-ink">{title}</h2>
+        {subtitle && <p className="mt-0.5 text-sm text-ink-subtle">{subtitle}</p>}
       </div>
       {right}
     </div>
@@ -72,8 +70,8 @@ export function Badge({
   return (
     <span
       className={cx(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-        !color && "bg-surface-sunken text-ink dark:bg-line",
+        "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium",
+        !color && "bg-surface-sunken text-ink-muted dark:bg-line dark:text-ink",
         className,
       )}
       style={color ? { backgroundColor: `${color}22`, color } : undefined}
@@ -89,14 +87,14 @@ export function Slider({
   ...props
 }: { label?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-ink-muted">
+    <label className="flex flex-col gap-1 text-eyebrow text-ink-muted">
       {label && (
         <span className="flex justify-between">
           <span>{label}</span>
           <span className="tabular-nums text-ink-subtle">{value}</span>
         </span>
       )}
-      <input type="range" value={value} {...props} className="accent-current" />
+      <input type="range" value={value} {...props} className="accent-illumination" />
     </label>
   );
 }
@@ -127,7 +125,7 @@ export function Toggle({
       >
         <span
           className={cx(
-            "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition motion-reduce:transition-none",
+            "absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition motion-reduce:transition-none",
             checked ? "left-4" : "left-0.5",
           )}
         />
@@ -136,24 +134,56 @@ export function Toggle({
   );
 }
 
-export function IconButton({
+const BUTTON_VARIANT = {
+  primary: "bg-illumination text-white enabled:hover:bg-illumination/90 dark:text-paper",
+  secondary: "border border-line bg-surface text-ink enabled:hover:bg-surface-sunken",
+  quiet: "text-ink-muted enabled:hover:bg-surface-sunken enabled:hover:text-ink",
+};
+const BUTTON_SIZE = {
+  md: "h-9 gap-1.5 px-3.5",
+  sm: "h-8 gap-1 px-2.5",
+};
+
+/**
+ * The app's button (DESIGN.md "Buttons"): `primary` (lapis fill, one per view
+ * or sheet), `secondary` (surface + hairline), `quiet` (no fill). 36px (`md`)
+ * or 32px (`sm`), 44px on touch screens. Full width through `className`.
+ */
+export function Button({
+  variant = "secondary",
+  size = "md",
+  icon,
   className,
   children,
+  type = "button",
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement>) {
+}: {
+  variant?: keyof typeof BUTTON_VARIANT;
+  size?: keyof typeof BUTTON_SIZE;
+  /** Leading icon (a lucide icon, 16px). */
+  icon?: ReactNode;
+} & ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
+      type={type}
       {...props}
       className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium text-ink transition touch:min-h-11",
-        "hover:bg-paper disabled:opacity-50",
-        "dark:border-ink-subtle/50 dark:hover:bg-line",
+        "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-colors touch:min-h-11",
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        BUTTON_VARIANT[variant],
+        BUTTON_SIZE[size],
         className,
       )}
     >
+      {icon}
       {children}
     </button>
   );
+}
+
+/** A secondary `Button` (kept for its callers). */
+export function IconButton(props: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <Button {...props} />;
 }
 
 export function SegmentedControl<T extends string>({
@@ -161,11 +191,14 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   ariaLabel,
+  fullWidth,
 }: {
   options: { value: T; label: string; icon?: ReactNode }[];
   value: T;
   onChange: (v: T) => void;
   ariaLabel?: string;
+  /** Fill the container, options sharing the width equally. */
+  fullWidth?: boolean;
 }) {
   return (
     <div
@@ -173,7 +206,10 @@ export function SegmentedControl<T extends string>({
       aria-label={ariaLabel}
       // Never wider than its container: on a phone a long strip (the reader's 7
       // scopes, Structure's 8 tabs) scrolls sideways instead of widening the page.
-      className="scrollbar-none inline-flex max-w-full overflow-x-auto rounded-xl border border-line bg-surface-sunken p-1 dark:bg-surface"
+      className={cx(
+        "scrollbar-none max-w-full gap-0.5 overflow-x-auto rounded-lg border border-line/60 bg-surface-sunken p-0.5",
+        fullWidth ? "flex w-full" : "inline-flex",
+      )}
     >
       {options.map((o) => (
         <button
@@ -181,10 +217,13 @@ export function SegmentedControl<T extends string>({
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
           className={cx(
-            "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition touch:min-h-11",
+            "inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors touch:min-h-11",
+            fullWidth ? "flex-1 justify-center" : "shrink-0",
+            // Selected: lifted onto the surface (a hairline on dark themes,
+            // where the ladder step alone is faint).
             value === o.value
-              ? "bg-surface text-ink shadow-sm dark:bg-ink-subtle/50 dark:text-white"
-              : "text-ink-muted hover:text-ink dark:text-ink-subtle",
+              ? "bg-surface text-ink shadow-soft dark:ring-1 dark:ring-inset dark:ring-line"
+              : "text-ink-subtle hover:text-ink",
           )}
         >
           {o.icon}
@@ -411,7 +450,7 @@ export function Modal({
           {/* The card; the resize handles sit outside it, beside its edges. */}
           <div
             className={cx(
-              "min-h-0 w-full overflow-y-auto rounded-2xl bg-surface shadow-2xl dark:bg-paper",
+              "min-h-0 w-full overflow-y-auto rounded-2xl border border-line bg-surface shadow-float dark:bg-paper",
               fullHeight && "flex h-full flex-col",
             )}
           >
@@ -442,16 +481,16 @@ export function ModalHeader({
   return (
     <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
       <div className="min-w-0">
-        <h2 id={titleId} className="text-lg font-semibold text-ink">
+        <h2 id={titleId} className="text-title text-ink">
           {title}
         </h2>
-        {subtitle && <p className="text-sm text-ink-subtle">{subtitle}</p>}
+        {subtitle && <p className="mt-0.5 text-sm text-ink-subtle">{subtitle}</p>}
       </div>
       <button
         type="button"
         onClick={onClose}
         aria-label={t.common.close}
-        className="-mr-2 -mt-1 inline-flex h-10 w-10 touch:min-h-11 touch:min-w-11 shrink-0 items-center justify-center rounded-lg text-ink-subtle hover:bg-surface-sunken hover:text-ink"
+        className="-mr-2 -mt-1 inline-flex h-10 w-10 touch:min-h-11 touch:min-w-11 shrink-0 items-center justify-center rounded-lg text-ink-subtle transition-colors hover:bg-surface-sunken hover:text-ink"
       >
         <X size={20} aria-hidden />
       </button>
@@ -472,7 +511,8 @@ const FOCUSABLE =
  * A panel docked to the bottom edge (phones) or the right edge (wider layouts),
  * over a dimmed page: the reader's ayah context and player options. Escape,
  * the backdrop and Android back (a synthetic Escape) close it; focus moves in
- * on open and returns on close.
+ * on open and returns on close. The body has no padding of its own: callers
+ * pad their content (`px-4 py-3`, the header's inset).
  */
 export function Sheet({
   open,
@@ -542,17 +582,23 @@ export function Sheet({
         tabIndex={-1}
         onClick={(e) => e.stopPropagation()}
         className={cx(
-          "absolute flex flex-col bg-surface shadow-float outline-none",
+          "absolute flex flex-col border-line bg-surface shadow-float outline-none",
           side === "bottom" &&
-            "animate-sheet-up inset-x-0 bottom-0 mx-auto max-h-[calc(85*var(--zvh))] w-full max-w-3xl rounded-t-xl pb-[env(safe-area-inset-bottom)]",
+            "animate-sheet-up inset-x-0 bottom-0 mx-auto max-h-[calc(85*var(--zvh))] w-full max-w-3xl rounded-t-2xl border-t pb-[env(safe-area-inset-bottom)]",
           side === "top" &&
-            "animate-sheet-down inset-x-0 top-0 mx-auto max-h-[calc(85*var(--zvh))] w-full max-w-3xl rounded-b-xl pt-[env(safe-area-inset-top)]",
+            "animate-sheet-down inset-x-0 top-0 mx-auto max-h-[calc(85*var(--zvh))] w-full max-w-3xl rounded-b-2xl border-b pt-[env(safe-area-inset-top)]",
           side === "right" &&
-            "animate-sheet-in inset-y-0 right-0 w-[min(26rem,100%)] border-l border-line pt-[env(safe-area-inset-top)]",
+            "animate-sheet-in inset-y-0 right-0 w-[min(26rem,100%)] rounded-l-2xl border-l pt-[env(safe-area-inset-top)]",
         )}
       >
+        {side === "bottom" && (
+          <div
+            aria-hidden
+            className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-line"
+          />
+        )}
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line py-1.5 pl-4 pr-1.5">
-          <h2 className="min-w-0 truncate text-base font-semibold text-ink">{title}</h2>
+          <h2 className="min-w-0 truncate text-title text-ink">{title}</h2>
           <QuietIconButton label={closeLabel} onClick={onClose}>
             <X size={19} />
           </QuietIconButton>

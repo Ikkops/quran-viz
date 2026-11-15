@@ -21,6 +21,10 @@
   --font-ui:
     "Source Sans 3 Variable", "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
   --font-reading: "Literata Variable", "Literata", Georgia, serif;
+  /* Card elevation (`shadow-soft`): a faint layered shadow on light themes. */
+  --shadow-soft:
+    0 0.175px 1.04px rgb(0 0 0 / 0.01), 0 0.8px 2.93px rgb(0 0 0 / 0.02),
+    0 2.03px 7.85px rgb(0 0 0 / 0.027), 0 4px 18px rgb(0 0 0 / 0.04);
 }
 
 .dark {
@@ -36,6 +40,8 @@
   --hijra: 147 162 196;
   --illumination: 134 169 238;
   --rubric: 232 122 104;
+  /* Dark themes get depth from the surface ladder and hairlines, not shadows. */
+  --shadow-soft: inset 0 1px 0 rgb(255 255 255 / 0.04);
 }
 
 [data-theme="cream"] {
@@ -109,8 +115,9 @@ body {
 ::selection {
   background: rgb(var(--illumination) / 0.22);
 }
+/* One focus ring for the app (DESIGN.md "Focus"): 65% lapis keeps 3:1 on paper. */
 :focus-visible {
-  outline: 2px solid rgb(var(--illumination));
+  outline: 2px solid rgb(var(--illumination) / 0.65);
   outline-offset: 2px;
 }
 /* Recharts' keyboard layer makes the chart focusable; a click focuses it too,

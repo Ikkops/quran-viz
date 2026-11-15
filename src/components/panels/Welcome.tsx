@@ -5,14 +5,14 @@ import { searchEditionFor } from "../../data/searchEdition";
 import { LANGS, MESSAGES, useI18n, type Lang } from "../../i18n/I18nContext";
 import { ARABIC_FONTS, useTheme } from "../../theme/ThemeContext";
 import type { Edition } from "../../types/quran";
-import { cx, Modal, Select } from "../ui";
+import { Button, cx, Modal, Select } from "../ui";
 
 export type WelcomeChoice = "read" | "map" | null;
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <fieldset>
-      <legend className="mb-2 text-sm font-medium text-ink">{label}</legend>
+      <legend className="mb-2 text-heading text-ink">{label}</legend>
       {children}
     </fieldset>
   );
@@ -78,14 +78,12 @@ export function Welcome({
             className="h-16 w-16 shrink-0 rounded-2xl ring-1 ring-line"
           />
           <div className="min-w-0">
-            <h2 className="font-reading text-xl font-semibold leading-snug text-ink">
-              {w.heading}
-            </h2>
+            <h2 className="text-title text-ink">{w.heading}</h2>
             <p className="mt-1 text-sm text-ink-muted">{w.intro}</p>
           </div>
         </div>
 
-        <div className="mt-6 space-y-5">
+        <div className="mt-6 space-y-6">
           <Field label={w.language}>
             <div className="grid grid-cols-2 gap-2">
               {LANGS.map((l) => (
@@ -154,7 +152,7 @@ export function Welcome({
           <button
             type="button"
             onClick={() => onDone("read")}
-            className="flex min-h-14 items-center gap-3 rounded-xl bg-illumination px-4 py-2.5 text-left text-white dark:text-paper"
+            className="flex min-h-14 items-center gap-3 rounded-lg bg-illumination px-4 py-2.5 text-left text-white transition-colors hover:bg-illumination/90 dark:text-paper"
           >
             <BookOpen size={20} aria-hidden className="shrink-0" />
             <span>
@@ -165,7 +163,7 @@ export function Welcome({
           <button
             type="button"
             onClick={() => onDone("map")}
-            className="flex min-h-14 items-center gap-3 rounded-xl border border-line px-4 py-2.5 text-left text-ink hover:bg-surface-sunken"
+            className="flex min-h-14 items-center gap-3 rounded-lg border border-line bg-surface px-4 py-2.5 text-left text-ink transition-colors hover:bg-surface-sunken"
           >
             <MapIcon size={20} aria-hidden className="shrink-0 text-illumination" />
             <span>
@@ -174,13 +172,11 @@ export function Welcome({
             </span>
           </button>
         </div>
-        <button
-          type="button"
-          onClick={onAbout}
-          className="mx-auto mt-4 block min-h-10 touch:min-h-11 px-2 text-sm text-illumination underline-offset-4 hover:underline"
-        >
-          {w.about}
-        </button>
+        <div className="mt-4 flex justify-center">
+          <Button variant="quiet" onClick={onAbout}>
+            {w.about}
+          </Button>
+        </div>
       </div>
     </Modal>
   );

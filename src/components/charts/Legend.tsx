@@ -23,9 +23,9 @@ function Item({
       aria-pressed={active}
       aria-label={t.legend.filterBy(label)}
       className={
-        "inline-flex items-center gap-1.5 rounded-full px-1.5 py-0.5 text-xs transition " +
+        "inline-flex items-center gap-1.5 rounded px-1.5 py-0.5 text-xs font-medium transition-colors touch:min-h-11 " +
         (active ? "text-ink-muted" : "text-ink-subtle line-through") +
-        " hover:bg-surface-sunken dark:hover:bg-line/60"
+        " hover:bg-surface-sunken"
       }
     >
       <span
@@ -86,7 +86,7 @@ export function Legend({
       ))}
       {ayahLevel && colorMode === "type" && (
         <span
-          className="inline-flex items-center gap-1.5 px-1.5 py-0.5 text-xs text-ink-muted"
+          className="inline-flex items-center gap-1.5 px-1.5 py-0.5 text-xs font-medium text-ink-muted"
           title={t.legend.hijraTitle}
         >
           <span
@@ -101,7 +101,7 @@ export function Legend({
           type="button"
           onClick={() => activeKeys.forEach((k) => onToggle(k))}
           aria-label={t.legend.showAllAria}
-          className="ml-1 rounded-full px-1.5 py-0.5 text-xs text-ink-subtle underline hover:text-ink-muted dark:hover:text-ink"
+          className="ml-1 rounded px-1.5 py-0.5 text-xs text-ink-subtle underline underline-offset-2 hover:text-ink touch:min-h-11"
         >
           {t.common.showAll}
         </button>

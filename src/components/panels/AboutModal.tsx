@@ -24,10 +24,7 @@ export function AboutModal({ open, onClose }: { open: boolean; onClose: () => vo
         </div>
 
         <section aria-labelledby="about-sources">
-          <h3
-            id="about-sources"
-            className="mb-2 font-ui text-base font-semibold text-ink"
-          >
+          <h3 id="about-sources" className="mb-2 font-ui text-heading text-ink">
             {a.sourcesTitle}
           </h3>
           <dl className="space-y-3">
@@ -41,21 +38,21 @@ export function AboutModal({ open, onClose }: { open: boolean; onClose: () => vo
         </section>
 
         <section aria-labelledby="about-places">
-          <h3 id="about-places" className="mb-1 font-ui text-base font-semibold text-ink">
+          <h3 id="about-places" className="mb-1 font-ui text-heading text-ink">
             {a.placesTitle}
           </h3>
           <p className="max-w-prose">{a.places}</p>
         </section>
 
         <section aria-labelledby="about-counts">
-          <h3 id="about-counts" className="mb-1 font-ui text-base font-semibold text-ink">
+          <h3 id="about-counts" className="mb-1 font-ui text-heading text-ink">
             {a.countsTitle}
           </h3>
           <p className="max-w-prose">{t.app.countsNote}</p>
         </section>
 
         <section aria-labelledby="about-fonts">
-          <h3 id="about-fonts" className="mb-1 font-ui text-base font-semibold text-ink">
+          <h3 id="about-fonts" className="mb-1 font-ui text-heading text-ink">
             {a.fontsTitle}
           </h3>
           <p className="max-w-prose">{a.fonts}</p>

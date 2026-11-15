@@ -40,7 +40,7 @@ export function CorrelationScatter({
           type="number"
           dataKey="ayahCount"
           name={t.common.verses}
-          tick={{ fontSize: 11, fill: axisColor(ctx.dark) }}
+          tick={{ fontSize: 12, fill: axisColor(ctx.dark) }}
           label={{
             value: t.common.verses,
             position: "insideBottom",
@@ -53,7 +53,7 @@ export function CorrelationScatter({
           type="number"
           dataKey="wordCount"
           name={t.common.words}
-          tick={{ fontSize: 11, fill: axisColor(ctx.dark) }}
+          tick={{ fontSize: 12, fill: axisColor(ctx.dark) }}
           label={{
             value: t.common.words,
             angle: -90,

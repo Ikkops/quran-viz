@@ -105,7 +105,7 @@ export function SimilarArcs({
             ]}
           />
         </div>
-        <p className="pb-1 text-sm text-ink-muted dark:text-ink-subtle">
+        <p className="pb-1 text-sm tabular-nums text-ink-muted">
           {t.structure.pairs(n(pairs.length))}
         </p>
       </div>

@@ -4,7 +4,7 @@ import type { QuranData } from "../types/quran";
 import { surahMapOf } from "../data/selectors";
 import { useTheme } from "../theme/ThemeContext";
 import { useI18n } from "../i18n/I18nContext";
-import { Card, SectionTitle, SegmentedControl } from "../components/ui";
+import { Button, Card, SectionTitle, SegmentedControl } from "../components/ui";
 import type { ChartContext, ReaderTarget } from "../components/charts/common";
 import { StructureOverview } from "../components/charts/StructureOverview";
 import { JuzBreakdown } from "../components/charts/JuzBreakdown";
@@ -88,13 +88,9 @@ export function StructureView({
             <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-ink-subtle">
               {similar.error ? t.common.failedToLoad(similar.error) : t.common.loading}
               {similar.error && (
-                <button
-                  type="button"
-                  onClick={similar.retry}
-                  className="rounded-lg border border-ink-subtle px-3 py-1 text-xs font-medium text-ink-muted hover:bg-paper"
-                >
+                <Button size="sm" onClick={similar.retry}>
                   {t.common.retry}
-                </button>
+                </Button>
               )}
             </div>
           ))}

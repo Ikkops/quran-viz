@@ -11,7 +11,7 @@ import { buildTopicTree, searchTopicTree, topicName } from "../../data/topics";
 import { persisted, usePersistentState } from "../../lib/usePersistentState";
 import { useI18n } from "../../i18n/I18nContext";
 import { useTheme } from "../../theme/ThemeContext";
-import { Card, SectionTitle, SegmentedControl, cx } from "../ui";
+import { Button, Card, SectionTitle, SegmentedControl, cx } from "../ui";
 import type { ExploreTarget } from "../reader/VerseContextPanel";
 import { MushafMap, type MapMarks, type PickHow } from "./MushafMap";
 
@@ -37,10 +37,10 @@ function Chip({
       aria-pressed={on}
       onClick={onClick}
       className={cx(
-        "inline-flex h-9 touch:min-h-11 items-center gap-2 rounded-lg border px-3 text-sm transition-colors",
+        "inline-flex h-8 items-center gap-2 rounded-lg border px-2.5 text-sm font-medium transition-colors touch:min-h-11",
         on
-          ? "border-ink-subtle bg-surface text-ink"
-          : "border-line text-ink-muted hover:text-ink",
+          ? "border-ink-subtle/60 bg-surface text-ink"
+          : "border-line text-ink-subtle hover:bg-surface-sunken hover:text-ink",
       )}
     >
       <span
@@ -209,7 +209,7 @@ export function PetaMushaf({
       <SectionTitle title={t.peta.title} subtitle={t.peta.subtitle} />
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="mr-1 text-sm text-ink-muted">{t.peta.marks}</span>
+        <span className="mr-1 text-eyebrow text-ink-subtle">{t.peta.marks}</span>
         <Chip
           on={showSajda}
           onClick={() => setShowSajda(!showSajda)}
@@ -237,8 +237,8 @@ export function PetaMushaf({
         )}
       </div>
 
-      <div className="mb-3 flex flex-wrap items-start gap-2">
-        <span className="mr-1 mt-2 text-sm text-ink-muted">{t.peta.highlight}</span>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="mr-1 text-eyebrow text-ink-subtle">{t.peta.highlight}</span>
         <SegmentedControl<HighlightKind>
           value={kind}
           onChange={(k) => {
@@ -259,16 +259,18 @@ export function PetaMushaf({
               onChange={(e) => setQuery(e.target.value)}
               placeholder={kind === "root" ? t.peta.rootPh : t.peta.topicPh}
               aria-label={kind === "root" ? t.peta.rootPh : t.peta.topicPh}
-              className="h-10 touch:min-h-11 w-full rounded-lg border border-line bg-surface px-3 text-base text-ink"
+              className="h-9 w-full rounded border border-line bg-surface px-3 text-base text-ink placeholder:text-ink-subtle touch:min-h-11"
             />
             {query.trim() && (
-              <ul className="absolute inset-x-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-lg border border-line bg-surface p-1 shadow-float">
+              <ul className="absolute inset-x-0 top-full z-20 mt-1 max-h-72 overflow-y-auto rounded-xl border border-line bg-surface p-1 shadow-float">
                 {loadingHighlight ? (
-                  <li className="px-3 py-2 text-sm text-ink-subtle">
+                  <li className="px-2.5 py-2 text-sm text-ink-subtle">
                     {t.common.loading}
                   </li>
                 ) : suggestions.length === 0 ? (
-                  <li className="px-3 py-2 text-sm text-ink-subtle">{t.peta.noMatch}</li>
+                  <li className="px-2.5 py-2 text-sm text-ink-subtle">
+                    {t.peta.noMatch}
+                  </li>
                 ) : (
                   suggestions.map((s) => (
                     <li key={s.key}>
@@ -279,7 +281,7 @@ export function PetaMushaf({
                           else setTopicKey(s.key);
                           setQuery("");
                         }}
-                        className="w-full rounded-md px-3 py-2 text-left text-sm text-ink hover:bg-surface-sunken"
+                        className="w-full rounded-md px-2.5 py-2 text-left text-sm text-ink transition-colors hover:bg-surface-sunken touch:min-h-11"
                       >
                         {s.label}
                       </button>
@@ -302,17 +304,18 @@ export function PetaMushaf({
                 ? onExplore({ kind: "root", key: root.bw })
                 : topicKey && onExplore({ kind: "topic", key: topicKey })
             }
-            className="inline-flex items-center gap-1 font-medium text-illumination hover:underline"
+            className="inline-flex items-center gap-1 rounded font-medium text-illumination hover:underline touch:min-h-11"
           >
             {t.peta.explore} <ArrowUpRight size={14} aria-hidden />
           </button>
-          <button
-            type="button"
+          <Button
+            variant="quiet"
+            size="sm"
             onClick={() => (root ? setRootBw(null) : setTopicKey(null))}
-            className="inline-flex items-center gap-1 text-ink-muted hover:text-ink"
+            icon={<X size={14} aria-hidden />}
           >
-            <X size={14} aria-hidden /> {t.peta.clear}
-          </button>
+            {t.peta.clear}
+          </Button>
         </p>
       )}
 
@@ -321,7 +324,7 @@ export function PetaMushaf({
           id={readoutId}
           aria-live="polite"
           hidden={!!revealing}
-          className="min-w-0 flex-1 text-sm text-ink-muted"
+          className="min-w-0 flex-1 text-sm tabular-nums text-ink-muted"
         >
           {readout}
         </p>
@@ -337,14 +340,13 @@ export function PetaMushaf({
           </p>
         )}
         {selectedId && verses[selectedId - 1] && (
-          <button
-            type="button"
+          <Button
+            variant="primary"
             onClick={() => open(selectedId)}
-            className="inline-flex h-9 touch:min-h-11 items-center gap-1.5 rounded-lg bg-illumination px-3 text-sm font-semibold text-white dark:text-paper"
+            icon={<BookOpen size={16} aria-hidden />}
           >
-            <BookOpen size={15} aria-hidden />
             {t.peta.read(`${verses[selectedId - 1].s}:${verses[selectedId - 1].a}`)}
-          </button>
+          </Button>
         )}
       </div>
 
@@ -388,7 +390,7 @@ export function PetaMushaf({
           type="button"
           onClick={() => setReveal({ ms: 6000 })}
           title={t.peta.revealNote}
-          className="ml-auto inline-flex min-h-9 touch:min-h-11 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-illumination hover:bg-surface-sunken"
+          className="ml-auto inline-flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-illumination transition-colors hover:bg-surface-sunken touch:min-h-11"
         >
           <Play size={14} aria-hidden /> {t.peta.replay}
         </button>

@@ -9,7 +9,7 @@ import {
   type TafsirDownloads,
 } from "../../data/tafsirStore";
 import { useI18n } from "../../i18n/I18nContext";
-import { QuietIconButton } from "../ui";
+import { Button, QuietIconButton } from "../ui";
 
 /** In the Android app, an edition that isn't on the device yet: what it is,
  *  its size, and a button to download it (then progress and cancel). */
@@ -26,7 +26,7 @@ export function TafsirDownloadOffer({
   const busyElsewhere = !!dl.active && !active;
   const pct = active ? Math.round((100 * active.done) / Math.max(1, active.total)) : 0;
   return (
-    <div className="rounded-lg border border-line bg-surface p-3" aria-live="polite">
+    <div className="rounded-lg border border-line p-3" aria-live="polite">
       <p className="text-sm text-ink">
         {d.offer(ed.label, formatBytes(ed.download?.bytes ?? 0))}
       </p>
@@ -59,15 +59,15 @@ export function TafsirDownloadOffer({
               {d.failed}
             </p>
           )}
-          <button
-            type="button"
+          <Button
+            variant="primary"
             disabled={busyElsewhere}
             onClick={() => void downloadTafsir(ed.id)}
-            className="mt-2 inline-flex h-10 items-center gap-1.5 rounded-lg bg-illumination px-3 text-sm font-semibold text-white disabled:opacity-50 touch:min-h-11 dark:text-paper"
+            icon={<Download size={16} aria-hidden />}
+            className="mt-3"
           >
-            <Download size={16} aria-hidden />
             {d.download}
-          </button>
+          </Button>
         </>
       )}
       <p className="mt-2 text-xs text-ink-subtle">{d.note}</p>

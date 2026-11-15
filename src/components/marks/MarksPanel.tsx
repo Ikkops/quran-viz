@@ -25,7 +25,7 @@ import {
 import { downloadText } from "../../lib/export";
 import { dayKey } from "../../data/readingLog";
 import { useI18n } from "../../i18n/I18nContext";
-import { Card, QuietIconButton, cx } from "../ui";
+import { Button, Card, QuietIconButton, cx } from "../ui";
 
 /** The eight colours as a row of swatches. */
 export function ColorPicker({
@@ -48,7 +48,7 @@ export function ColorPicker({
           aria-label={`${label} ${i + 1}`}
           onClick={() => onChange(c)}
           className={cx(
-            "h-8 w-8 rounded-full border-2 touch:h-10 touch:w-10",
+            "h-8 w-8 rounded-full border-2 touch:h-11 touch:w-11",
             value === c ? "border-ink" : "border-transparent",
           )}
           style={{ backgroundColor: c }}
@@ -90,24 +90,16 @@ export function MarkForm({
         maxLength={40}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="min-h-10 rounded-lg border border-line bg-surface px-3 text-sm text-ink placeholder:text-ink-subtle touch:min-h-11"
+        className="min-h-10 rounded border border-line bg-surface px-3 text-sm text-ink placeholder:text-ink-subtle touch:min-h-11"
       />
       <ColorPicker value={color} onChange={setColor} label={t.marks.color} />
       <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={!name.trim()}
-          className="min-h-10 rounded-lg bg-illumination px-4 text-sm font-semibold text-white disabled:opacity-50 dark:text-paper touch:min-h-11"
-        >
+        <Button type="submit" variant="primary" disabled={!name.trim()}>
           {t.marks.save}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="min-h-10 rounded-lg px-3 text-sm font-medium text-ink-muted hover:text-ink touch:min-h-11"
-        >
+        </Button>
+        <Button variant="quiet" onClick={onCancel}>
           {t.reader.audio.cancel}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -154,12 +146,14 @@ export function MarksPanel({
       </QuietIconButton>
     </>
   );
-  const outline =
-    "inline-flex min-h-10 items-center gap-1.5 self-start rounded-lg border border-line px-3 text-sm font-medium text-ink hover:border-ink-subtle touch:min-h-11";
   const addButton = (label: string, key: string) => (
-    <button type="button" onClick={() => setForm(key)} className={outline}>
-      <Plus size={16} aria-hidden /> {label}
-    </button>
+    <Button
+      className="self-start"
+      icon={<Plus size={16} aria-hidden />}
+      onClick={() => setForm(key)}
+    >
+      {label}
+    </Button>
   );
   // Backup: the marks live only in this device's storage, so they can be
   // saved to a file and read back (after a reinstall, or on another device).
@@ -183,11 +177,11 @@ export function MarksPanel({
   return (
     <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] items-start gap-4">
       <Card className="flex flex-col gap-2 p-4">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink-subtle">
-          <PinIcon size={15} aria-hidden /> {m.pins}
+        <h2 className="flex items-center gap-2 text-heading text-ink">
+          <PinIcon size={16} aria-hidden className="text-ink-subtle" /> {m.pins}
         </h2>
-        <p className="text-xs text-ink-subtle">{m.pinsHelp}</p>
-        <ul className="divide-y divide-line/70">
+        <p className="text-sm text-ink-subtle">{m.pinsHelp}</p>
+        <ul className="divide-y divide-line">
           {marks.pins.map((p) =>
             form === p.id ? (
               <li key={p.id} className="py-2">
@@ -208,7 +202,7 @@ export function MarksPanel({
                   type="button"
                   disabled={p.ayah === null}
                   onClick={() => p.ayah !== null && go(p.ayah)}
-                  className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1 text-left enabled:hover:bg-surface-sunken"
+                  className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 text-left enabled:hover:bg-surface-sunken"
                 >
                   <PinIcon
                     size={18}
@@ -247,11 +241,12 @@ export function MarksPanel({
       </Card>
 
       <Card className="flex flex-col gap-2 p-4">
-        <h2 className="flex items-center gap-1.5 text-sm font-semibold text-ink-subtle">
-          <BookmarkIcon size={15} aria-hidden /> {m.collections}
+        <h2 className="flex items-center gap-2 text-heading text-ink">
+          <BookmarkIcon size={16} aria-hidden className="text-ink-subtle" />{" "}
+          {m.collections}
         </h2>
-        <p className="text-xs text-ink-subtle">{m.collectionsHelp}</p>
-        <ul className="divide-y divide-line/70">
+        <p className="text-sm text-ink-subtle">{m.collectionsHelp}</p>
+        <ul className="divide-y divide-line">
           {marks.collections.map((c) =>
             form === c.id ? (
               <li key={c.id} className="py-2">
@@ -273,7 +268,7 @@ export function MarksPanel({
                     type="button"
                     aria-expanded={open === c.id}
                     onClick={() => setOpen(open === c.id ? null : c.id)}
-                    className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1 text-left hover:bg-surface-sunken"
+                    className="flex min-h-11 min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 text-left hover:bg-surface-sunken"
                   >
                     <BookmarkIcon
                       size={18}
@@ -301,7 +296,7 @@ export function MarksPanel({
                 </div>
                 {open === c.id &&
                   (c.items.length === 0 ? (
-                    <p className="px-1 pb-2 text-sm text-ink-subtle">
+                    <p className="px-2 pb-2 text-sm text-ink-subtle">
                       {m.emptyCollection}
                     </p>
                   ) : (
@@ -316,7 +311,7 @@ export function MarksPanel({
                               <button
                                 type="button"
                                 onClick={() => go(it.id)}
-                                className="min-w-0 flex-1 rounded-lg px-1 py-1.5 text-left hover:bg-surface-sunken"
+                                className="min-w-0 flex-1 rounded-md px-2 py-1.5 text-left hover:bg-surface-sunken"
                               >
                                 <span className="block text-sm font-medium tabular-nums text-ink">
                                   {refOf(it.id)}
@@ -369,12 +364,10 @@ export function MarksPanel({
       </Card>
 
       <Card className="col-span-full flex flex-col gap-2 p-4">
-        <h2 className="text-sm font-semibold text-ink-subtle">{m.backup}</h2>
-        <p className="text-xs text-ink-subtle">{m.backupHelp}</p>
+        <h2 className="text-heading text-ink">{m.backup}</h2>
+        <p className="text-sm text-ink-subtle">{m.backupHelp}</p>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            className={outline}
+          <Button
             onClick={() =>
               void downloadText(
                 JSON.stringify(marks, null, 2),
@@ -384,14 +377,8 @@ export function MarksPanel({
             }
           >
             {m.saveBackup}
-          </button>
-          <button
-            type="button"
-            className={outline}
-            onClick={() => fileRef.current?.click()}
-          >
-            {m.restoreBackup}
-          </button>
+          </Button>
+          <Button onClick={() => fileRef.current?.click()}>{m.restoreBackup}</Button>
           <input
             ref={fileRef}
             type="file"
