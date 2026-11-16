@@ -49,6 +49,10 @@ export interface AudioDownloadPrompt {
   /** The download in progress. */
   active: { what: string; done: number; total: number; waiting: number } | null;
   error: string | null;
+  /** Play downloads by itself (`qv.audio.confirmDownload` off): no offer
+   *  before Play; the bar shows the download only while Play waits for it,
+   *  and after a failure `onStart` is Play again. */
+  auto?: boolean;
   onStart: () => void;
   onCancel: () => void;
 }
@@ -374,11 +378,14 @@ export function MiniPlayer({
       <LocateFixed size={18} />
     </QuietIconButton>
   );
-  // Nothing to play here yet: the bar becomes the download offer.
+  // Nothing to play here yet: the bar becomes the download offer. When Play
+  // downloads by itself, only while it waits for the download (or it failed).
   const offer =
     download &&
     !rec.playing &&
-    (download.active || download.needed || rec.missing !== null);
+    (download.auto
+      ? rec.missing !== null && (download.active || download.error)
+      : download.active || download.needed || rec.missing !== null);
   if (download && offer) {
     const missingRef = rec.missing !== null ? refOf(verses, rec.missing) : null;
     return (
@@ -443,14 +450,24 @@ export function MiniPlayer({
                   : reciterName}
               </p>
             </div>
-            {download.needed && (
+            {download.auto ? (
               <Button
                 variant="primary"
                 onClick={download.onStart}
-                icon={<Download size={16} aria-hidden />}
+                icon={<Play size={16} aria-hidden />}
               >
-                {a.download}
+                {a.play}
               </Button>
+            ) : (
+              download.needed && (
+                <Button
+                  variant="primary"
+                  onClick={download.onStart}
+                  icon={<Download size={16} aria-hidden />}
+                >
+                  {a.download}
+                </Button>
+              )
             )}
           </>
         )}

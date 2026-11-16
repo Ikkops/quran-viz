@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { dataFileUrl } from "./tafsirStore";
 import type { GroupedTafsirRow } from "./sections";
 
@@ -6,7 +6,12 @@ import type { GroupedTafsirRow } from "./sections";
 const cache = new Map<string, GroupedTafsirRow[]>();
 const inflight = new Map<string, Promise<GroupedTafsirRow[]>>();
 
-function loadSurah(ident: string, surah: number): Promise<GroupedTafsirRow[]> {
+/** One surah's passages, once loaded (the reader's swipe peek reads it). */
+export const cachedGroupedTafsir = (ident: string, surah: number) =>
+  cache.get(`${ident}/${surah}`);
+
+/** Fetch (once) one surah's passages: the reader prefetches its neighbours. */
+export function loadSurah(ident: string, surah: number): Promise<GroupedTafsirRow[]> {
   const key = `${ident}/${surah}`;
   const hit = cache.get(key);
   if (hit) return Promise.resolve(hit);
@@ -111,5 +116,20 @@ export function useGroupedTafsirs(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  return state;
+  // Surahs loaded before (a window swiped to after its prefetch) show in the
+  // first render, not after the effect: no frame without their passages.
+  return useMemo(() => {
+    const out = new Map(state);
+    for (const ident of idents) {
+      const rows = surahIds.map((s) => cache.get(`${ident}/${s}`));
+      if (surahIds.length && rows.every(Boolean))
+        out.set(ident, {
+          data: new Map(surahIds.map((s, i) => [s, rows[i]!])),
+          loading: false,
+          error: null,
+        });
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, state]);
 }

@@ -186,12 +186,11 @@ export function DashboardView({
   const vizAt = (d: number) => VIZ_IDS[(vizIndex + d + VIZ_IDS.length) % VIZ_IDS.length];
   const stepViz = (d: number) => pickViz(vizAt(d));
   // A sideways swipe on the chart steps like the ‹ › stepper, wrapping.
-  const { handlers, peek, trackRef } = useSwipePager({
+  const { handlers, sides, trackRef } = useSwipePager({
     current: viz,
     canGo: () => true,
     onCommit: (d) => stepViz(d),
   });
-  const peekViz = peek !== 0 ? vizAt(peek) : null;
   const changeFilter = (f: FilterState) => {
     setFilter(f);
     setPinned(null);
@@ -232,10 +231,9 @@ export function DashboardView({
     [filteredVerses, surahMap, def.uses.sort, effectiveFilter.sort],
   );
   const order = useMemo(() => surahData.map((d) => d.id), [surahData]);
-  // The neighbour's rows: the current ones unless it reads range or sort
-  // differently (computed only while it peeks).
-  const peekScope = useMemo(() => {
-    if (!peekViz) return null;
+  // A neighbour's rows: the current ones unless it reads range or sort
+  // differently (computed only while the neighbours are mounted, a swipe).
+  const peekScope = (peekViz: VizId) => {
     const pd = VIZ_BY_ID[peekViz];
     if (!pd.uses.range === !def.uses.range && !pd.uses.sort === !def.uses.sort)
       return { verses: filteredVerses, surahData };
@@ -245,7 +243,7 @@ export function DashboardView({
       verses,
       surahData: aggregateBySurah(verses, surahMap, pd.uses.sort ? f.sort : "quran"),
     };
-  }, [peekViz, def, filteredVerses, surahData, filter, data.verses, surahMap]);
+  };
 
   const activeKeySet = useMemo(() => new Set(activeKeys), [activeKeys]);
   const pct = useCallback(
@@ -694,6 +692,9 @@ export function DashboardView({
     );
   };
   const tall = "h-[calc(100*var(--zvh)-18rem)] max-h-[calc(88*var(--zvh))] min-h-[360px]";
+  // Scrubbed charts: fixed height and nothing inside that scrolls itself.
+  const chartLocksPan =
+    !table && !def.autoHeight && !["extremes", "cloud", "boxplots"].includes(viz);
 
   return (
     // The question menu sits beside the chart from MENU_PX of dashboard width
@@ -747,7 +748,7 @@ export function DashboardView({
           data-testid="dashboard-pager"
           className={cx(
             "-mx-4 touch-pan-y touch-pinch-zoom px-4",
-            peek !== 0 && "overflow-hidden",
+            sides.length > 0 && "overflow-hidden",
           )}
           {...handlers}
         >
@@ -830,9 +831,14 @@ export function DashboardView({
               onPointerDownCapture={(e) => {
                 pointer.current = e.pointerType || "mouse";
               }}
-              data-no-swipe={table || undefined}
+              // A finger inside the chart never pages; a fixed-height chart (it
+              // fits the screen) also keeps the page still so the tooltip can
+              // follow the finger. Tall views, lists and sideways scrollers pan.
+              data-no-swipe
+              data-touch-lock={chartLocksPan || undefined}
               className={cx(
                 "w-full rounded-xl",
+                chartLocksPan && "touch-pinch-zoom",
                 (table || !def.autoHeight) && tall,
                 !table && !def.autoHeight && "resize-y overflow-hidden",
               )}
@@ -857,24 +863,29 @@ export function DashboardView({
               </div>
             )}
 
-            {peekViz && peekScope && (
-              <div
-                aria-hidden
-                // `inert` is not in React 18's types; passed through as an attribute.
-                {...({ inert: "" } as object)}
-                className={cx(
-                  "absolute inset-y-0 w-full overflow-hidden",
-                  peek === 1 ? "left-full" : "right-full",
-                )}
-              >
-                {heading(peekViz)}
+            {sides.map((d) => {
+              const peekViz = vizAt(d);
+              const scope = peekScope(peekViz);
+              return (
                 <div
-                  className={cx("mt-3 w-full", !VIZ_BY_ID[peekViz].autoHeight && tall)}
+                  key={d}
+                  aria-hidden
+                  // `inert` is not in React 18's types; passed through as an attribute.
+                  {...({ inert: "" } as object)}
+                  className={cx(
+                    "absolute inset-y-0 w-full overflow-hidden",
+                    d === 1 ? "left-full" : "right-full",
+                  )}
                 >
-                  {renderChart(peekViz, peekScope.verses, peekScope.surahData, false)}
+                  {heading(peekViz)}
+                  <div
+                    className={cx("mt-3 w-full", !VIZ_BY_ID[peekViz].autoHeight && tall)}
+                  >
+                    {renderChart(peekViz, scope.verses, scope.surahData, false)}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })}
           </div>
         </div>
       </Card>

@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { Surah, Verse } from "../types/quran";
-import { isNativeApp, useAudioDownloads } from "./audioStore";
+import { downloadSurahs, isNativeApp, useAudioDownloads } from "./audioStore";
 import {
   DEFAULT_RECITATION,
   LOCAL_RECITERS,
@@ -37,6 +37,13 @@ export interface RecitationContextValue {
   reciters: ReciterIndex[] | null;
   reciter: ReciterIndex | null;
   reciterId: ReciterId;
+  /** The reciter's display name ("" while none). */
+  reciterName: string;
+  /** App: show the download offer (size, Download button) instead of
+   *  downloading by itself when Play needs audio not on the device
+   *  (`qv.audio.confirmDownload`). */
+  confirmDownload: boolean;
+  setConfirmDownload: (on: boolean) => void;
   /** The reader's player shown (`qv.reader.audio`); hiding it stops playback. */
   showAudio: boolean;
   setShowAudio: (on: boolean) => void;
@@ -93,6 +100,11 @@ export function RecitationProvider({
     RECITERS[0],
     persisted.oneOf(RECITERS),
   );
+  const [confirmDownload, setConfirmDownload] = usePersistentState(
+    "qv.audio.confirmDownload",
+    false,
+    persisted.bool,
+  );
   const [loopRange, setLoopRange] = useState<LoopRange | null>(null);
   const [scopeRange, setScope] = useState<LoopRange>({ from: 1, to: 1 });
   const setScopeRange = useCallback(
@@ -145,6 +157,29 @@ export function RecitationProvider({
     [verses, surahMap, reciterName, t],
   );
 
+  // Play needed an ayah that isn't on the device: download its surah first,
+  // then the other surahs of the view the reader last showed.
+  const onMissing = useCallback(
+    (id: number) => {
+      const first = verses[id - 1]?.s;
+      if (!first) return;
+      const from = verses[scopeRange.from - 1]?.s ?? first;
+      const to = verses[scopeRange.to - 1]?.s ?? first;
+      const ns = [first];
+      for (let n = from; n <= to; n++) if (n !== first) ns.push(n);
+      downloadSurahs(
+        reciterId,
+        ns.flatMap((n) => {
+          const x = surahMap.get(n);
+          return x
+            ? [{ surah: n, ayahCount: x.ayahCount, hasBismillah: !!x.hasBismillah }]
+            : [];
+        }),
+      );
+    },
+    [verses, scopeRange, reciterId, surahMap],
+  );
+
   const rec = useRecitation({
     reciter: reciterId,
     enabled: showAudio,
@@ -154,6 +189,7 @@ export function RecitationProvider({
     needsBasmalah,
     base: native ? downloads.base : undefined,
     available: native ? available : undefined,
+    onMissing: native && !confirmDownload ? onMissing : undefined,
     estimate,
     describe,
   });
@@ -175,6 +211,9 @@ export function RecitationProvider({
     reciters,
     reciter,
     reciterId,
+    reciterName,
+    confirmDownload,
+    setConfirmDownload,
     showAudio,
     setShowAudio,
     audioOpts,

@@ -371,7 +371,10 @@ Motion only says where things go; the Peta Mushaf reveal stays the one orchestra
 - What is under the finger follows it 1:1 (a sheet dragged toward its edge; the reader's
   window, a Dashboard chart, a Structure or Activity tab swiped sideways). Mid-swipe the
   neighbour is already in view beside the current pane. Let go early, it springs back; where
-  there is no neighbour it only gives a little.
+  there is no neighbour it only gives a little. A finger inside a Dashboard chart belongs to
+  the chart: it moves the readout, not the page or the pager.
+- A tap answers at once: the tapped surah takes the accent tint (no fade) and keeps it until
+  the reader is on screen.
 - A sheet leaves toward the edge it came from. A swiped pane leaves in the direction of
   travel with its neighbour following it in; a window reached by ←/→ or a button arrives
   from the side it lies on.

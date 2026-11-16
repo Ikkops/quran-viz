@@ -1,5 +1,6 @@
 import {
   lazy,
+  startTransition,
   Suspense,
   useEffect,
   useLayoutEffect,
@@ -74,6 +75,8 @@ import { effectiveUiScale, isWideLayout, useViewportWidth } from "./lib/uiScale"
 import { BottomTabs, TopBar, type NavProps } from "./components/shell/Navigation";
 import { useI18n } from "./i18n/I18nContext";
 import { searchEditionFor } from "./data/searchEdition";
+import { loadTranslation } from "./data/useTranslation";
+import { prefetchFootnotes } from "./data/footnotes";
 import { installBackButton } from "./lib/androidBack";
 import { useReadingTimer } from "./lib/readingStore";
 import { useReminders } from "./lib/remindersNative";
@@ -124,10 +127,14 @@ export default function App() {
   // remember the view's scroll when it opens, restore it when it closes.
   const readerRef = useRef(reader); // the reader target, readable in handlers
   const scrollUnderReader = useRef(0);
+  const readerShown = useRef(!!reader); // the reader has been committed
   const showReader = (t: ReaderTarget | null) => {
     if (t && !readerRef.current) scrollUnderReader.current = window.scrollY;
     readerRef.current = t;
-    setReader(t);
+    // Opening is a transition: the view under it stays up, with the tapped
+    // row's highlight, until the reader is ready to paint.
+    if (t && !readerShown.current) startTransition(() => setReader(t));
+    else setReader(t);
   };
   const changeView = (v: View) => {
     if (v !== viewRef.current && !readerRef.current)
@@ -141,6 +148,7 @@ export default function App() {
   }, [view]);
   const isReading = !!reader;
   useLayoutEffect(() => {
+    readerShown.current = isReading;
     window.scrollTo(0, isReading ? 0 : scrollUnderReader.current);
   }, [isReading]);
   // True while the history entry before this one is the view the reader was
@@ -215,6 +223,15 @@ export default function App() {
     data && !data.editions.editions.some((e) => e.identifier === storedEdition)
       ? data.editions.default
       : storedEdition;
+  // Fetch the reader's translation and its notes once the app is idle, so the
+  // reader opens with them drawn instead of "…" turning into text.
+  useEffect(() => {
+    const id = setTimeout(() => {
+      loadTranslation(edition).catch(() => undefined);
+      prefetchFootnotes(edition);
+    }, 1500);
+    return () => clearTimeout(id);
+  }, [edition]);
   const [searchOpen, setSearchOpen] = useState(false);
   // Mounted from their first opening on (lazy chunks; state kept after closing).
   const [searchUsed, setSearchUsed] = useState(false);

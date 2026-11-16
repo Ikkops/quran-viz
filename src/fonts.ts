@@ -18,3 +18,11 @@ import "@fontsource/lateef/400.css";
 import "@fontsource-variable/literata/opsz.css";
 import "@fontsource-variable/literata/opsz-italic.css";
 import "@fontsource-variable/source-sans-3/wght.css";
+
+// The reading face (translations) loads at start, both styles and the Latin
+// subsets they use, so the reader's text is drawn in it at once instead of
+// in Georgia first.
+for (const style of ["normal", "italic"])
+  void document.fonts
+    ?.load(`${style} 1em "Literata Variable"`, "A\u0101")
+    .catch(() => undefined);

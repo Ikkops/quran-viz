@@ -73,6 +73,18 @@ describe("HomeView", () => {
     expect(onOpen).toHaveBeenCalledWith({ scope: "surah", value: 2 });
   });
 
+  it("marks the tapped surah as pressed and opens it at once", async () => {
+    const onOpen = home();
+    const list = screen.getByRole("region", { name: "Index" });
+    const row = within(list).getByRole("button", { name: /Al-Baqara/ });
+    expect(row).not.toHaveAttribute("data-pressed");
+    await userEvent.click(row);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(row).toHaveAttribute("data-pressed");
+    const other = within(list).getByRole("button", { name: /Al-Faatiha/ });
+    expect(other).not.toHaveAttribute("data-pressed");
+  });
+
   it("filters by name (ignoring hyphens and case) or by number", async () => {
     home();
     const filter = screen.getByRole("searchbox");

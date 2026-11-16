@@ -36,27 +36,38 @@ function setup(readerOpen = false) {
 describe("NowPlayingBar", () => {
   beforeEach(() => {
     localStorage.clear();
-    globalThis.fetch = vi
-      .fn()
-      .mockResolvedValue({ ok: false }) as unknown as typeof fetch;
+    localStorage.setItem("qv.audio.reciter", JSON.stringify("shuraym"));
+    // Only the reciter's index loads (its name).
+    globalThis.fetch = vi.fn((url: string) =>
+      Promise.resolve(
+        url.endsWith("shuraym/index.json")
+          ? {
+              ok: true,
+              json: () => Promise.resolve({ name: "Sa'ud ash-Shuraym", files: 3 }),
+            }
+          : { ok: false },
+      ),
+    ) as unknown as typeof fetch;
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue(undefined);
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it("shows the playing ayah, pauses and plays, and opens the reader there", async () => {
+  it("shows the playing ayah and reciter, pauses and plays, and opens the reader there", async () => {
     const { onOpen, start } = setup();
     expect(screen.queryByRole("region", { name: "Now playing" })).toBeNull();
     await start();
-    expect(screen.getByRole("region", { name: "Now playing" })).toHaveTextContent(
-      "Al-Fatiha 1:2",
-    );
+    const region = screen.getByRole("region", { name: "Now playing" });
+    expect(region).toHaveTextContent("Al-Fatiha 1:2");
+    expect(region).toHaveTextContent("Now playing · Sa'ud ash-Shuraym");
     await userEvent.click(screen.getByRole("button", { name: "Pause" }));
     expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Play" }));
     expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole("button", { name: "Open in reader: Al-Fatiha 1:2" }),
+      screen.getByRole("button", {
+        name: "Open in reader: Al-Fatiha 1:2, Sa'ud ash-Shuraym",
+      }),
     );
     expect(onOpen).toHaveBeenCalledWith(2);
   });

@@ -13,7 +13,7 @@ import { SCOPE_MAX, surahColorById, type ReaderScope } from "../charts/common";
 import type { ColorMode, ReaderTarget } from "../charts/common";
 import { useTranslation, useTranslations } from "../../data/useTranslation";
 import { useTajweed } from "../../data/useTajweed";
-import { useSurahWords } from "../../data/words";
+import { loadSurahWords, useSurahWords } from "../../data/words";
 import { useThemes } from "../../data/useThemes";
 import { useAsbab } from "../../data/useAsbab";
 import { useSurahInfo, type InfoLang } from "../../data/useSurahInfo";
@@ -25,8 +25,12 @@ import {
   themeHeadingAt,
   themeIndexById,
 } from "../../data/sections";
-import { useGroupedTafsirs } from "../../data/useGroupedTafsir";
-import { useFootnotes } from "../../data/footnotes";
+import {
+  cachedGroupedTafsir,
+  loadSurah as loadGroupedTafsir,
+  useGroupedTafsirs,
+} from "../../data/useGroupedTafsir";
+import { footnotesPending, useFootnotes } from "../../data/footnotes";
 import {
   findAllArabic,
   findAllLatin,
@@ -491,7 +495,11 @@ export function ReaderView({
           }
         : null,
       error: downloads.error,
-      onStart: () => downloadSurahs(reciterId, jobsFor(want)),
+      // Play downloads by itself (the provider's onMissing); a retry is Play.
+      auto: !audio.confirmDownload,
+      onStart: audio.confirmDownload
+        ? () => downloadSurahs(reciterId, jobsFor(want))
+        : rec.toggle,
       onCancel: cancelDownloads,
     };
     const have = Object.keys(onDevice).map(Number);
@@ -656,18 +664,20 @@ export function ReaderView({
 
   // Rows are measured as they render and re-measured by a ResizeObserver when
   // they change size. A Qur'an font arriving late reflows rows measured with
-  // the fallback font; once the fonts are in, measure every rendered row again
-  // from the DOM. (`measure()` alone only empties the size cache: rows already
-  // observed would fall back to the estimate and overlap.)
+  // the fallback font; once the fonts are in, read every rendered row's height
+  // again from the DOM. (Not `measure()`: it empties the size cache, and rows
+  // whose height did not change then fell back to the estimate and
+  // overlapped for a few frames.)
   useEffect(() => {
     let alive = true;
     document.fonts?.ready.then(() => {
       const list = scrollRef.current;
       if (!alive || !list) return;
-      rowVirtualizer.measure();
       list
         .querySelectorAll<HTMLElement>("[data-index]")
-        .forEach((el) => rowVirtualizer.measureElement(el));
+        .forEach((el) =>
+          rowVirtualizer.resizeItem(Number(el.dataset.index), el.offsetHeight),
+        );
     });
     return () => {
       alive = false;
@@ -899,18 +909,61 @@ export function ReaderView({
       !ayahPick &&
       !wordPick &&
       !wordDetail,
+    // Each neighbour's first screen is cheap: mounted when idle, so a drag
+    // does no React work.
+    ahead: true,
   });
   const slideRef = pager.trackRef;
-  const peekRows = useMemo(() => {
-    // Not in the render that lands a swipe: the pager drops the peek next.
-    if (!pager.peek || swipedTo.current === scopeKey) return null;
-    const value = target.value + pager.peek;
-    return windowRows(
-      verses.filter((v) => scopeField(v, target.scope) === value),
-      mode === "mushaf",
-      layout,
-    );
-  }, [pager.peek, scopeKey, verses, target.scope, target.value, mode, layout]);
+  const sidesKey = pager.sides.join();
+  const peeks = useMemo(
+    () =>
+      sidesKey
+        .split(",")
+        .filter(Boolean)
+        .map((d) => {
+          const dir = Number(d) as -1 | 1;
+          const value = target.value + dir;
+          const rows = windowRows(
+            verses.filter((v) => scopeField(v, target.scope) === value),
+            mode === "mushaf",
+            layout,
+          );
+          return { dir, rows };
+        })
+        .filter((x) => x.rows.count > 0),
+    [sidesKey, verses, target.scope, target.value, mode, layout],
+  );
+  // What the neighbours' rows load per surah (passages, word meanings),
+  // fetched as they mount (idle): the peek and the arrival then draw them
+  // whole at once instead of filling in a moment later.
+  const nearSurahs = [
+    ...new Set(peeks.flatMap((x) => x.rows.verses.map((v) => v.s))),
+  ].join();
+  const groupedKey = groupedTafsirIds.join();
+  const [, bumpPeeks] = useState(0);
+  useEffect(() => {
+    if (!nearSurahs) return;
+    const list = nearSurahs.split(",").map(Number);
+    const jobs: Promise<unknown>[] = [
+      ...groupedKey
+        .split(",")
+        .filter(Boolean)
+        .flatMap((id) =>
+          list
+            .filter((x) => !cachedGroupedTafsir(id, x))
+            .map((x) => loadGroupedTafsir(id, x)),
+        ),
+      ...(p.showWords ? list.filter((x) => !wordsAt(x, 1)).map(loadSurahWords) : []),
+    ];
+    if (!jobs.length) return;
+    let alive = true;
+    void Promise.allSettled(jobs).then(() => alive && bumpPeeks((n) => n + 1));
+    return () => {
+      alive = false;
+    };
+    // `wordsAt` reads a module cache; the surahs and editions are the inputs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nearSurahs, groupedKey, p.showWords]);
   // A window reached by stepping (← / →, the end-of-list buttons) slides in
   // from the side it lies on; any other jump just appears. A short offset,
   // not the full width: the list is still settling on its anchor. A swiped-to
@@ -1083,11 +1136,19 @@ export function ReaderView({
   };
   const translations: RowTranslation[] = [
     {
-      ...column(edition, translation.data, translation.loading),
+      ...column(
+        edition,
+        translation.data,
+        translation.loading || footnotesPending(edition),
+      ),
       notes: footnotes[edition],
     },
     ...extraIds.map((id, i) => ({
-      ...column(id, extraTr[i]?.data ?? null, extraTr[i]?.loading ?? true),
+      ...column(
+        id,
+        extraTr[i]?.data ?? null,
+        (extraTr[i]?.loading ?? true) || footnotesPending(id),
+      ),
       notes: footnotes[id],
     })),
   ];
@@ -1169,26 +1230,35 @@ export function ReaderView({
     setMenuFor,
   };
 
-  // One row of a window: the list's, or (not `live`) the swipe peek's, which
-  // shows no selection, recitation, search or edited-range highlight.
-  const peekCtx: RowContext | null = peekRows && {
-    ...rowCtx,
-    inlineTafsirs: tafsirsFor(
-      new Map(
-        [...groupedTafsirs].flatMap(([id, st]) =>
-          st.data ? [[id, tafsirGroupLookup(peekRows.verses, st.data)] as const] : [],
+  // A swipe peek's rows: as the list will draw them on arrival (its passages
+  // from the prefetched files, shown once all its surahs are in, as the list
+  // does), without selection, recitation, search or edited-range highlight.
+  const peekCtxOf = (w: WindowRows): RowContext => {
+    const surahsOf = [...new Set(w.verses.map((v) => v.s))];
+    return {
+      ...rowCtx,
+      inlineTafsirs: tafsirsFor(
+        new Map(
+          groupedTafsirIds.flatMap((id) => {
+            const rows = surahsOf.map((x) => cachedGroupedTafsir(id, x));
+            if (!rows.every(Boolean)) return [];
+            const bySurah = new Map(surahsOf.map((x, i) => [x, rows[i]!]));
+            return [[id, tafsirGroupLookup(w.verses, bySurah)] as const];
+          }),
         ),
       ),
-    ),
-    search: null,
-    recited: null,
-    playingId: undefined,
-    inEditedRange: () => false,
-    selectedId: undefined,
-    copied: null,
-    menuFor: null,
+      search: null,
+      recited: null,
+      playingId: undefined,
+      inEditedRange: () => false,
+      selectedId: undefined,
+      copied: null,
+      menuFor: null,
+    };
   };
-  const renderRow = (w: WindowRows, i: number, live = true) => {
+  // One row of a window: the list's, or a swipe peek's (`peekCtx`, not live).
+  const renderRow = (w: WindowRows, i: number, peekCtx?: RowContext) => {
+    const live = !peekCtx;
     if (layout && w.layoutPages)
       return (
         <MushafLinesPage
@@ -1229,7 +1299,7 @@ export function ReaderView({
       <VerseRow
         v={w.verses[i]}
         prev={i > 0 ? w.verses[i - 1] : null}
-        ctx={live || !peekCtx ? rowCtx : peekCtx}
+        ctx={peekCtx ?? rowCtx}
       />
     );
   };
@@ -1639,101 +1709,113 @@ export function ReaderView({
         />
       </div>
 
-      <div className="flex min-h-0 flex-1">
-        <div
-          ref={scrollRef}
-          onScroll={onListScroll}
-          {...pager.handlers}
-          className="min-w-0 flex-1 touch-pan-y overflow-y-auto overflow-x-hidden px-3 pb-4 pt-1"
-        >
-          <div ref={slideRef} className="relative mx-auto max-w-4xl">
-            {peekRows && pager.peek !== 0 && (
+      {/* The pager: its track slides the list and, beside it, the start of
+          each neighbouring window (mounted when idle). Clipped, not hidden:
+          nothing can scroll it sideways onto a neighbour. */}
+      <div className="flex min-h-0 flex-1 touch-pan-y overflow-clip" {...pager.handlers}>
+        <div ref={slideRef} className="relative flex min-w-0 flex-1">
+          {peeks.map(({ dir, rows: w }) => {
+            const ctx = peekCtxOf(w);
+            return (
               <ReaderPeek
-                dir={pager.peek}
-                rows={peekRows}
-                top={scrollRef.current?.scrollTop ?? 0}
-                height={scrollRef.current?.clientHeight ?? 0}
+                key={dir}
+                dir={dir}
+                rows={w}
                 headH={headH}
-                renderRow={(w, i) => renderRow(w, i, false)}
+                frozen={rowVirtualizer.isScrolling}
+                renderRow={(r, i) => renderRow(r, i, ctx)}
               />
-            )}
-            <div
-              style={{
-                height: `${rowVirtualizer.getTotalSize()}px`,
-                width: "100%",
-                position: "relative",
-              }}
-            >
-              {count === 0 && (
-                <p
-                  className="py-8 text-center text-sm text-ink-subtle"
-                  style={{ marginTop: headH }}
-                >
-                  {t.reader.noMatch}
-                </p>
-              )}
-              {rowVirtualizer.getVirtualItems().map((vi) => {
-                const v = layoutPages || pages ? undefined : filtered[vi.index];
-                return (
-                  <div
-                    key={vi.key}
-                    data-ayah={v?.id}
-                    ref={rowVirtualizer.measureElement}
-                    data-index={vi.index}
-                    style={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      width: "100%",
-                      transform: `translateY(${vi.start}px)`,
-                      zIndex: v && menuFor === v.id ? 10 : undefined,
-                    }}
+            );
+          })}
+          <div
+            ref={scrollRef}
+            onScroll={onListScroll}
+            // A stable gutter: the peeks lay out at the list's text width.
+            className="min-w-0 flex-1 touch-pan-y overflow-y-auto overflow-x-hidden px-3 pb-4 pt-1 [scrollbar-gutter:stable]"
+          >
+            <div className="relative mx-auto max-w-4xl">
+              <div
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  width: "100%",
+                  position: "relative",
+                }}
+              >
+                {count === 0 && (
+                  <p
+                    className="py-8 text-center text-sm text-ink-subtle"
+                    style={{ marginTop: headH }}
                   >
-                    {renderRow(rows, vi.index)}
-                  </div>
-                );
-              })}
-            </div>
-            {!query.trim() && count > 0 && (prevTarget || nextTarget || nextRevealed) && (
-              <div className="flex flex-wrap items-center justify-center gap-2 pb-4 pt-6">
-                {prevTarget && (
-                  <Button
-                    onClick={() => {
-                      arriveFrom.current = -1;
-                      onNavigate(prevTarget);
-                    }}
-                    icon={<ArrowLeft size={16} aria-hidden />}
-                    className={END_NAV}
-                  >
-                    {t.reader.prev(t.scope[target.scope])}
-                  </Button>
+                    {t.reader.noMatch}
+                  </p>
                 )}
-                {nextTarget && (
-                  <Button
-                    variant="primary"
-                    onClick={() => {
-                      arriveFrom.current = 1;
-                      onNavigate(nextTarget);
-                    }}
-                    className={END_NAV}
-                  >
-                    {t.reader.continueTo(t.scope[target.scope], nextTarget.value)}
-                    {target.scope === "surah" && surahMap.get(nextTarget.value)
-                      ? ` · ${surahMap.get(nextTarget.value)!.name}`
-                      : ""}
-                    <ArrowRight size={16} aria-hidden />
-                  </Button>
-                )}
-                {nextRevealed && (
-                  <Button
-                    onClick={() => onNavigate({ scope: "surah", value: nextRevealed.id })}
-                    className={END_NAV}
-                  >
-                    {t.reader.nextRevealed(nextRevealed.id, nextRevealed.name)}
-                  </Button>
-                )}
+                {rowVirtualizer.getVirtualItems().map((vi) => {
+                  const v = layoutPages || pages ? undefined : filtered[vi.index];
+                  return (
+                    <div
+                      key={vi.key}
+                      data-ayah={v?.id}
+                      ref={rowVirtualizer.measureElement}
+                      data-index={vi.index}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        transform: `translateY(${vi.start}px)`,
+                        zIndex: v && menuFor === v.id ? 10 : undefined,
+                      }}
+                    >
+                      {renderRow(rows, vi.index)}
+                    </div>
+                  );
+                })}
               </div>
-            )}
+              {!query.trim() &&
+                count > 0 &&
+                (prevTarget || nextTarget || nextRevealed) && (
+                  <div className="flex flex-wrap items-center justify-center gap-2 pb-4 pt-6">
+                    {prevTarget && (
+                      <Button
+                        onClick={() => {
+                          arriveFrom.current = -1;
+                          onNavigate(prevTarget);
+                        }}
+                        icon={<ArrowLeft size={16} aria-hidden />}
+                        className={END_NAV}
+                      >
+                        {t.reader.prev(t.scope[target.scope])}
+                      </Button>
+                    )}
+                    {nextTarget && (
+                      <Button
+                        variant="primary"
+                        onClick={() => {
+                          arriveFrom.current = 1;
+                          onNavigate(nextTarget);
+                        }}
+                        className={END_NAV}
+                      >
+                        {t.reader.continueTo(t.scope[target.scope], nextTarget.value)}
+                        {target.scope === "surah" && surahMap.get(nextTarget.value)
+                          ? ` · ${surahMap.get(nextTarget.value)!.name}`
+                          : ""}
+                        <ArrowRight size={16} aria-hidden />
+                      </Button>
+                    )}
+                    {nextRevealed && (
+                      <Button
+                        onClick={() =>
+                          onNavigate({ scope: "surah", value: nextRevealed.id })
+                        }
+                        className={END_NAV}
+                      >
+                        {t.reader.nextRevealed(nextRevealed.id, nextRevealed.name)}
+                      </Button>
+                    )}
+                  </div>
+                )}
+            </div>
           </div>
         </div>
       </div>

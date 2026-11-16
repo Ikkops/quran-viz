@@ -235,6 +235,9 @@ export const en = {
       moveFailed: (f: string) =>
         `Moving stopped: ${f}. Files already moved are in the new place; the rest stayed.`,
       help: "Choosing a place moves the audio already downloaded. The choice stays until you change it here. Audio in a folder you chose is kept when the app is uninstalled.",
+      confirmDownload: "Ask before downloading audio",
+      confirmDownloadHint:
+        "When on, the player shows the download size and a Download button first. When off, Play downloads what is missing and starts as soon as the surah is in.",
       saved: "Saved audio",
       savedTotal: (size: string) => `${size} on this device`,
       savedEmpty:

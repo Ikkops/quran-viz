@@ -173,6 +173,7 @@ export function useRecitation({
   needsBasmalah,
   base = WEB_AUDIO_BASE,
   available,
+  onMissing,
   estimate,
   describe,
 }: {
@@ -187,6 +188,9 @@ export function useRecitation({
   base?: string | null;
   /** False for an ayah whose audio isn't on the device (Android app). */
   available?: (id: number) => boolean;
+  /** Playback was asked for at an ayah that isn't on the device (never for a
+   *  paused move): the app downloads it, and playback carries on once it is in. */
+  onMissing?: (id: number) => void;
   /** Estimated length of an ayah in seconds, until it has been played. */
   estimate?: (id: number) => number;
   /** What the system's media controls show for an ayah. */
@@ -219,6 +223,7 @@ export function useRecitation({
     needsBasmalah,
     verses,
     available,
+    onMissing,
     estimate,
     describe,
     reciter,
@@ -231,6 +236,7 @@ export function useRecitation({
       needsBasmalah,
       verses,
       available,
+      onMissing,
       estimate,
       describe,
       reciter,
@@ -333,6 +339,7 @@ export function useRecitation({
         setPlaying(false);
         setAt(null);
         setMissing(c.id);
+        if (!paused) live.current.onMissing?.(c.id);
         return;
       }
       const clip = clipFor(c);
@@ -549,7 +556,8 @@ export function useRecitation({
     }
     dropSpentSleep();
     if (!cur || !audio) {
-      play(live.current.range.from);
+      // Stopped at an ayah that wasn't on the device: ask for it again.
+      play(missing ?? live.current.range.from);
       return;
     }
     // Paused during the gap after an ayah ended: move on rather than replay it.
@@ -572,7 +580,7 @@ export function useRecitation({
     setPlaying(true);
     announce(cur, true, audio.currentTime);
     audio.play()?.catch(() => setPlaying(false));
-  }, [playing, pause, dropSpentSleep, play, onEnded, clipFor, start, announce]);
+  }, [playing, missing, pause, dropSpentSleep, play, onEnded, clipFor, start, announce]);
 
   const step = useCallback(
     (delta: 1 | -1) => {

@@ -17,7 +17,7 @@ export function NowPlayingBar({
   onOpen: (id: number) => void;
 }) {
   const { t } = useI18n();
-  const { rec, readerOpen } = useRecitationContext();
+  const { rec, readerOpen, reciterName } = useRecitationContext();
   // The reader has its own player.
   const v = rec.cursor && !readerOpen ? verses[rec.cursor.id - 1] : undefined;
   if (!v) return null;
@@ -34,10 +34,13 @@ export function NowPlayingBar({
           <button
             type="button"
             onClick={() => onOpen(v.id)}
-            aria-label={`${t.nowPlaying.open}: ${name} ${v.s}:${v.a}`}
+            aria-label={`${t.nowPlaying.open}: ${name} ${v.s}:${v.a}${reciterName ? `, ${reciterName}` : ""}`}
             className="flex min-h-11 min-w-0 flex-1 flex-col justify-center rounded-lg px-3 text-start transition-colors hover:bg-surface-sunken"
           >
-            <span className="text-xs text-ink-subtle">{t.nowPlaying.label}</span>
+            <span className="truncate text-xs text-ink-subtle">
+              {t.nowPlaying.label}
+              {reciterName && ` · ${reciterName}`}
+            </span>
             <span className="truncate text-sm font-medium text-ink">
               {name} {v.s}:{v.a}
             </span>

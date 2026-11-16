@@ -41,6 +41,32 @@ describe("useRecitation", () => {
     expect(result.current.playing).toBe(true);
   });
 
+  it("asks for a missing ayah on Play, not on a paused move, and Play asks again", () => {
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    const onMissing = vi.fn();
+    const { result } = renderHook(() =>
+      useRecitation({
+        reciter: "shuraym",
+        enabled: true,
+        verses,
+        range: { from: 1, to: 3 },
+        options: DEFAULT_RECITATION,
+        needsBasmalah: () => false,
+        base: "/audio/",
+        available: () => false,
+        onMissing,
+      }),
+    );
+    act(() => result.current.moveTo(2));
+    expect(onMissing).not.toHaveBeenCalled();
+    act(() => result.current.play(2));
+    expect(onMissing).toHaveBeenLastCalledWith(2);
+    // Cancelled: Play starts over from the ayah it stopped at.
+    act(() => result.current.toggle());
+    expect(onMissing).toHaveBeenCalledTimes(2);
+    expect(onMissing).toHaveBeenLastCalledWith(2);
+  });
+
   it("forgets the missing ayah when stopped", () => {
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
     const base = {

@@ -1,6 +1,6 @@
 import { emptyHifdh } from "../../lib/hifdh";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MARK_COLORS, initialMarks, movePin } from "../../lib/marks";
 import type { EditionsIndex, Surah, Verse } from "../../types/quran";
@@ -268,6 +268,21 @@ describe("ReaderView", () => {
         within(peek).getByRole("article", { name: "2:1", hidden: true }),
       ).toBeInTheDocument();
       fireEvent.touchEnd(text, { touches: [] });
+    });
+
+    it("mounts the next surah's start when idle, before any drag", async () => {
+      const next = { ...verses[0], id: 3, s: 2, a: 1, ar: "الٓمٓ" };
+      renderReader({
+        verses: [...verses, next],
+        surahs: [...surahs, { ...surahs[0], id: 2, number: 2, name: "Al-Baqara" }],
+      });
+      await waitFor(() =>
+        expect(document.querySelector("[inert][aria-hidden]")).not.toBeNull(),
+      );
+      const peek = document.querySelector<HTMLElement>("[inert][aria-hidden]")!;
+      expect(
+        within(peek).getByRole("article", { name: "2:1", hidden: true }),
+      ).toBeInTheDocument();
     });
   });
 
