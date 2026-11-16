@@ -10,9 +10,10 @@ import {
   type AudioVolume,
 } from "../../data/audioStore";
 import { formatBytes } from "../../data/recitation";
+import { useRecitationContext } from "../../data/RecitationContext";
 import { useI18n } from "../../i18n/I18nContext";
 import type { Surah } from "../../types/quran";
-import { Button, Sheet } from "../ui";
+import { Button, Sheet, Toggle } from "../ui";
 import { SavedAudio } from "./SavedAudio";
 
 const NONE: readonly string[] = [];
@@ -27,6 +28,7 @@ export function AudioStorageSettings({ surahs }: { surahs: Surah[] }) {
   const [savedOpen, setSavedOpen] = useState(false);
   const a = t.settings.audio;
   const s = useAudioDownloads(NONE);
+  const { confirmDownload, setConfirmDownload } = useRecitationContext();
   const [granted, setGranted] = useState<boolean | null>(null);
   const [note, setNote] = useState<string | null>(null);
 
@@ -104,6 +106,14 @@ export function AudioStorageSettings({ surahs }: { surahs: Surah[] }) {
           ))}
       </div>
       <p className="text-xs text-ink-subtle">{a.help}</p>
+      <div>
+        <Toggle
+          checked={confirmDownload}
+          onChange={setConfirmDownload}
+          label={a.confirmDownload}
+        />
+        <p className="text-xs text-ink-subtle">{a.confirmDownloadHint}</p>
+      </div>
       <Button
         className="self-start"
         icon={<ListMusic size={16} aria-hidden />}

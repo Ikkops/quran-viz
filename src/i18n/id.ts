@@ -346,6 +346,9 @@ export const id: Messages = {
       moveFailed: (f) =>
         `Pemindahan berhenti: ${f}. Berkas yang sudah pindah ada di tempat baru; sisanya tetap.`,
       help: "Memilih tempat akan memindahkan audio yang sudah diunduh. Pilihan ini berlaku sampai Anda mengubahnya di sini. Audio di folder pilihan Anda tetap ada saat aplikasi dihapus.",
+      confirmDownload: "Tanya sebelum mengunduh audio",
+      confirmDownloadHint:
+        "Jika aktif, pemutar menampilkan ukuran unduhan dan tombol Unduh lebih dulu. Jika tidak, tombol Putar langsung mengunduh yang belum ada dan mulai memutar begitu surahnya selesai diunduh.",
       saved: "Audio tersimpan",
       savedTotal: (size) => `${size} di perangkat ini`,
       savedEmpty:

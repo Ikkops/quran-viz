@@ -150,7 +150,10 @@ body {
 @font-face {
   font-family: "KFGQPC Hafs";
   src: url("./assets/fonts/UthmanicHafs1Ver18.ttf") format("truetype");
-  font-display: swap;
+  /* Block, not swap: the ayahs appear in this face rather than being drawn
+     in a fallback first and changing a moment later (it is preloaded at
+     start, see ThemeContext, so the wait is short). */
+  font-display: block;
 }
 @font-face {
   font-family: "Surah Names";

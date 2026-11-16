@@ -67,7 +67,7 @@ export function ActivityView(props: ActivityProps) {
   );
   const index = Math.max(0, TAB_IDS.indexOf(tab));
   // A sideways swipe on the panel moves between tabs, stopping at the ends.
-  const { handlers, peek, trackRef } = useSwipePager({
+  const { handlers, sides, trackRef } = useSwipePager({
     current: tab,
     canGo: (d) => index + d >= 0 && index + d < TABS.length,
     onCommit: (d) => setTab(TAB_IDS[index + d]),
@@ -81,27 +81,32 @@ export function ActivityView(props: ActivityProps) {
         options={TABS.map((x) => ({ value: x.id, label: x.label(t) }))}
         fullWidth
       />
-      {/* Clipped only mid-swipe, so cards keep their shadows and focus rings. */}
+      {/* Clipped only while the neighbours are mounted (a swipe), so cards
+          keep their shadows and focus rings. */}
       <div
         data-testid="activity-pager"
-        className={cx("touch-pan-y touch-pinch-zoom", peek !== 0 && "overflow-hidden")}
+        className={cx(
+          "touch-pan-y touch-pinch-zoom",
+          sides.length > 0 && "overflow-hidden",
+        )}
         {...handlers}
       >
         <div ref={trackRef} className="relative">
           {TABS[index].render(props)}
-          {peek !== 0 && (
+          {sides.map((d) => (
             <div
+              key={d}
               aria-hidden
               // `inert` is not in React 18's types; passed through as an attribute.
               {...({ inert: "" } as object)}
               className={cx(
                 "absolute inset-y-0 w-full overflow-hidden",
-                peek === 1 ? "left-full" : "right-full",
+                d === 1 ? "left-full" : "right-full",
               )}
             >
-              {TABS[index + peek].render(props)}
+              {TABS[index + d].render(props)}
             </div>
-          )}
+          ))}
         </div>
       </div>
     </div>

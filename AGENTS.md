@@ -342,10 +342,15 @@ an id.
   `onCommit(dir)`, `enabled`, `onThreshold(past)` (the hook itself gives a
   haptic `tick()` from `lib/haptics.ts` there, as `Sheet` does at its 30%;
   Android app only); returns React touch
-  `handlers` for an `overflow-hidden touch-pan-y` container, `peek` (-1/0/1:
-  mount the neighbour only while non-zero) and `trackRef` (`relative`; the
-  neighbour `absolute inset-y-0 w-full`, `left-full` for +1 or `right-full`
-  for -1, `aria-hidden inert`). Swipe left = +1. Commits past 30% of the
+  `handlers` for an `overflow-hidden touch-pan-y` container, `sides` (the
+  directions whose neighbour pane to mount) and `trackRef` (`relative`; a
+  neighbour is `absolute inset-y-0 w-full`, `left-full` for +1 or `right-full`
+  for -1, `aria-hidden inert`). A drag does no React work between touchstart
+  and release (no `setState` in `onTouchMove`; `will-change: transform` on the
+  track only from lock to settle; the zoom is read once at touchstart): with
+  `ahead` the neighbours mount when idle (`requestIdleCallback`, in a
+  transition), otherwise both sides mount once at the first lock and are
+  dropped after a spring-back. Swipe left = +1. Commits past 30% of the
   width or on a flick, else springs back; rubber band where `canGo` is false.
   After a commit the track stays at ∓100% until `current` changes, then a
   layout effect clears it before paint. Never starts from inputs, sliders,
@@ -471,6 +476,10 @@ A card adds one cut-off line for its surah's marks: up to two placed pins (pin
 icon in the pin's colour + ayah number, then `+n`) and a bookmark icon with the
 count of its ayahs saved in collections; an `sr-only` span words it
 (`t.home.pinsAt`, `savedCount`).
+A tapped surah row or card in the index shows `data-pressed` (accent tint, and
+an accent border on cards; the same look as `active:`), cleared after 800 ms.
+It is seen because `App.showReader` opens the reader in `startTransition`: the
+view under it stays up until the reader is ready to paint.
 
 **Khatam target** (`lib/khatam.ts`, pure, tested; `qv.khatam` =
 `{ start, end, from }`). `khatamPlan(target, currentPage, today)` measures
@@ -595,8 +604,13 @@ hidden for it. The old Charts | Map tabs and `qv.dashboard.tab` are gone:
 `tab=map` links open `v=map`. Dashboard, Structure (7 tabs) and Activity
 (3 tabs) page sideways with `useSwipePager`; the dashboard wraps like its
 stepper, the tabs do not. Their containers take `overflow-hidden` only while
-`peek !== 0` (popovers and shadows are clipped otherwise) and are
-`touch-pan-y touch-pinch-zoom`; the data table box is `data-no-swipe`; a
+`sides` is not empty (popovers and shadows are clipped otherwise) and are
+`touch-pan-y touch-pinch-zoom`. On the dashboard the whole chart box is
+`data-no-swipe` (views change from the title, answer, filters or the stepper),
+and a fixed-height chart that does not scroll itself is also `touch-pinch-zoom`
+(`data-touch-lock`, `chartLocksPan`): a finger in it moves the tooltip, not the
+page. `autoHeight` views and the ones with their own scrolling (extremes,
+cloud, boxplots; add a new one to that list) keep vertical panning. A
 neighbour chart whose data is not in memory (and always the word cloud and the
 map) is a `Skeleton`. State is mirrored to the URL hash via
 `parseHash`/`serializeHash`. Clicking most chart elements calls
@@ -681,13 +695,16 @@ markers in the text (`TranslationText`); a pressed one shows its note below.
 Transliteration follows the UI language (`transliterationFor`). Reading by
 juz, hizb, rukuʿ or page, the head's title is the surah at the top and the
 division is the bold subtitle. A sideways swipe on the list goes to the next
-(left) or previous (right) window, like ←/→, through `useSwipePager`: the
-scroller carries the handlers, the list's inner wrapper is the track, and
-while `peek !== 0` `ReaderPeek` shows the start of the neighbour window beside
-it (static, `inert`, level with the viewport: at most 8 ayah rows, 2 flow
-pages or 1 printed page, drawn by the same `renderRow` over `windowRows` from
-`readerShared.ts` as the list, without highlights; data not in memory is left
-out). A swiped-to window opens at its top with no arrival animation
+(left) or previous (right) window, like ←/→, through `useSwipePager` (`ahead`): the
+`overflow-clip` div around the scroller carries the handlers, the track wraps
+the scroller, and a `ReaderPeek` on each side shows the start of that
+neighbour window (static, `inert`, a full-height pane with the list's padding
+and stable scrollbar gutter: at most 8 ayah rows, 2 flow pages or 1 printed
+page, drawn by the same `renderRow` over `windowRows` from `readerShared.ts`
+as the list, without highlights). The neighbours' per-surah data (grouped
+tafsir, word meanings when shown) is prefetched as the panes mount, so the
+peek and the arrival draw the final rows at once; the panes are memoised and
+skip redraws while the list scrolls (`frozen`). A swiped-to window opens at its top with no arrival animation
 (`swipedTo`); `go` from ←/→ and the end-of-list buttons records the direction
 in `arriveFrom` and the new window slides in from 48 px on that side (240 ms).
 Other jumps (Go to, the strip) do not animate. The swipe is off during search
@@ -731,7 +748,13 @@ topic links go to `#dashboard?v=root-explorer&root=<bw>` /
 Anchor jumps scroll instantly: during a smooth scroll the virtualizer skips
 measuring rows far from the target and never returns to them (rows overlapped).
 After `document.fonts.ready` the rendered rows are re-measured from the DOM
-(`measure()` alone would drop them back to the estimate).
+with `resizeItem` (`measure()` clears the size cache and drops unchanged rows
+back to the estimate). So that a window is drawn once and does not change:
+KFGQPC is `font-display: block`, the chosen Arabic font and Literata (normal
+and italic) are preloaded at start, `App` prefetches the reader's translation
+and footnotes 1.5 s after start, the translation counts as loading until its
+footnotes are in, `useGroupedTafsirs` returns cached surahs in the same
+render, and the mushaf-lines fit re-measures only while fonts are loading.
 
 ## Non-obvious data facts (read before touching the ETL or structural charts)
 
@@ -817,7 +840,15 @@ written only when the whole surah is in place. One app-wide queue
 `Capacitor.convertFileSrc`) and `available(id)`; an ayah whose surah isn't
 downloaded stops playback and sets `rec.missing`; once that surah is on the
 device, playback carries on from that ayah by itself (stopping forgets it).
-Meanwhile the `MiniPlayer` is the download offer (what, estimated size by word share, progress,
+By default Play needs no confirmation: `start()` calls `useRecitation`'s
+`onMissing(id)` for an ayah not on the device (never for a paused move), and
+`RecitationProvider` queues that surah first, then the other missing surahs of
+the last scope range (`downloadSurahs`); `toggle` with no cursor plays from
+`rec.missing`. The `MiniPlayer` then shows progress and cancel only while Play
+waits for the played surah, and Play retries after a failure
+(`AudioDownloadPrompt.auto`). With `qv.audio.confirmDownload` on (Settings →
+Audio storage → "Ask before downloading audio", default off) the `MiniPlayer`
+is the download offer as before (what, estimated size by word share, progress,
 cancel); the options sheet shows what is on the device and "download all".
 Deleting lives in Settings → Audio storage → Saved audio: `deleteReciterAudio`
 for a whole reciter, `deleteSurahAudio(reciter, job)` for one surah (manifest
@@ -868,7 +899,8 @@ by CI (no Android SDK on the dev machine), so check the PR's `apk` job.
   last one stays in use after it closes. With the reader closed, listening
   still counts as reading time and the recited ayah updates last read.
   `components/shell/NowPlayingBar.tsx` sits above `BottomTabs` on every view
-  while a cursor exists and the reader is closed: the label opens the reader
+  while a cursor exists and the reader is closed: the label ("Now playing ·
+reciter", from the context's `reciterName`) opens the reader
   at the playing ayah (in `preferredDivision`), play/pause, and a stop that
   leaves `qv.reader.audio` alone. Reader tests render through
   `withRecitation` (`src/test/recitation.tsx`).
@@ -968,7 +1000,7 @@ Keys: `qv.structure.tab`, `qv.browse.layout`, `qv.peta.*`, `qv.compare.editions`
 `qv.settings`, `qv.browse.*` (Browse kind, query, sort, type filter),
 `qv.bookmarks` (owned by `App`; sanitized by `lib/bookmarks.ts`),
 `qv.search.translation`,
-`qv.lastRead`, `qv.welcome` (first run done), `qv.home.tab`, `qv.home.query`, `qv.activity.period`, `qv.reading.goal`, `qv.reading.log`, `qv.audio.options` (recitation repeats/gap/speed), `qv.audio.reciter`, `qv.colorMode` (owned by `App`, shared by dashboard, reader and
+`qv.lastRead`, `qv.welcome` (first run done), `qv.home.tab`, `qv.home.query`, `qv.activity.period`, `qv.reading.goal`, `qv.reading.log`, `qv.audio.options` (recitation repeats/gap/speed), `qv.audio.confirmDownload`, `qv.audio.reciter`, `qv.colorMode` (owned by `App`, shared by dashboard, reader and
 search), `qv.edition` (reader translation), and `qv.reader.*` (gear-menu toggles,
 `tafsirEdition`, `glossLang`, `translationScale`, `infoLang`, `audio`, `mode`,
 `context`, `contextTab`, `extraEditions`, `extraTafsirs`, `layout`). Theme,

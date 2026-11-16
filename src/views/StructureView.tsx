@@ -38,13 +38,14 @@ export function StructureView({
   const surahMap = useMemo(() => surahMapOf(data.surahs), [data.surahs]);
   const index = TABS.indexOf(tab);
   // A sideways swipe on the chart moves between tabs, stopping at the ends.
-  const { handlers, peek, trackRef } = useSwipePager({
+  const { handlers, sides, trackRef } = useSwipePager({
     current: tab,
     canGo: (d) => index + d >= 0 && index + d < TABS.length,
     onCommit: (d) => setTab(TABS[index + d]),
   });
-  const peekTab = peek !== 0 ? TABS[index + peek] : null;
-  const similar = useSimilar(tab === "similar" || peekTab === "similar");
+  const similar = useSimilar(
+    tab === "similar" || sides.some((d) => TABS[index + d] === "similar"),
+  );
 
   const ctx: ChartContext = useMemo(
     () => ({
@@ -112,12 +113,13 @@ export function StructureView({
           />
         }
       />
-      {/* Clipped only mid-swipe; edge to edge, so panes slide under the card's edge. */}
+      {/* Clipped only while the neighbours are mounted (a swipe); edge to
+          edge, so panes slide under the card's edge. */}
       <div
         data-testid="structure-pager"
         className={cx(
           "-mx-4 touch-pan-y touch-pinch-zoom px-4",
-          peek !== 0 && "overflow-hidden",
+          sides.length > 0 && "overflow-hidden",
         )}
         {...handlers}
       >
@@ -126,19 +128,20 @@ export function StructureView({
           className="relative h-[calc(64*var(--zvh))] min-h-[440px] w-full"
         >
           {renderTab(tab)}
-          {peekTab && (
+          {sides.map((d) => (
             <div
+              key={d}
               aria-hidden
               // `inert` is not in React 18's types; passed through as an attribute.
               {...({ inert: "" } as object)}
               className={cx(
                 "absolute inset-y-0 w-full overflow-hidden",
-                peek === 1 ? "left-full" : "right-full",
+                d === 1 ? "left-full" : "right-full",
               )}
             >
-              {renderTab(peekTab)}
+              {renderTab(TABS[index + d])}
             </div>
-          )}
+          ))}
         </div>
       </div>
     </Card>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { LayoutGrid, List, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
 import type { ChronologyData, QuranData, RevelationType, Surah } from "../../types/quran";
 import { exceptionsBySurah, surahMapOf } from "../../data/selectors";
@@ -64,6 +64,19 @@ export function QuranIndex({
     persisted.oneOf(["list", "cards"] as const),
   );
   const [optionsOpen, setOptionsOpen] = useState(false);
+  // The surah just tapped keeps an accent tint (on top of :active) so a quick
+  // tap shows; the reader opens at once. App hides Home in the same commit, so
+  // a short timer is enough to have it gone when the learner comes back.
+  const [pressed, setPressed] = useState<number | null>(null);
+  useEffect(() => {
+    if (pressed === null) return;
+    const id = window.setTimeout(() => setPressed(null), 800);
+    return () => window.clearTimeout(id);
+  }, [pressed]);
+  const openSurah = (id: number) => {
+    setPressed(id);
+    onOpen({ scope: "surah", value: id });
+  };
   const changed = sort !== "mushaf" || type !== "all" || layout !== "list";
   const surahMap = useMemo(() => surahMapOf(data.surahs), [data.surahs]);
   const exceptions = useMemo(() => exceptionsBySurah(data.verses), [data.verses]);
@@ -253,7 +266,8 @@ export function QuranIndex({
                 exceptions={exceptions}
                 asbabCounts={asbabCounts}
                 palette={palette}
-                onOpen={(id) => onOpen({ scope: "surah", value: id })}
+                pressed={pressed}
+                onOpen={openSurah}
               />
             ) : (
               <div
@@ -280,7 +294,8 @@ export function QuranIndex({
                 <SurahRow
                   key={x.id}
                   s={x}
-                  onOpen={() => onOpen({ scope: "surah", value: x.id })}
+                  pressed={pressed === x.id}
+                  onOpen={() => openSurah(x.id)}
                 />
               ))}
             </div>
@@ -292,7 +307,8 @@ export function QuranIndex({
                   surah={s}
                   exceptions={exceptions.get(s.id) ?? []}
                   palette={palette}
-                  onOpen={() => onOpen({ scope: "surah", value: s.id })}
+                  pressed={pressed === s.id}
+                  onOpen={() => openSurah(s.id)}
                 />
               ))}
             </div>
@@ -342,6 +358,7 @@ function Timeline({
   exceptions,
   asbabCounts,
   palette,
+  pressed,
   onOpen,
 }: {
   surahs: Surah[];
@@ -350,6 +367,7 @@ function Timeline({
   exceptions: Map<number, PlaceException[]>;
   asbabCounts: Map<number, number> | null;
   palette: Palette;
+  pressed: number | null;
   onOpen: (surah: number) => void;
 }) {
   const i18n = useI18n();
@@ -376,6 +394,7 @@ function Timeline({
           exceptions={exceptions.get(s.id) ?? []}
           palette={palette}
           extra={chips(s)}
+          pressed={pressed === s.id}
           onOpen={() => onOpen(s.id)}
         />
       ))}

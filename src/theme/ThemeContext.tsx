@@ -172,6 +172,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
     root.style.setProperty("--font-arabic", `"${arabicFont}", "Amiri", serif`);
+    // Fetch the face now, not when the reader first draws an ayah: one that
+    // arrives late swaps in, and the letters change under the reader's eyes.
+    void document.fonts?.load(`1em "${arabicFont}"`, "\u0628").catch(() => undefined);
     root.style.setProperty("--arabic-scale", String(arabicScale));
   }, [arabicFont, arabicScale]);
 

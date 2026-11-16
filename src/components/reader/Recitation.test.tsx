@@ -83,6 +83,39 @@ describe("MiniPlayer in the Android app", () => {
     expect(p.onCancel).toHaveBeenCalled();
   });
 
+  it("downloading by itself: the normal Play before anything is asked for", async () => {
+    bar(prompt({ auto: true }));
+    // Not on the device yet, but nothing asked for: the normal player.
+    await userEvent.click(screen.getByRole("button", { name: "Play" }));
+    expect(idle.toggle).toHaveBeenCalled();
+  });
+
+  it("downloading by itself: progress and cancel while Play waits", async () => {
+    const p = prompt({
+      auto: true,
+      active: { what: "Al-Baqara", done: 4, total: 287, waiting: 1 },
+    });
+    bar(p, { ...idle, missing: 2 });
+    expect(screen.getByText("Downloading Al-Baqara · 4/287")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel download" }));
+    expect(p.onCancel).toHaveBeenCalled();
+  });
+
+  it("downloading by itself: cancelled is the paused player", () => {
+    bar(prompt({ auto: true }), { ...idle, missing: 2 });
+    expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download" })).toBeNull();
+  });
+
+  it("downloading by itself: a failed download shows why and Play retries", async () => {
+    const p = prompt({ auto: true, error: "002001.mp3" });
+    bar(p, { ...idle, missing: 3 });
+    expect(screen.getByText(/002001\.mp3/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Play" }));
+    expect(p.onStart).toHaveBeenCalled();
+  });
+
   it("is the normal player once the view is downloaded", () => {
     bar(prompt({ needed: null }));
     expect(screen.getByRole("button", { name: "Play" })).toBeInTheDocument();

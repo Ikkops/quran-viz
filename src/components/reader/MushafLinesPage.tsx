@@ -168,10 +168,14 @@ export function MushafLinesPage({
       setFit({ size: (size * width * 0.985) / widest, short });
     };
     // Widths scale with the font size, so measuring at the current size is
-    // enough; again once the Qur'an font has arrived.
+    // enough; again once the Qur'an font has arrived. Only if it was still
+    // loading: measuring again at the fitted size gives a slightly different
+    // size (hinting), which shifted the words a frame after the first paint
+    // (and after a swipe's peek handed over to the list).
     measure();
+    if (document.fonts?.status !== "loading") return;
     let alive = true;
-    document.fonts?.ready.then(() => {
+    document.fonts.ready.then(() => {
       if (alive) requestAnimationFrame(() => alive && measure());
     });
     return () => {

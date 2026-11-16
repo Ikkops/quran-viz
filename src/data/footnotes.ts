@@ -16,6 +16,17 @@ export type Footnotes = Record<string, [number, string][]>;
 
 const cache = new Map<string, Footnotes>();
 const inflight = new Map<string, Promise<Footnotes>>();
+const failed = new Set<string>();
+
+/** Whether `id` has notes that are not loaded yet (a failed load has none):
+ *  the reader holds its text back meanwhile, so the markers do not pop in. */
+export const footnotesPending = (id: string) =>
+  FOOTNOTE_EDITIONS.includes(id) && !cache.has(id) && !failed.has(id);
+
+/** Load an edition's notes ahead (no-op for editions without notes). */
+export function prefetchFootnotes(id: string): void {
+  if (footnotesPending(id)) load(id).catch(() => undefined);
+}
 
 function load(id: string): Promise<Footnotes> {
   const hit = cache.get(id);
@@ -30,6 +41,10 @@ function load(id: string): Promise<Footnotes> {
       .then((d) => {
         cache.set(id, d);
         return d;
+      })
+      .catch((e) => {
+        failed.add(id);
+        throw e;
       })
       .finally(() => inflight.delete(id));
     inflight.set(id, p);
@@ -49,7 +64,7 @@ export function useFootnotes(ids: string[]): Record<string, Footnotes> {
       if (!cache.has(id))
         load(id).then(
           () => alive && bump((n) => n + 1),
-          () => undefined,
+          () => alive && bump((n) => n + 1),
         );
     return () => {
       alive = false;

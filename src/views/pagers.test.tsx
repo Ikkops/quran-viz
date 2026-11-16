@@ -81,9 +81,9 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-/** A sideways drag of `dx` px (negative = left = next) on the test id. */
-const swipe = (testId: string, dx: number) => {
-  const el = screen.getByTestId(testId);
+/** A sideways drag of `dx` px (negative = left = next) on the test id or element. */
+const swipe = (target: string | HTMLElement, dx: number) => {
+  const el = typeof target === "string" ? screen.getByTestId(target) : target;
   fireEvent.touchStart(el, { touches: [{ clientX: 200, clientY: 100 }] });
   for (const f of [0.25, 0.5, 1])
     fireEvent.touchMove(el, { touches: [{ clientX: 200 + dx * f, clientY: 100 }] });
@@ -162,5 +162,47 @@ describe("Dashboard swipe", () => {
     swipe("dashboard-pager", -150);
     expect(stored("qv.viz")).toBe("correlation");
     expect(screen.getByText("correlation body")).toBeInTheDocument();
+  });
+
+  const dashboard = async (viz: string) => {
+    localStorage.setItem("qv.viz", JSON.stringify(viz));
+    render(
+      <ThemeProvider>
+        <DashboardView
+          data={data}
+          settings={{ bucketSize: 1, extremesCount: 5 } as never}
+          colorMode="type"
+          onColorMode={() => {}}
+          onOpen={() => {}}
+          marked={[]}
+          hifdh={emptyHifdh()}
+          onExplore={() => {}}
+        />
+      </ThemeProvider>,
+    );
+    return screen.findByText(`${viz} body`);
+  };
+
+  it("does not change view on a drag that starts inside the chart", async () => {
+    const body = await dashboard("length");
+    const box = body.closest("[data-no-swipe]") as HTMLElement;
+    expect(box).not.toBeNull();
+    // A fixed-height chart also keeps the page from panning under the finger.
+    expect(box).toHaveAttribute("data-touch-lock");
+    swipe(body, -150);
+    expect(stored("qv.viz")).toBe("length");
+    expect(screen.getByRole("heading", { name: "Surah length" })).toBeInTheDocument();
+  });
+
+  it("still changes view on a drag that starts on the heading", async () => {
+    await dashboard("length");
+    swipe(screen.getByRole("heading", { name: "Surah length" }), -150);
+    expect(stored("qv.viz")).toBe("correlation");
+  });
+
+  it("keeps a tall view pannable: no touch lock on the map", async () => {
+    const body = await dashboard("map");
+    const box = body.closest("[data-no-swipe]") as HTMLElement;
+    expect(box).not.toHaveAttribute("data-touch-lock");
   });
 });
