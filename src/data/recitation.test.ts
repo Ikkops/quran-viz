@@ -400,6 +400,25 @@ describe("sleep timer", () => {
     expect(sleepDue(t, 0, at(6), null, vs, all, once)).toBe(false);
   });
 
+  it("lets build up join the whole surah before it stops", () => {
+    const t = { choice: "surah", surah: 1 } as const;
+    const hear = (o: LoopOptions) => {
+      const heard: number[] = [];
+      let cur: Cursor | null = at(1);
+      while (cur) {
+        heard.push(cur.id);
+        const nxt = advance(cur, all, o, none);
+        if (sleepDue(t, 0, cur, nxt, vs, all, o)) break;
+        cur = nxt;
+      }
+      return heard.join(" ");
+    };
+    expect(hear({ ...once, chain: true })).toBe("1 2 1 2 3 1 2 3");
+    expect(hear({ ...once, chain: true, setRepeat: 2 })).toBe(
+      "1 2 1 2 1 2 3 1 2 3 1 2 3",
+    );
+  });
+
   it("is not defeated by a looping range or endless ayah repeats", () => {
     const t = { choice: "surah", surah: 1 } as const;
     const loop = { ayahRepeat: 1, rangeRepeat: 0 };

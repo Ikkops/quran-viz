@@ -356,8 +356,12 @@ export function useRecitation({
       setMissing(null);
       setAt(c);
       const sl = sleepRef.current;
+      // Build up's surah is that of its newest ayah, not one a join replays.
       if (sl?.choice === "surah" && sl.surah === null)
-        armSleep({ ...sl, surah: live.current.verses[c.id - 1]?.s ?? null });
+        armSleep({
+          ...sl,
+          surah: live.current.verses[(c.joinTo ?? c.id) - 1]?.s ?? null,
+        });
       clipRef.current = clip;
       doneRef.current = false;
       const at = clip.from + offset;
@@ -412,38 +416,45 @@ export function useRecitation({
     if (cur) announce(cur, false, audio?.currentTime ?? 0);
   }, [announce]);
 
-  const onEnded = useCallback(() => {
-    const cur = cursorRef.current;
-    if (!cur) return;
-    const { range: r, options: o, needsBasmalah: nb } = live.current;
-    const nxt = advance(cur, r, o, nb);
-    // Checked at every ayah boundary rather than by a timer, which Android
-    // throttles in the background; the pause lands between ayahs.
-    if (sleepDue(sleepRef.current, Date.now(), cur, nxt, live.current.verses, r, o)) {
-      armSleep(null);
-      pause();
-      return;
-    }
-    if (!nxt) {
-      setPlaying(false);
-      setAt(null);
-      return;
-    }
-    // No gap between the basmalah and its ayah.
-    const clip = clipRef.current;
-    const length =
-      clip && clip.to !== null ? clip.to - clip.from : (audioRef.current?.duration ?? 0);
-    let gap = cur.basmalah ? 0 : gapSeconds(o.gap, length, o.rate);
-    // Build up: after the set's last play, time to recite the set back.
-    const set = o.setPause ? setFinished(cur, nxt, r, o) : null;
-    if (set) {
-      let len = 0;
-      for (let i = set.from; i <= set.to; i++) len += lengthOf(i);
-      gap += (o.setPause! * len) / o.rate;
-    }
-    if (gap > 0) gapTimer.current = setTimeout(() => start(nxt), gap * 1000);
-    else start(nxt);
-  }, [start, setAt, armSleep, pause, lengthOf]);
+  // `skipGap`: Play pressed during the silence after an ayah goes straight on.
+  const onEnded = useCallback(
+    (skipGap = false) => {
+      const cur = cursorRef.current;
+      if (!cur) return;
+      const { range: r, options: o, needsBasmalah: nb } = live.current;
+      const nxt = advance(cur, r, o, nb);
+      // Checked at every ayah boundary rather than by a timer, which Android
+      // throttles in the background; the pause lands between ayahs.
+      if (sleepDue(sleepRef.current, Date.now(), cur, nxt, live.current.verses, r, o)) {
+        armSleep(null);
+        pause();
+        return;
+      }
+      if (!nxt) {
+        setPlaying(false);
+        setAt(null);
+        return;
+      }
+      // No gap between the basmalah and its ayah.
+      const clip = clipRef.current;
+      const length =
+        clip && clip.to !== null
+          ? clip.to - clip.from
+          : (audioRef.current?.duration ?? 0);
+      let gap = cur.basmalah ? 0 : gapSeconds(o.gap, length, o.rate);
+      // Build up: after the set's last play, time to recite the set back.
+      const set = o.setPause ? setFinished(cur, nxt, r, o) : null;
+      if (set) {
+        let len = 0;
+        for (let i = set.from; i <= set.to; i++) len += lengthOf(i);
+        gap += (o.setPause! * len) / o.rate;
+      }
+      if (gap > 0 && !skipGap)
+        gapTimer.current = setTimeout(() => start(nxt), gap * 1000);
+      else start(nxt);
+    },
+    [start, setAt, armSleep, pause, lengthOf],
+  );
 
   // Attach listeners once the element exists; it is created on first play.
   useEffect(() => {
@@ -568,10 +579,11 @@ export function useRecitation({
       play(missing ?? live.current.range.from);
       return;
     }
-    // Paused during the gap after an ayah ended: move on rather than replay it.
+    // Paused during the gap after an ayah ended: move on now, rather than
+    // replay the ayah or wait out the whole silence again.
     if (audio.ended || doneRef.current) {
       setPlaying(true);
-      onEnded();
+      onEnded(true);
       return;
     }
     // Reciter changed while paused: restart this ayah in the new voice.
@@ -645,7 +657,7 @@ export function useRecitation({
         sleepTimerFor(
           choice,
           Date.now(),
-          c ? (live.current.verses[c.id - 1]?.s ?? null) : null,
+          c ? (live.current.verses[(c.joinTo ?? c.id) - 1]?.s ?? null) : null,
         ),
       );
     },

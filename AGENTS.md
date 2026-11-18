@@ -58,7 +58,11 @@ exists, the script gunzips it automatically) **and** `../reference/quran-refs/qu
 
 **1. Build-time ETL (Python).** `scripts/build_data.py` reads the SQLite DB and
 emits compact static JSON into `public/data/`. This is the only place the 209 MB
-DB is touched. Outputs: `surahs.json`, `verses.json`, `editions.json`,
+DB is touched. Outputs: `surahs.json`, `verses.json` (also read by the
+workspace's research scripts and cited in the juz notes: keep its shape),
+`verses-cols.json` (the same verses by column, `verse_columns`, which the app
+loads: half the parse time; `useQuranData.test.ts` checks the two decode
+alike; `build:android` drops `verses.json` from the APK), `editions.json`,
 `meta.json`, `tajweed.json`, `wordbyword.json`, `morphology.json`, `roots.json`
 (every corpus root with the ayah id of each occurrence, for the Root explorer),
 `similar.json` (QUL similar-ayah pairs, deduplicated to undirected
@@ -213,8 +217,33 @@ with `source='sahih-ar'` (never `wahidi-en`, a copyrighted translation).
 
 **2. Runtime (static React).** The app fetches the prebuilt JSON; there is no server.
 
-- `data/useQuranData.ts` — fetches the 4 core JSON files on mount. Returns
+- `data/useQuranData.ts` — the 4 core JSON files, fetched once
+  (`loadQuranData`, a shared promise; a failure clears it so a remount
+  retries; verses from `verses-cols.json` via `versesFromColumns`). Returns
   `{ surahs, verses, editions, meta }` or null while loading.
+- **Start-up path** (measured with a headless Chrome at 4× CPU slowdown; the
+  main thread, not the network, is the limit): `index.html` preloads the 4
+  core files (`<link rel="preload" as="fetch" crossorigin>`, matching
+  `fetch()`'s mode, so each downloads once); `App.tsx` at module load starts
+  `loadQuranData` and the first screen's lazy chunk (`viewChunk[view]`; a
+  reader link also `readerChunk` and, in ayah view, its translation and
+  footnotes; not tajweed, which may arrive after the text). After the first
+  screen: `warmReader` at 1.5 s (reader code, translation, footnotes, tajweed
+  when on), `warmViews` from 2.5 s (the other views' chunks, one per idle
+  callback, so a tab such as the dashboard opens without loading Recharts).
+  Home's surah rows and cards are `content-visibility: auto` with an
+  intrinsic size: the 100-odd rows off screen skip style, layout and paint;
+  the session's first Home draws 24 of them before the first paint and the
+  rest in a transition (`useAllRows`; later visits draw all at once, so
+  scroll restoring finds the full height); juz/manzil cards are computed only
+  for the division shown. `HomeView` is imported eagerly (the app opens on
+  it: no lazy suspend and skeleton commit first); the other views stay lazy.
+  On a reader link the view under the reader is not drawn until the reader is
+  up (`viewUnderReader`, then an idle transition; closing the reader draws it
+  at once). Chart series have `isAnimationActive={false}`
+  (DESIGN.md Motion; Recharts' 1.5 s entrance re-rendered the chart every
+  frame). Benchmark these with a headless Chrome over CDP at 4× CPU, the
+  original build beside the new one, runs alternating (single runs vary).
 - `data/useTranslation(editionId)` — lazy-fetches a single translation edition.
   LRU-capped at 24 editions. Returns `{ data, loading, error }`.
 - `data/useLazyJson<T>(key, enabled)` — generic singleton-cache hook. Backs
@@ -643,8 +672,8 @@ U+06DD ayah-end medallion), `readerShared` (prefs hook, scope helpers). Layouts
 (`qv.reader.mode`): ayah by ayah or mushaf pages (Compare was removed). Mushaf
 pages follow `qv.reader.layout`: a printed layout (`MushafLinesPage`, data in
 `data/mushafLayout.ts`: whole pages, ayahs outside the scope dimmed, each
-line's words spread to the width, the font fitted to the widest line after
-`document.fonts.ready`, short lines centred) or `flow` (the old `MushafPage`,
+line's words spread to the width, the font fitted to the widest line,
+short lines centred) or `flow` (the old `MushafPage`,
 grouped by `verses.page`). Both mushaf layouts open a surah with `SurahBanner`
 (the printed banner in tokens only, sized in em, `role="img"`, shapes
 `aria-hidden`). Printed bands: every word except a line's last grows into the
@@ -656,8 +685,25 @@ band is inline colours, a gradient sized to the Arabic line (`ARABIC_LINE`),
 so it never covers the meanings. Each page (both mushaf layouts) has
 `PageSpine`, a thin line on the fold's side of an open mushaf: the right
 edge of odd pages, the left of even ones. The recited word and the picked
-word sit on the inner `data-ayah` span, and the font fitting measures those
-inner spans. Popovers: in both mushaf layouts a tap opens `AyahPopover`
+word sit on the inner `data-ayah` span. The fit needs no layout:
+`lineWidths` (`data/mushafLayout.ts`, tested) sums each line's drawn text
+(tajweed text when coloured, plus the medallion) from canvas `measureText`
+at 40 px, so a page mounts at its fitted size in one pass (measuring the
+drawn spans made each new page lay out, re-render and lay out again, the
+scroll's worst frames). The width comes from a `ResizeObserver` callback
+(layout already done) and new pages start at the last page's (`lastWidth`);
+only a session's first page reads `clientWidth` at once. A face nothing has
+drawn yet is loaded with `document.fonts.load` and the page measured again.
+Mushaf rows use `overscan` 2 (ayah rows 4). A page mounted off screen
+(`deferred`: outside `rowVirtualizer.range`) draws its lines `LINE_STEP` (5)
+at a time, each step a transition, with placeholders of the lines' heights
+below (the page's height never changes), so a page mount is a few short
+commits instead of one long scroll frame; on screen it draws at once.
+`deferred` counts at mount only: the page's memo ignores later changes
+(re-checking a drawn page as it came on screen cost a long frame). The
+words' pointer, click, context-menu and key handlers sit once on the page's
+lines box and find the word by `data-word="id:w"`, and tajweed segments are
+drawn inline with one `useTheme` per page (not a component per word). Popovers: in both mushaf layouts a tap opens `AyahPopover`
 (reference, the main edition's translation, play, context, and in the printed
 layout a "press and hold" hint); a 450 ms hold within 10 px on a printed word
 opens `WordPopover` (scroll/swipe cancels, the click after it is swallowed,
@@ -766,10 +812,10 @@ After `document.fonts.ready` the rendered rows are re-measured from the DOM
 with `resizeItem` (`measure()` clears the size cache and drops unchanged rows
 back to the estimate). So that a window is drawn once and does not change:
 KFGQPC is `font-display: block`, the chosen Arabic font and Literata (normal
-and italic) are preloaded at start, `App` prefetches the reader's translation
-and footnotes 1.5 s after start, the translation counts as loading until its
-footnotes are in, `useGroupedTafsirs` returns cached surahs in the same
-render, and the mushaf-lines fit re-measures only while fonts are loading.
+and italic) are preloaded at start, `App` warms the reader's translation
+and footnotes (see Start-up path), the translation counts as loading until
+its footnotes are in, and `useGroupedTafsirs` returns cached surahs in the
+same render.
 
 ## Non-obvious data facts (read before touching the ETL or structural charts)
 

@@ -287,7 +287,8 @@ export function sleepTimerFor(
  * boundary after its deadline. "End of surah" stops after the last ayah of
  * its surah that the range plays, once that ayah's repeats are done; with
  * each ayah repeated forever it stops after the ayah playing, since the end
- * would never come. A range repeat never gets past either.
+ * would never come. A range repeat never gets past either. In build up the
+ * end is the last play of the first set that reaches the surah's last ayah.
  */
 export function sleepDue(
   timer: SleepTimer | null,
@@ -303,6 +304,8 @@ export function sleepDue(
   if (opts.ayahRepeat === 0) return true;
   if (verses[cur.id - 1]?.s !== timer.surah) return false;
   const lastInSurah = verses[cur.id]?.s !== timer.surah;
+  if (opts.chain && range.to > range.from && !outsideRange(cur.id, range))
+    return (lastInSurah || cur.id >= range.to) && !!setFinished(cur, nxt, range, opts);
   return (lastInSurah || cur.id >= range.to) && nxt?.id !== cur.id;
 }
 

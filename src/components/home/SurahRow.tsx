@@ -61,7 +61,9 @@ export function SurahRow({
       onClick={onOpen}
       data-pressed={pressed || undefined}
       // The hairline is inset (after:) so the rounded hover tint never bends it.
-      className="relative flex min-h-[3.75rem] items-center gap-3 rounded-md px-2 py-2 text-left transition-colors after:absolute after:inset-x-2 after:bottom-0 after:h-px after:bg-line hover:bg-surface-sunken active:bg-illumination/10 active:transition-none data-[pressed]:bg-illumination/10 data-[pressed]:transition-none dark:hover:bg-surface dark:active:bg-illumination/15 dark:data-[pressed]:bg-illumination/15"
+      // Rows off screen skip style, layout and paint until scrolled to (114 of
+      // them on Home, ten or so in view).
+      className="relative flex min-h-[3.75rem] items-center [contain-intrinsic-size:auto_3.75rem] [content-visibility:auto] gap-3 rounded-md px-2 py-2 text-left transition-colors after:absolute after:inset-x-2 after:bottom-0 after:h-px after:bg-line hover:bg-surface-sunken active:bg-illumination/10 active:transition-none data-[pressed]:bg-illumination/10 data-[pressed]:transition-none dark:hover:bg-surface dark:active:bg-illumination/15 dark:data-[pressed]:bg-illumination/15"
     >
       <span className="w-8 shrink-0 text-center text-base tabular-nums text-ink-muted">
         {s.id}

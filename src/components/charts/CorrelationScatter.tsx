@@ -1,6 +1,5 @@
 import {
   CartesianGrid,
-  ResponsiveContainer,
   Scatter,
   ScatterChart,
   Tooltip,
@@ -8,6 +7,7 @@ import {
   YAxis,
   ZAxis,
 } from "recharts";
+import { ResponsiveContainer } from "./ResponsiveChart";
 import type { SurahDatum } from "../../data/selectors";
 import { SurahTooltip } from "../tooltips";
 import {
@@ -71,7 +71,9 @@ export function CorrelationScatter({
         <Tooltip content={<SurahTooltip />} cursor={{ strokeDasharray: "3 3" }} />
         <Scatter
           data={data}
-          isAnimationActive={!ctx.still}
+          // DESIGN.md Motion: no decorative entrances (they re-rendered the
+          // chart every frame for 1.5 s after it appeared).
+          isAnimationActive={false}
           onClick={(d: unknown) =>
             hitMark(ctx, { scope: "surah", value: (d as SurahDatum).id })
           }

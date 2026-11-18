@@ -14,15 +14,8 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, Cell, Tooltip, XAxis, YAxis } from "recharts";
+import { ResponsiveContainer } from "./ResponsiveChart";
 import type { Surah, Verse } from "../../types/quran";
 import { rootSurahCounts } from "../../data/roots";
 import {

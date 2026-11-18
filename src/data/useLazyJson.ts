@@ -14,6 +14,35 @@ const cache = new Map<string, unknown>();
 /** Inflight requests: url -> promise. Dedupes parallel callers. */
 const inflight = new Map<string, Promise<unknown>>();
 
+/** The fetch behind `useLazyJson`, shared by every caller of the same file. */
+function fetchJson<T>(url: string, path: string): Promise<T> {
+  let p = inflight.get(url) as Promise<T> | undefined;
+  if (!p) {
+    p = fetch(url)
+      .then((r) => {
+        if (!r.ok) throw new Error(`${path}: ${r.status}`);
+        return r.json() as Promise<T>;
+      })
+      .then((d) => {
+        cache.set(url, d);
+        inflight.delete(url);
+        return d;
+      })
+      .catch((e) => {
+        inflight.delete(url);
+        throw e;
+      });
+    inflight.set(url, p);
+  }
+  return p;
+}
+
+/** Start loading a data file ahead of the screen that needs it. */
+export function prefetchJson(path: string): void {
+  const url = dataUrl(path);
+  if (!cache.has(url)) fetchJson(url, path).catch(() => undefined);
+}
+
 /**
  * Lazily fetches and module-caches a static JSON file under `data/`.
  * Only fetches when `enabled` is true. The result is cached for the
@@ -46,25 +75,7 @@ export function useLazyJson<T>(path: string, enabled = true): LazyJsonState<T> {
     let alive = true;
     setState({ data: null, loading: true, error: null });
 
-    let p = inflight.get(url) as Promise<T> | undefined;
-    if (!p) {
-      p = fetch(url)
-        .then((r) => {
-          if (!r.ok) throw new Error(`${path}: ${r.status}`);
-          return r.json() as Promise<T>;
-        })
-        .then((d) => {
-          cache.set(url, d);
-          inflight.delete(url);
-          return d;
-        })
-        .catch((e) => {
-          inflight.delete(url);
-          throw e;
-        });
-      inflight.set(url, p);
-    }
-    p.then(
+    fetchJson<T>(url, path).then(
       (d) => alive && setState({ data: d, loading: false, error: null }),
       (e) => alive && setState({ data: null, loading: false, error: String(e) }),
     );

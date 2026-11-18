@@ -8,19 +8,26 @@ import { resolvePalette, type Palette } from "../../theme/palettes";
 
 // jsdom has no layout, so @tanstack/react-virtual sees a 0-height scroll
 // container and renders zero items. Stub the hook to render every row.
-vi.mock("@tanstack/react-virtual", () => ({
-  useVirtualizer: ({ count }: { count: number }) => ({
-    getTotalSize: () => count * 140,
-    getVirtualItems: () =>
-      Array.from({ length: count }, (_, i) => ({
-        index: i,
-        start: i * 140,
-        size: 140,
-        key: i,
-      })),
-    scrollToIndex: () => {},
-    measureElement: () => {},
-    measure: () => {},
+vi.mock("../../lib/useListVirtualizer", () => ({
+  useListVirtualizer: ({ count }: { count: number }) => ({
+    virtualizer: {
+      getTotalSize: () => count * 140,
+      getVirtualItems: () =>
+        Array.from({ length: count }, (_, i) => ({
+          index: i,
+          start: i * 140,
+          size: 140,
+          key: i,
+        })),
+      scrollToIndex: () => {},
+      measureElement: () => {},
+      measure: () => {},
+      resizeItem: () => {},
+      range: null,
+      isScrolling: false,
+    },
+    scrolling: false,
+    subscribe: () => () => {},
   }),
 }));
 

@@ -3,6 +3,8 @@
 // which page, so the reader's mushaf mode breaks lines as the print does.
 
 import type { Verse } from "../types/quran";
+import { ayahEnd } from "./ayahContext";
+import type { TajweedSegment } from "./tajweed";
 import { useLazyJson } from "./useLazyJson";
 
 /** [ayah id, first word (1-based)] | ["s", surah] | ["sb", surah] (name and
@@ -166,5 +168,46 @@ export function wordCounter(verses: Verse[]): (id: number) => number {
       cache.set(id, n);
     }
     return n;
+  };
+}
+
+/** A line narrower than this share of the page's widest line is centred
+ *  (the end of a surah, the short lines of the first two pages). */
+export const SHORT_LINE = 0.72;
+
+/**
+ * Each words line's natural width at font size `px` (its words as drawn, the
+ * ayah-end medallions and a quarter-em gap between words), measured by
+ * `measure`; returns the widest and the indexes of the lines narrower than
+ * `SHORT_LINE` of it, or null for a page without words.
+ */
+export function lineWidths(
+  lines: PageLine[],
+  words: Map<number, { text: string[]; segs: TajweedSegment[][] | null }>,
+  verses: readonly Pick<Verse, "a">[],
+  wordCount: (id: number) => number,
+  arabicFont: string,
+  measure: (text: string) => number,
+  px: number,
+): { widest: number; short: Set<number> } | null {
+  const nat: [number, number][] = [];
+  lines.forEach((l, i) => {
+    if (l.kind !== "words") return;
+    let w = (l.words.length - 1) * px * 0.25;
+    for (const { id, w: k } of l.words) {
+      const aw = words.get(id);
+      // What is drawn: the tajweed text when coloured, else the plain word.
+      let text = aw?.segs?.[k - 1]?.map((x) => x.text).join("") ?? aw?.text[k - 1] ?? "";
+      const v = verses[id - 1];
+      if (k === wordCount(id) && v) text += ` ${ayahEnd(v.a, arabicFont)}`;
+      w += measure(text);
+    }
+    nat.push([i, w]);
+  });
+  const widest = Math.max(0, ...nat.map(([, w]) => w));
+  if (widest <= 1) return null;
+  return {
+    widest,
+    short: new Set(nat.filter(([, w]) => w < widest * SHORT_LINE).map(([i]) => i)),
   };
 }

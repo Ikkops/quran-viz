@@ -70,7 +70,7 @@ export function useReadingLog(): ReadingLog {
   return useSyncExternalStore(subscribe, current, current);
 }
 
-/** For tests: forget the in-memory copy. */
+/** Forget the in-memory copy and stop counting (a restored backup, tests). */
 export function resetReadingStore(): void {
   log = null;
   listening = false;

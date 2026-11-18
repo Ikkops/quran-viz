@@ -1,12 +1,5 @@
-import {
-  Bar,
-  BarChart,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, Cell, Tooltip, XAxis, YAxis } from "recharts";
+import { ResponsiveContainer } from "./ResponsiveChart";
 import type { SurahDatum } from "../../data/selectors";
 import type { AyahPlace } from "../../types/quran";
 import { SurahTooltip } from "../tooltips";
@@ -110,7 +103,8 @@ export function SurahBarChart({
             stackId="s"
             radius={stacked ? undefined : radius}
             onClick={onClick}
-            isAnimationActive={!ctx.still && data.length < 60}
+            // DESIGN.md Motion: no decorative entrances.
+            isAnimationActive={false}
           >
             {rows.map((d) => (
               <Cell

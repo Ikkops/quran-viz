@@ -77,8 +77,9 @@ function androidData(): Plugin {
     apply: (_, env) => env.command === "build" && env.mode === "android",
     configResolved: (c) => void (outDir = resolve(c.root, c.build.outDir)),
     closeBundle() {
-      // Word timings come down with each surah's audio (audioStore).
-      for (const p of [...DOWNLOADED_TAFSIR_PATHS, "timings"])
+      // Word timings come down with each surah's audio (audioStore); the app
+      // reads verses-cols.json, verses.json is kept for the research notes.
+      for (const p of [...DOWNLOADED_TAFSIR_PATHS, "timings", "verses.json"])
         rmSync(resolve(outDir, "data", p), { recursive: true, force: true });
     },
   };

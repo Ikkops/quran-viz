@@ -98,3 +98,9 @@ export function arabicDigits(n: number): string {
 export function ayahEndMark(n: number): string {
   return `۝${arabicDigits(n)}`;
 }
+
+/** The medallion's text in `arabicFont`: the KFGQPC face draws the digits
+ *  themselves as the medallion with its number, so U+06DD before them would
+ *  add a second, empty one. */
+export const ayahEnd = (n: number, arabicFont: string): string =>
+  arabicFont === "KFGQPC Hafs" ? ayahEndMark(n).slice(1) : ayahEndMark(n);

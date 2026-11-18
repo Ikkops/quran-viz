@@ -3,10 +3,12 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useListVirtualizer } from "../../lib/useListVirtualizer";
 import { useStableFn } from "../../lib/useStableFn";
 import { ArrowLeft, ArrowRight, ClipboardCheck, EyeOff, Plus, X } from "lucide-react";
 import type { EditionsIndex, Surah, Verse } from "../../types/quran";
@@ -193,6 +195,24 @@ export interface ReaderViewProps {
  * ayat" panel docked beside it on wide layouts (a sheet otherwise), and the
  * mini-player under it. Ayahs are laid out one by one or as mushaf pages.
  */
+/** The list's rows. They re-render on their own as the list scrolls (the
+ *  reader around them does not; see `useListVirtualizer`); `afterRender`
+ *  runs after each of their renders. */
+function VirtualRows({
+  subscribe,
+  afterRender,
+  children,
+}: {
+  subscribe: (f: () => void) => () => void;
+  afterRender: () => void;
+  children: () => ReactNode;
+}) {
+  const [, rerender] = useReducer((n: number) => n + 1, 0);
+  useLayoutEffect(() => subscribe(rerender), [subscribe]);
+  useEffect(() => afterRender());
+  return <>{children()}</>;
+}
+
 export function ReaderView({
   target,
   surahs,
@@ -600,6 +620,9 @@ export function ReaderView({
   );
   const { layoutPages, pages, count } = rows;
   const indexOfAyah = useCallback(
+    // Lint only (no React Compiler in the build): it cannot keep this memo,
+    // and skipped this component wholesale while it used `useVirtualizer`.
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     (id: number) =>
       layout && layoutPages
         ? layoutPages.indexOf(pageOf(layout, id))
@@ -612,6 +635,8 @@ export function ReaderView({
   // ── The player's range follows the view: the "read by" scope in ayah view,
   // the page in view in the mushaf (its ayahs inside the scope) ──
   const pageRangeAt = useCallback(
+    // See `indexOfAyah`.
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     (i: number): LoopRange | null => {
       if (mode !== "mushaf" || i < 0 || i >= count) return null;
       const r =
@@ -701,13 +726,26 @@ export function ReaderView({
   const stepMatch = (d: 1 | -1) =>
     setMatchAt((i) => (matches.length ? (i + d + matches.length) % matches.length : 0));
 
-  const rowVirtualizer = useVirtualizer({
+  const {
+    virtualizer: rowVirtualizer,
+    scrolling: listScrolling,
+    subscribe: onListChange,
+  } = useListVirtualizer({
     count,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => (pages || layoutPages ? 720 : 170),
+    // A printed page is some 15 lines of 2.05em (2.9em with meanings) at a
+    // font of about a 15th of its width: a close guess keeps the list from
+    // counting two pages on screen where one fits.
+    estimateSize: () =>
+      layoutPages
+        ? Math.round(Math.min(width, 640) * (p.showWords ? 2.9 : 2.05)) + 80
+        : pages
+          ? 720
+          : 170,
     getItemKey: (i) =>
       layoutPages ? `L${layoutPages[i]}` : pages ? `p${pages[i][0].id}` : filtered[i].id,
-    overscan: 4,
+    // A mushaf page is a screen or more of text: two either side is plenty.
+    overscan: pages || layoutPages ? 2 : 4,
     // Room under the floating head, and scrolls to a row stop below it.
     paddingStart: headH,
     scrollPaddingStart: headH,
@@ -880,6 +918,8 @@ export function ReaderView({
       return pages ? pages[i]?.[0].id : filtered[i]?.id;
     };
   }, [pages, filtered, layout, layoutPages]);
+  const settleTimer = useRef(0);
+  useEffect(() => () => clearTimeout(settleTimer.current), []);
   const onListScroll = useCallback(() => {
     const sc = scrollRef.current;
     if (!sc) return;
@@ -895,17 +935,22 @@ export function ReaderView({
       headHiddenRef.current = hidden;
       setHeadHidden(hidden);
     }
-    // The ayah just below the head. Only changes when another row reaches the
-    // top, not on every pixel.
+    // The ayah just below the head (the title, the strip's mark) and, in the
+    // mushaf, the page across the middle (the player's range). Set once the
+    // list settles: setting them as each row crossed re-rendered the whole
+    // reader in the middle of a scroll.
     const below = hidden ? 0 : headHRef.current;
     const items = rowVirtualizer.getVirtualItems();
     const top = items.find((vi) => vi.end > y + below + 8);
-    if (top) setTopId(itemFirstAyah.current(top.index));
-    // Only the mushaf needs it (its page is the player's range): in ayah view
-    // it would re-render the reader at every row.
-    if (mode !== "mushaf") return;
-    const mid = items.find((vi) => vi.end > y + (below + sc.clientHeight) / 2);
-    if (mid) setViewIndex(mid.index);
+    const mid =
+      mode === "mushaf"
+        ? items.find((vi) => vi.end > y + (below + sc.clientHeight) / 2)
+        : undefined;
+    clearTimeout(settleTimer.current);
+    settleTimer.current = window.setTimeout(() => {
+      if (top) setTopId(itemFirstAyah.current(top.index));
+      if (mid) setViewIndex(mid.index);
+    }, 120);
   }, [rowVirtualizer, mode]);
   // Measure the head (it grows with the search field).
   useLayoutEffect(() => {
@@ -921,12 +966,15 @@ export function ReaderView({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const totalSize = rowVirtualizer.getTotalSize();
-  useEffect(() => {
+  const lastTotal = useRef(0);
+  const pinToBottom = () => {
+    const total = rowVirtualizer.getTotalSize();
+    if (total === lastTotal.current) return;
+    lastTotal.current = total;
     const sc = scrollRef.current;
     if (sc && navSettledRef.current && atBottomRef.current)
       sc.scrollTop = sc.scrollHeight;
-  }, [totalSize]);
+  };
 
   // ← / → step through the scope (not while typing).
   const max = SCOPE_MAX[target.scope];
@@ -946,7 +994,11 @@ export function ReaderView({
   // open popover, menu or sheet, nor while searching (the hits are this
   // window's; the end-of-list buttons hide then too).
   const scopeKey = `${target.scope}:${target.value}`;
-  const pager = useSwipePager({
+  const {
+    handlers: pagerHandlers,
+    sides: pagerSides,
+    trackRef: slideRef,
+  } = useSwipePager({
     current: scopeKey,
     canGo: (d) => target.value + d >= 1 && target.value + d <= max,
     onCommit: (d) => {
@@ -972,8 +1024,7 @@ export function ReaderView({
     // does no React work.
     ahead: true,
   });
-  const slideRef = pager.trackRef;
-  const sidesKey = pager.sides.join();
+  const sidesKey = pagerSides.join();
   const peeks = useMemo(
     () =>
       sidesKey
@@ -1363,9 +1414,19 @@ export function ReaderView({
   // One row of a window: the list's, or a swipe peek's (`peekCtx`, not live).
   const renderRow = (w: WindowRows, i: number, peekCtx?: RowContext) => {
     const live = !peekCtx;
+    // Rows on screen (the virtualizer's range without its overscan), read as
+    // the rows render: they re-render on their own while the list scrolls.
+    const onScreen = rowVirtualizer.range;
     if (layout && w.layoutPages)
       return (
         <MushafLinesPage
+          // A page mounted ahead, off screen, draws its words in steps:
+          // spread over frames, not one long scroll frame. Before the list
+          // knows what is on screen (its first render, before a jump to an
+          // anchor), only the first page is drawn at once.
+          deferred={
+            live && (onScreen ? i < onScreen.startIndex || i > onScreen.endIndex : i > 0)
+          }
           layout={layout}
           page={w.layoutPages[i]}
           verses={verses}
@@ -1817,7 +1878,7 @@ export function ReaderView({
       {/* The pager: its track slides the list and, beside it, the start of
           each neighbouring window (mounted when idle). Clipped, not hidden:
           nothing can scroll it sideways onto a neighbour. */}
-      <div className="flex min-h-0 flex-1 touch-pan-y overflow-clip" {...pager.handlers}>
+      <div className="flex min-h-0 flex-1 touch-pan-y overflow-clip" {...pagerHandlers}>
         <div ref={slideRef} className="relative flex min-w-0 flex-1">
           {peeks.map(({ dir, rows: w }) => {
             const ctx = peekCtxOf(w);
@@ -1827,7 +1888,7 @@ export function ReaderView({
                 dir={dir}
                 rows={w}
                 headH={headH}
-                frozen={rowVirtualizer.isScrolling}
+                frozen={listScrolling}
                 renderRow={(r, i) => renderRow(r, i, ctx)}
               />
             );
@@ -1835,47 +1896,53 @@ export function ReaderView({
           <div
             ref={scrollRef}
             onScroll={onListScroll}
-            // A stable gutter: the peeks lay out at the list's text width.
-            className="min-w-0 flex-1 touch-pan-y overflow-y-auto overflow-x-hidden px-3 pb-4 pt-1 [scrollbar-gutter:stable]"
+            // A stable gutter: the peeks lay out at the list's text width. The
+            // opaque background lets the browser scroll the list on the GPU
+            // even on low-DPI screens (otherwise every frame repainted it).
+            className="min-w-0 flex-1 touch-pan-y overflow-y-auto overflow-x-hidden bg-paper px-3 pb-4 pt-1 [scrollbar-gutter:stable]"
           >
             <div className="relative mx-auto max-w-4xl">
-              <div
-                style={{
-                  height: `${rowVirtualizer.getTotalSize()}px`,
-                  width: "100%",
-                  position: "relative",
-                }}
-              >
-                {count === 0 && (
-                  <p
-                    className="py-8 text-center text-sm text-ink-subtle"
-                    style={{ marginTop: headH }}
+              <VirtualRows subscribe={onListChange} afterRender={pinToBottom}>
+                {() => (
+                  <div
+                    style={{
+                      height: `${rowVirtualizer.getTotalSize()}px`,
+                      width: "100%",
+                      position: "relative",
+                    }}
                   >
-                    {t.reader.noMatch}
-                  </p>
+                    {count === 0 && (
+                      <p
+                        className="py-8 text-center text-sm text-ink-subtle"
+                        style={{ marginTop: headH }}
+                      >
+                        {t.reader.noMatch}
+                      </p>
+                    )}
+                    {rowVirtualizer.getVirtualItems().map((vi) => {
+                      const v = layoutPages || pages ? undefined : filtered[vi.index];
+                      return (
+                        <div
+                          key={vi.key}
+                          data-ayah={v?.id}
+                          ref={rowVirtualizer.measureElement}
+                          data-index={vi.index}
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            width: "100%",
+                            transform: `translateY(${vi.start}px)`,
+                            zIndex: v && menuFor === v.id ? 10 : undefined,
+                          }}
+                        >
+                          {renderRow(rows, vi.index)}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
-                {rowVirtualizer.getVirtualItems().map((vi) => {
-                  const v = layoutPages || pages ? undefined : filtered[vi.index];
-                  return (
-                    <div
-                      key={vi.key}
-                      data-ayah={v?.id}
-                      ref={rowVirtualizer.measureElement}
-                      data-index={vi.index}
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        width: "100%",
-                        transform: `translateY(${vi.start}px)`,
-                        zIndex: v && menuFor === v.id ? 10 : undefined,
-                      }}
-                    >
-                      {renderRow(rows, vi.index)}
-                    </div>
-                  );
-                })}
-              </div>
+              </VirtualRows>
               {!query.trim() &&
                 count > 0 &&
                 (prevTarget || nextTarget || nextRevealed) && (
