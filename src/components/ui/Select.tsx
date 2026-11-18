@@ -99,6 +99,9 @@ export function Select<T extends string | number>({
     );
   }, [options, searchable, query]);
 
+  // On touch screens the filter waits for a tap: focusing it on open pulled
+  // up the keyboard over a list most people only scroll.
+  const focusFilter = searchable && !window.matchMedia?.("(pointer: coarse)").matches;
   const selectedIndex = options.findIndex((o) => o.value === value);
   const selected = selectedIndex >= 0 ? options[selectedIndex] : undefined;
 
@@ -197,7 +200,7 @@ export function Select<T extends string | number>({
   // Bring the selected (then the active) option into view.
   useLayoutEffect(() => {
     if (!open || !place) return;
-    if (searchable) searchRef.current?.focus({ preventScroll: true });
+    if (focusFilter) searchRef.current?.focus({ preventScroll: true });
     const el = active >= 0 ? document.getElementById(optId(active)) : null;
     el?.scrollIntoView?.({ block: "nearest" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -419,7 +422,7 @@ export function Select<T extends string | number>({
         aria-labelledby={label ? `${labelId} ${id}-value` : undefined}
         aria-label={label ? undefined : ariaLabel}
         aria-activedescendant={
-          open && !searchable && active >= 0 ? optId(active) : undefined
+          open && !focusFilter && active >= 0 ? optId(active) : undefined
         }
         disabled={disabled}
         onClick={() => (open ? close() : openList())}

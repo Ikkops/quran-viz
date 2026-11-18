@@ -128,6 +128,21 @@ export function pagesFor(layout: MushafLayout, from: number, to: number): number
   return out;
 }
 
+/** The ayahs whose first word is on page `p` (1-based), as global ids; a
+ *  page inside one long ayah gives that ayah. `lastId` ends the last page. */
+export function pageAyahs(
+  layout: MushafLayout,
+  p: number,
+  lastId: number,
+): { from: number; to: number } | null {
+  const first = nextStart(layout, p - 1, 0);
+  if (!first) return null;
+  const next = nextStart(layout, p, 0);
+  const from = first[1] > 1 ? first[0] + 1 : first[0];
+  const to = next ? (next[1] > 1 ? next[0] : next[0] - 1) : lastId;
+  return from <= to ? { from, to } : { from: to, to };
+}
+
 /** The page (1-based) of ayah `id`'s first word. */
 export function pageOf(layout: MushafLayout, id: number): number {
   let found = 1;

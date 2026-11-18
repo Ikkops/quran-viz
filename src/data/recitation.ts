@@ -22,6 +22,11 @@ export interface LoopOptions {
   /** Build the range up the way a portion is memorised: each new ayah with
    *  its repeats, then everything so far once (1, 2, 1–2, 3, 1–3, …). */
   chain?: boolean;
+  /** Build up: plays of the set (everything so far) after each new ayah. */
+  setRepeat?: number;
+  /** Build up: once the set outgrows this many ayahs, it starts again from
+   *  the last `window` of them (0: the set keeps growing). */
+  window?: number;
 }
 
 /** Where playback is. `ayahPass`/`rangePass` count completed plays. */
@@ -31,9 +36,14 @@ export interface Cursor {
   rangePass: number;
   /** Playing the basmalah that precedes ayah `id`. */
   basmalah: boolean;
-  /** Chain mode, while joining: the pass from the range's start runs up to
+  /** Chain mode, while joining: the pass from the set's start runs up to
    *  this ayah. Absent while a new ayah is being repeated. */
   joinTo?: number;
+  /** Chain mode: where the set starts (the range's start, or the moving
+   *  window's). Absent on a fresh cursor. */
+  base?: number;
+  /** Chain mode, while joining: completed plays of the set. */
+  setPass?: number;
 }
 
 /** Loop counts plus playback feel, persisted as `qv.audio.options`. */
@@ -41,6 +51,9 @@ export interface RecitationOptions extends LoopOptions {
   /** Silence between ayahs, in seconds. */
   gap: number;
   rate: number;
+  /** Build up: silence after the set's last play, as a multiple of the set's
+   *  length, for reciting it back (0: none). */
+  setPause?: number;
 }
 
 export {
@@ -77,6 +90,10 @@ export function gapSeconds(gap: number, duration: number, rate: number): number 
     : 0;
 }
 export const RATE_CHOICES = [0.75, 0.9, 1, 1.1, 1.25, 1.5] as const;
+/** Build up: plays of the set, the moving window (0 off), the pause after it. */
+export const SET_REPEAT_CHOICES = [1, 2, 3, 4, 6] as const;
+export const WINDOW_CHOICES = [0, 3, 5, 7, 10, 15, 20] as const;
+export const SET_PAUSE_CHOICES = [0, 0.5, 1, 1.5, 2] as const;
 
 export const DEFAULT_RECITATION: RecitationOptions = {
   ayahRepeat: 1,
@@ -84,6 +101,9 @@ export const DEFAULT_RECITATION: RecitationOptions = {
   gap: 0,
   rate: 1,
   chain: false,
+  setRepeat: 1,
+  window: 0,
+  setPause: 0,
 };
 
 /** Keep stored options only where each value is still one of the choices. */
@@ -99,6 +119,9 @@ export function sanitizeRecitationOptions(raw: unknown): RecitationOptions | und
     gap: pick(r.gap, GAP_CHOICES, d.gap),
     rate: pick(r.rate, RATE_CHOICES, d.rate),
     chain: r.chain === true,
+    setRepeat: pick(r.setRepeat, SET_REPEAT_CHOICES, 1),
+    window: pick(r.window, WINDOW_CHOICES, 0),
+    setPause: pick(r.setPause, SET_PAUSE_CHOICES, 0),
   };
 }
 
@@ -137,10 +160,13 @@ export function advance(
 }
 
 /**
- * Chain mode: a new ayah plays with its repeats, then the range from its
- * start up to that ayah plays once to join them, then the next new ayah, and
- * so on to the range's end. Range repeats then replay the whole range. A
- * cursor without `joinTo` (a fresh start, a seek) is on a new ayah.
+ * Chain mode: a new ayah plays with its repeats, then the set (from its start
+ * up to that ayah) plays `setRepeat` times, then the next new ayah, and so on
+ * to the range's end. With a moving window, a set that has grown past
+ * `window` ayahs starts over from its last `window` ayahs, built up again one
+ * by one (1–6, then 2, 3, 2–3, …, 2–6). Range repeats then replay the whole
+ * range once each. A cursor without `joinTo` (a fresh start, a seek) is on a
+ * new ayah.
  */
 function advanceChain(
   cur: Cursor,
@@ -148,22 +174,91 @@ function advanceChain(
   opts: LoopOptions,
   needsBasmalah: (id: number) => boolean,
 ): Cursor | null {
-  const at = (id: number, joinTo?: number, rangePass = cur.rangePass): Cursor => ({
+  const plays = Math.max(1, opts.setRepeat ?? 1);
+  const size = opts.window ?? 0;
+  const base = Math.max(range.from, cur.base ?? (size ? cur.id - size + 1 : range.from));
+  const at = (
+    id: number,
+    joinTo: number | undefined,
+    from: number,
+    setPass = 0,
+    rangePass = cur.rangePass,
+  ): Cursor => ({
     ...cursorAt(id, needsBasmalah, rangePass),
     ...(joinTo === undefined ? {} : { joinTo }),
+    base: from,
+    ...(setPass ? { setPass } : {}),
   });
+  const endOfRange = () => {
+    const rangePass = cur.rangePass + 1;
+    if (opts.rangeRepeat !== 0 && rangePass >= opts.rangeRepeat) return null;
+    return at(range.from, range.to, range.from, 0, rangePass);
+  };
   if (cur.joinTo === undefined) {
     const ayahPass = cur.ayahPass + 1;
     if (opts.ayahRepeat === 0 || ayahPass < opts.ayahRepeat) return { ...cur, ayahPass };
-    // The first ayah has nothing before it to join with.
-    return cur.id === range.from ? at(cur.id + 1) : at(range.from, cur.id);
+    // The set's first ayah has nothing before it to join with.
+    if (cur.id > base) return at(base, cur.id, base);
+    return cur.id < range.to ? at(cur.id + 1, undefined, base) : endOfRange();
   }
   const joinTo = Math.min(cur.joinTo, range.to);
-  if (cur.id < joinTo) return at(cur.id + 1, joinTo);
-  if (joinTo < range.to) return at(joinTo + 1);
-  const rangePass = cur.rangePass + 1;
-  if (opts.rangeRepeat !== 0 && rangePass >= opts.rangeRepeat) return null;
-  return at(range.from, range.to, rangePass);
+  if (cur.id < joinTo) return at(cur.id + 1, joinTo, base, cur.setPass);
+  // A range repeat's replay plays once, and never moves the window.
+  if (cur.rangePass === 0) {
+    const setPass = (cur.setPass ?? 0) + 1;
+    if (setPass < plays) return at(base, joinTo, base, setPass);
+    if (size && joinTo - base + 1 > size) {
+      const start = joinTo - size + 1;
+      return at(start, undefined, start);
+    }
+  }
+  return joinTo < range.to ? at(joinTo + 1, undefined, base) : endOfRange();
+}
+
+/**
+ * Chain mode: the set that `cur` just finished playing for the last time,
+ * when `nxt` moves on (a new ayah, the window starting over, a replay of the
+ * range); null otherwise. The player pauses after it for reciting it back.
+ */
+export function setFinished(
+  cur: Cursor,
+  nxt: Cursor | null,
+  range: LoopRange,
+  opts: LoopOptions,
+): LoopRange | null {
+  if (!opts.chain || !nxt || cur.basmalah) return null;
+  if (range.to <= range.from || outsideRange(cur.id, range)) return null;
+  const movedOn =
+    nxt.rangePass !== cur.rangePass || (nxt.joinTo === undefined && nxt.id !== cur.id);
+  if (!movedOn) return null;
+  return cur.joinTo === undefined
+    ? { from: cur.id, to: cur.id }
+    : { from: cur.base ?? range.from, to: cur.joinTo };
+}
+
+/**
+ * What build up plays over ayahs 1..`n` with these options, grouped the way
+ * a learner hears it: a new ayah's repeats, then all plays of the set. For
+ * the options sheet's preview; stops after `limit` files.
+ */
+export function chainPreview(opts: LoopOptions, n: number, limit = 400): number[][] {
+  const range = { from: 1, to: n };
+  const o = { ...opts, chain: true, rangeRepeat: 1 };
+  const none = () => false;
+  const groups: number[][] = [];
+  let cur: Cursor | null = cursorAt(1, none);
+  let prev: Cursor | null = null;
+  for (let i = 0; cur && i < limit; i++) {
+    const fresh =
+      !prev ||
+      (prev.joinTo === undefined) !== (cur.joinTo === undefined) ||
+      (cur.joinTo === undefined && cur.id !== prev.id);
+    if (fresh) groups.push([]);
+    groups[groups.length - 1].push(cur.id);
+    prev = cur;
+    cur = advance(cur, range, o, none);
+  }
+  return groups;
 }
 
 /** Sleep timer choices: off, minutes, or the end of the surah playing. */

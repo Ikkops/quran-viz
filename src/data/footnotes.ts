@@ -2,7 +2,7 @@
 // ayah id, [offset into the edition's text, note]. Only some editions have
 // them.
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { dataUrl } from "./base";
 
 export const FOOTNOTE_EDITIONS: readonly string[] = [
@@ -71,10 +71,15 @@ export function useFootnotes(ids: string[]): Record<string, Footnotes> {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  const out: Record<string, Footnotes> = {};
-  for (const id of want) {
-    const hit = cache.get(id);
-    if (hit) out[id] = hit;
-  }
-  return out;
+  // The same object until an edition's notes arrive, so rows can memoise.
+  const loaded = want.filter((id) => cache.has(id)).length;
+  return useMemo(() => {
+    const out: Record<string, Footnotes> = {};
+    for (const id of want) {
+      const hit = cache.get(id);
+      if (hit) out[id] = hit;
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, loaded]);
 }

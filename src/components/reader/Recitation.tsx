@@ -23,6 +23,10 @@ import {
   RATE_CHOICES,
   REPEAT_CHOICES,
   SLEEP_CHOICES,
+  SET_PAUSE_CHOICES,
+  SET_REPEAT_CHOICES,
+  WINDOW_CHOICES,
+  chainPreview,
   formatClock,
   locateInRange,
   nextRepeat,
@@ -87,6 +91,61 @@ function Choice<T extends number>({
       onChange={onChange}
       options={choices.map((c) => ({ value: c, label: format(c) }))}
     />
+  );
+}
+
+/** Build up's own options, and what they would play over a few ayahs. */
+function ChainOptions({
+  options,
+  set,
+}: {
+  options: RecitationOptions;
+  set: <K extends keyof RecitationOptions>(k: K, v: RecitationOptions[K]) => void;
+}) {
+  const { t } = useI18n();
+  const a = t.reader.audio;
+  const size = options.window ?? 0;
+  // Enough ayahs for the window to move once.
+  const n = size ? size + 1 : 4;
+  const preview = useMemo(
+    () => (options.ayahRepeat === 0 ? null : chainPreview(options, n)),
+    [options, n],
+  );
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        <Choice
+          label={a.setRepeat}
+          value={options.setRepeat ?? 1}
+          choices={SET_REPEAT_CHOICES}
+          format={a.times}
+          onChange={(v) => set("setRepeat", v)}
+        />
+        <Choice
+          label={a.setPause}
+          value={options.setPause ?? 0}
+          choices={SET_PAUSE_CHOICES}
+          format={a.setPauseLen}
+          onChange={(v) => set("setPause", v)}
+        />
+        <Choice
+          label={a.window}
+          value={size}
+          choices={WINDOW_CHOICES}
+          format={a.windowSize}
+          onChange={(v) => set("window", v)}
+        />
+      </div>
+      {size > 0 && <p className="text-xs text-ink-subtle">{a.windowHelp}</p>}
+      {preview && (
+        <div className="rounded-lg bg-surface-sunken px-3 py-2 text-xs text-ink-muted">
+          <p className="mb-1">{a.chainPreview(n)}</p>
+          <p className="font-mono leading-relaxed tabular-nums">
+            {preview.map((g) => g.join(" ")).join(" · ")}
+          </p>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -819,13 +878,16 @@ export function RecitationControls({
         }))}
       />
 
-      <div>
-        <Toggle
-          checked={!!options.chain}
-          onChange={(v) => set("chain", v)}
-          label={a.chain}
-        />
-        <p className="text-xs text-ink-subtle">{a.chainHelp}</p>
+      <div className="flex flex-col gap-3">
+        <div>
+          <Toggle
+            checked={!!options.chain}
+            onChange={(v) => set("chain", v)}
+            label={a.chain}
+          />
+          <p className="text-xs text-ink-subtle">{a.chainHelp}</p>
+        </div>
+        {options.chain && <ChainOptions options={options} set={set} />}
       </div>
 
       {storage && (

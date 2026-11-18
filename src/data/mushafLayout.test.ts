@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  pageAyahs,
   pageLines,
   pageOf,
   pagesFor,
@@ -76,5 +77,10 @@ describe("pagesFor / pageOf", () => {
     expect(pagesFor(layout, 3, 3)).toEqual([2]);
     expect(pageOf(layout, 2)).toBe(1);
     expect(pageOf(layout, 3)).toBe(2);
+  });
+  it("pageAyahs: the ayahs starting on a page", () => {
+    expect(pageAyahs(layout, 1, 3)).toEqual({ from: 1, to: 2 });
+    expect(pageAyahs(layout, 2, 3)).toEqual({ from: 3, to: 3 });
+    expect(pageAyahs(layout, 3, 3)).toBeNull();
   });
 });

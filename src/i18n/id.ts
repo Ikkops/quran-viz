@@ -1047,7 +1047,15 @@ export const id: Messages = {
       gapAyah: (x) => `${x}× ayat`,
       chain: "Sambung bertahap (1, 2, 1–2, 3, 1–3…)",
       chainHelp:
-        "Setiap ayat baru diputar dengan ulangannya, lalu semua yang sudah dilalui diputar sekali. Atur jarak sepanjang ayat untuk menirukannya.",
+        "Setiap ayat baru diputar dengan ulangannya, lalu semua yang sudah dilalui diputar sebagai satu rangkaian. Atur jarak sepanjang ayat untuk menirukannya.",
+      setRepeat: "Ulang rangkaian",
+      setPause: "Jeda setelah rangkaian",
+      setPauseLen: (x) => (x === 0 ? "tidak" : `${x}× rangkaian`),
+      window: "Jendela bergeser",
+      windowSize: (n) => (n === 0 ? "mati" : `${n} ayat`),
+      windowHelp:
+        "Begitu rangkaian melebihi jendela, rangkaian dimulai lagi dari ayat-ayat terakhirnya dan disambung bertahap dari sana.",
+      chainPreview: (n) => `Ayat 1–${n} akan diputar:`,
       sleep: "Timer tidur",
       sleepOff: "Mati",
       sleepMinutes: (n) => `${n} menit`,
