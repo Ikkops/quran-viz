@@ -11,6 +11,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { flushSync } from "react-dom";
 import { X } from "lucide-react";
 import { useI18n } from "../../i18n/I18nContext";
 import {
@@ -589,13 +590,14 @@ export function Sheet({
     if (!a.animation) return onCloseRef.current();
     closing.current = true;
     void Promise.all([a.done, b.done]).then(() => {
-      onCloseRef.current();
-      // A caller that keeps the sheet open gets it back.
-      requestAnimationFrame(() => {
-        a.animation?.cancel();
-        b.animation?.cancel();
-        closing.current = false;
-      });
+      // Commit the close now: releasing the exit before React unmounted the
+      // panel (a rAF fired first on a slow re-render) put it back on screen.
+      flushSync(() => onCloseRef.current());
+      // Still mounted: the caller keeps the sheet open, so it gets it back.
+      if (!panelRef.current) return;
+      a.animation?.cancel();
+      b.animation?.cancel();
+      closing.current = false;
     });
   };
   const closeRef = useRef(requestClose);

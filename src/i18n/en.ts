@@ -969,7 +969,15 @@ export const en = {
       gapAyah: (x: number) => `${x}× the ayah`,
       chain: "Build up (1, 2, 1–2, 3, 1–3…)",
       chainHelp:
-        "Each new ayah plays with its repeats, then everything so far plays once. Set the gap to the ayah's length to recite it back.",
+        "Each new ayah plays with its repeats, then everything so far plays as a set. Set the gap to the ayah's length to recite it back.",
+      setRepeat: "Repeat the set",
+      setPause: "Pause after the set",
+      setPauseLen: (x: number) => (x === 0 ? "none" : `${x}× the set`),
+      window: "Moving window",
+      windowSize: (n: number) => (n === 0 ? "off" : `${n} ayahs`),
+      windowHelp:
+        "Once the set grows past the window, it starts again from its last ayahs and builds up from there.",
+      chainPreview: (n: number) => `Ayahs 1–${n} would play:`,
       sleep: "Sleep timer",
       sleepOff: "Off",
       sleepMinutes: (n: number) => `${n} minutes`,

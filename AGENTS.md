@@ -303,7 +303,8 @@ an id.
   `EditionSelect` passes each language's names via `langKeywords`, so "indo"
   lists every Indonesian translation), `onChange(value)`, `label` or
   `ariaLabel`, `size="sm"`, `searchable` (filter field; folds case, accents,
-  apostrophes and hyphens). A `role="combobox"` button opens a `role="listbox"`
+  apostrophes and hyphens; focused on open only with a fine pointer, so on
+  touch screens the keyboard waits for a tap on it). A `role="combobox"` button opens a `role="listbox"`
   popup portalled into `#app-root` (so zoom, theme and fonts apply) and
   positioned `fixed` in the root's zoomed px (rect ÷ zoom), flipping above
   when there is no room below. Focus stays on the trigger
@@ -320,8 +321,11 @@ an id.
   so Android's keyboard closed the moment it opened (bookmark name field).
   Closing is animated: the X, the backdrop and Escape (so Android back too) go
   through `requestClose`, which plays the exit with the Web Animations API
-  (panel to its own edge, backdrop to 0, 180 ms) and then calls `onClose`; a
-  close the caller makes itself (`open` set to false) unmounts at once. A
+  (panel to its own edge, backdrop to 0, 180 ms) and then calls `onClose` in
+  `flushSync`, so the panel is unmounted before the exit's `fill: forwards` is
+  released (releasing it in a rAF first flashed the sheet back on a slow
+  re-render); a close the caller makes itself (`open` set to false) unmounts
+  at once. A
   bottom sheet can be dragged down, a top sheet (the reader's Go-to) up:
   native touch listeners on the panel (`touchmove` non-passive), starting from
   the handle or header, or from the content while every scroller between the
@@ -647,7 +651,11 @@ grouped by `verses.page`). Both mushaf layouts open a surah with `SurahBanner`
 space after it (`grow`, same layout as `justify-between`; `pe-[0.25em]` on
 centred lines), so an ayah's highlight (selected or popover open, recited,
 edited range) is one band over the outer spans, rounded at the run's ends;
-the run's last word draws it on its own text. The recited word and the picked
+the run's last word draws it on its own text. With word meanings shown the
+band is inline colours, a gradient sized to the Arabic line (`ARABIC_LINE`),
+so it never covers the meanings. Each page (both mushaf layouts) has
+`PageSpine`, a thin line on the fold's side of an open mushaf: the right
+edge of odd pages, the left of even ones. The recited word and the picked
 word sit on the inner `data-ayah` span, and the font fitting measures those
 inner spans. Popovers: in both mushaf layouts a tap opens `AyahPopover`
 (reference, the main edition's translation, play, context, and in the printed
@@ -707,7 +715,14 @@ peek and the arrival draw the final rows at once; the panes are memoised and
 skip redraws while the list scrolls (`frozen`). A swiped-to window opens at its top with no arrival animation
 (`swipedTo`); `go` from ←/→ and the end-of-list buttons records the direction
 in `arriveFrom` and the new window slides in from 48 px on that side (240 ms).
-Other jumps (Go to, the strip) do not animate. The swipe is off during search
+Other jumps (Go to, the strip) do not animate.
+Rows are memoised (`VerseRow` compares `ctx` field by field;
+`MushafLinesPage`, `MushafPage` by props): the virtualizer re-renders the
+reader at every row boundary and scroll start/end, so every `RowContext`
+field and page prop must keep its identity while unchanged (`useMemo`,
+`useCallback`, handlers through `lib/useStableFn`; `useSurahWords` and
+`useFootnotes` return the same value until data arrives). A new inline
+closure there makes every row redraw on scroll again. The swipe is off during search
 and while any sheet, popover or row menu is open. The scroller is
 `touch-pan-y overflow-x-hidden`.
 Every ayah has a play button whenever a reciter exists; with the
@@ -843,7 +858,10 @@ device, playback carries on from that ayah by itself (stopping forgets it).
 By default Play needs no confirmation: `start()` calls `useRecitation`'s
 `onMissing(id)` for an ayah not on the device (never for a paused move), and
 `RecitationProvider` queues that surah first, then the other missing surahs of
-the last scope range (`downloadSurahs`); `toggle` with no cursor plays from
+the playing range (`downloadSurahs`); `available(id)` stays false for an ayah
+inside the range until every surah of the range is on the device, so Play
+starts only once all are in and never stops halfway for a download (the
+confirm-mode offer lists the same surahs); `toggle` with no cursor plays from
 `rec.missing`. The `MiniPlayer` then shows progress and cancel only while Play
 waits for the played surah, and Play retries after a failure
 (`AudioDownloadPrompt.auto`). With `qv.audio.confirmDownload` on (Settings →
@@ -944,7 +962,14 @@ reciter", from the context's `reciterName`) opens the reader
   from its start up to that ayah once (`Cursor.joinTo`), so ayahs 1–3 with two
   plays each run 1 1 2 2 1 2 3 3 1 2 3; range repeats then replay the whole
   range, and a cursor without `joinTo` (a fresh start, a seek) is on a new
-  ayah. The seek bar's length estimate ignores the extra passes. The player closes itself (X, `qv.reader.audio` off) and its
+  ayah. Its options (shown under the switch, modelled on another app's
+  "Intellij mode"): `setRepeat` (plays of the set, `Cursor.setPass`),
+  `window` (a set grown past it starts over from its last `window` ayahs,
+  built up again: 1–6, then 2, 3, 2–3 … 2–6; `Cursor.base`) and `setPause`
+  (after a set's last play, silence of that many times the set's length,
+  `setFinished` + `lengthOf`, on top of the gap). `chainPreview` draws what
+  ayahs 1–n would play in the sheet; the tests replay that app's demo. The
+  seek bar's length estimate ignores the extra passes. The player closes itself (X, `qv.reader.audio` off) and its
 options button is the sliders icon (reader settings keep the gear). In the
 app the reciter list puts reciters with audio on the device first (check mark,
 `Select` option `icon`), then a dividing line (`separator`), then the rest;
@@ -955,8 +980,14 @@ Filesystem, fetched from `REMOTE_DATA`, never through the WebView's file
 server; a failed load is retried after 8 s as playback moves on, the `again`
 argument of `useWordTimings`); `build:android` leaves
 `data/timings` out. Each verse row gets a "play from here" button; outside the
-  range it sets the range to that ayah through the end of the scope. The range
-  follows the scope until edited and resets on navigation unless a cursor exists.
+  range it sets the range to that ayah through the end of the scope (of its
+  page in the mushaf). The range follows the view until edited: the "read by"
+  scope in ayah view, the page across the middle of the list in the mushaf
+  (`viewIndex`, `pageRangeAt` → `pageAyahs`, clipped to the scope). The
+  reader pushes it as the context's `viewRange`; while the playing ayah is
+  inside the pushed page it stays (scrolling on does not move the recitation),
+  a new window or stopping hands it back to the view. An edited range resets
+  on a new window or page unless a cursor exists.
 - `data/mediaControls.ts` wraps `@capgo/capacitor-media-session`: on Android
   its foreground service shows the media notification (previous, play/pause,
   next, position in the range) and keeps recitation playing in the background;

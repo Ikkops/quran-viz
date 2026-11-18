@@ -10,6 +10,7 @@ import {
   advance,
   gapSeconds,
   audioIndexUrl,
+  setFinished,
   sleepDue,
   sleepTimerFor,
   clipOf,
@@ -432,10 +433,17 @@ export function useRecitation({
     const clip = clipRef.current;
     const length =
       clip && clip.to !== null ? clip.to - clip.from : (audioRef.current?.duration ?? 0);
-    const gap = cur.basmalah ? 0 : gapSeconds(o.gap, length, o.rate);
+    let gap = cur.basmalah ? 0 : gapSeconds(o.gap, length, o.rate);
+    // Build up: after the set's last play, time to recite the set back.
+    const set = o.setPause ? setFinished(cur, nxt, r, o) : null;
+    if (set) {
+      let len = 0;
+      for (let i = set.from; i <= set.to; i++) len += lengthOf(i);
+      gap += (o.setPause! * len) / o.rate;
+    }
     if (gap > 0) gapTimer.current = setTimeout(() => start(nxt), gap * 1000);
     else start(nxt);
-  }, [start, setAt, armSleep, pause]);
+  }, [start, setAt, armSleep, pause, lengthOf]);
 
   // Attach listeners once the element exists; it is created on first play.
   useEffect(() => {

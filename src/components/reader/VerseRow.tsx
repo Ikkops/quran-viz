@@ -1,5 +1,5 @@
 import type { WordMask } from "../../data/hifdh";
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import {
   Bookmark as BookmarkIcon,
   Pin as PinIcon,
@@ -184,8 +184,19 @@ function MenuItem({
   );
 }
 
-/** One ayah in the ayah-by-ayah and compare layouts. */
-export function VerseRow({
+/** One ayah in the ayah-by-ayah layout. Memoised: the reader rebuilds `ctx`
+ *  on every render (a scroll gives several) but keeps each field's identity
+ *  while it means the same, so a row redraws only when something it shows
+ *  changed. */
+export const VerseRow = memo(
+  VerseRowImpl,
+  (a, b) =>
+    a.v === b.v &&
+    a.prev === b.prev &&
+    (Object.keys(a.ctx) as (keyof RowContext)[]).every((k) => a.ctx[k] === b.ctx[k]),
+);
+
+function VerseRowImpl({
   v,
   prev,
   ctx,

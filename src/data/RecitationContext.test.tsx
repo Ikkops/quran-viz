@@ -70,7 +70,7 @@ describe("RecitationProvider in the Android app", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it("Play downloads the view's missing surahs, played one first, and plays once it is in", () => {
+  it("Play downloads the range's missing surahs, played one first, and plays once all are in", () => {
     const { rerender } = render(tree());
     expect(store.downloadSurahs).not.toHaveBeenCalled();
     act(() => rec.play(3));
@@ -79,8 +79,12 @@ describe("RecitationProvider in the Android app", () => {
       { surah: 1, ayahCount: 2, hasBismillah: false },
     ]);
     expect(rec.playing).toBe(false);
-    // Surah 2 is in; surah 1 may still be downloading.
+    // Surah 2 is in, surah 1 still downloading: Play keeps waiting.
     store.have = { 2: 100 };
+    rerender(tree());
+    expect(rec.playing).toBe(false);
+    expect(rec.missing).toBe(3);
+    store.have = { 1: 100, 2: 100 };
     rerender(tree());
     expect(rec.cursor?.id).toBe(3);
     expect(rec.playing).toBe(true);

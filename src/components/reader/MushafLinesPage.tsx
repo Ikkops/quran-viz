@@ -1,6 +1,7 @@
 import { maskedParts, type WordMask } from "../../data/hifdh";
 import { MaskedWord, STUMBLED } from "./Masked";
 import {
+  memo,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -23,6 +24,7 @@ import { cx } from "../ui";
 import { AyahEnd, TajweedSegs } from "./AyahText";
 import { BASMALA } from "./readerShared";
 import { SurahBanner } from "./SurahBanner";
+import { PageSpine } from "./MushafPage";
 import { rectOf, type PickRect } from "./wordPick";
 
 const idleClock: PlayClock = {
@@ -37,6 +39,8 @@ const SHORT_LINE = 0.72;
 /** Press-and-hold on a word: how long, and how far the pointer may drift. */
 const HOLD_MS = 450;
 const HOLD_SLOP = 10;
+/** With meanings shown, the Arabic's own line height above each meaning. */
+const ARABIC_LINE = "1.75em";
 
 /**
  * One page of a printed mushaf, line for line: each line holds the words the
@@ -50,13 +54,14 @@ const HOLD_SLOP = 10;
  * as spreading the words apart), so an ayah's highlight runs on unbroken
  * across its words; the word's own text sits in an inner span.
  */
-export function MushafLinesPage({
+export const MushafLinesPage = memo(function MushafLinesPage({
   layout,
   page,
   verses,
   surahMap,
   wordCount,
-  inScope,
+  scopeFrom,
+  scopeTo,
   tajweed,
   selectedId,
   pickedWord,
@@ -75,7 +80,9 @@ export function MushafLinesPage({
   verses: Verse[];
   surahMap: Map<number, Surah>;
   wordCount: (id: number) => number;
-  inScope: (id: number) => boolean;
+  /** The reader's scope (global ids); ayahs outside it are dimmed. */
+  scopeFrom: number;
+  scopeTo: number;
   tajweed: (string | null)[] | null;
   /** The ayah whose context or popup is open. */
   selectedId: number | undefined;
@@ -95,6 +102,7 @@ export function MushafLinesPage({
 }) {
   const { t } = useI18n();
   const arabicFont = useArabicFont();
+  const inScope = (id: number) => id >= scopeFrom && id <= scopeTo;
   const lines = useMemo(
     () => pageLines(layout, page, wordCount, verses.length),
     [layout, page, wordCount, verses.length],
@@ -239,8 +247,9 @@ export function MushafLinesPage({
   return (
     <figure
       aria-label={t.reader.page(page)}
-      className="mx-auto my-4 max-w-[40rem] rounded-xl border border-line bg-surface px-3 pb-2 pt-2 shadow-soft sm:px-6"
+      className="relative mx-auto my-4 max-w-[40rem] rounded-xl border border-line bg-surface px-3 pb-2 pt-2 shadow-soft sm:px-6"
     >
+      <PageSpine page={page} />
       <div className="mb-1 flex items-baseline justify-between gap-3 border-b border-line/70 pb-1.5 text-xs text-ink-subtle">
         <span className="tabular-nums">
           {first && `${t.scope.juz} ${first.juz} · ${t.scope.hizb} ${first.hizb}`}
@@ -299,13 +308,15 @@ export function MushafLinesPage({
           const centred = fit?.short.has(i);
           // The ayah-level highlight of each word (the strongest state winning);
           // a run of equal ones is one band, rounded at its two ends.
+          // Colours, not classes: with meanings under the words the band
+          // covers only the Arabic (a gradient sized to its line).
           const band = l.words.map(({ id }) =>
             selectedId === id
-              ? "bg-illumination/15"
+              ? "rgb(var(--illumination) / 0.15)"
               : playingId === id
-                ? "bg-rubric/10"
+                ? "rgb(var(--rubric) / 0.1)"
                 : audioRange && id >= audioRange.from && id <= audioRange.to
-                  ? "bg-illumination/10"
+                  ? "rgb(var(--illumination) / 0.1)"
                   : "",
           );
           return (
@@ -333,6 +344,13 @@ export function MushafLinesPage({
                 // word draws it on its own text.
                 const runEnd = !!b && band[k + 1] !== b;
                 const [show, hide] = maskedParts(mask, id, w - 1, aw?.text[w - 1] ?? "");
+                // The word's own highlight, on its Arabic only.
+                const own = lit
+                  ? "rounded-sm bg-illumination/25"
+                  : picked
+                    ? "rounded-sm bg-illumination/20 ring-1 ring-illumination/60"
+                    : runEnd && (runStart ? "rounded-sm" : "rounded-e-sm");
+                const ownBg = !lit && !picked && runEnd ? b : "";
                 const text = (
                   <>
                     {hide ? (
@@ -368,9 +386,17 @@ export function MushafLinesPage({
                       // fixed gap (centred lines); either way it is the word's.
                       !lineEnd && (centred ? "pe-[0.25em]" : "grow"),
                       !inScope(id) && "opacity-40",
-                      !runEnd && b,
                       runStart && !runEnd && "rounded-s-sm",
                     )}
+                    style={
+                      !b || runEnd
+                        ? undefined
+                        : glosses
+                          ? {
+                              background: `linear-gradient(${b}, ${b}) top / 100% ${ARABIC_LINE} no-repeat`,
+                            }
+                          : { backgroundColor: b }
+                    }
                   >
                     <span
                       data-ayah={id}
@@ -378,16 +404,24 @@ export function MushafLinesPage({
                         "transition-colors motion-reduce:transition-none",
                         glosses && "flex flex-col items-center",
                         !hide && mask?.stumbled(id, w - 1) && STUMBLED,
-                        lit
-                          ? "rounded-sm bg-illumination/25"
-                          : picked
-                            ? "rounded-sm bg-illumination/20 ring-1 ring-illumination/60"
-                            : runEnd && cx(b, runStart ? "rounded-sm" : "rounded-e-sm"),
+                        !glosses && own,
                       )}
+                      style={!glosses && ownBg ? { backgroundColor: ownBg } : undefined}
                     >
                       {glosses ? (
                         <>
-                          <span style={{ lineHeight: "1.75em" }}>{text}</span>
+                          <span
+                            className={cx(
+                              "transition-colors motion-reduce:transition-none",
+                              own,
+                            )}
+                            style={{
+                              lineHeight: ARABIC_LINE,
+                              backgroundColor: ownBg || undefined,
+                            }}
+                          >
+                            {text}
+                          </span>
                           {/* Takes the word's width without widening it. */}
                           <span
                             lang={glossLang}
@@ -414,4 +448,4 @@ export function MushafLinesPage({
       </figcaption>
     </figure>
   );
-}
+});

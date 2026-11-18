@@ -3,7 +3,7 @@
 // Quranic Arabic Corpus grammar of each word, in the app's own words
 // (`splitWords`). Used for word meanings in the mushaf and the word details.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { dataUrl } from "./base";
 import { useLazyJson } from "./useLazyJson";
 
@@ -67,7 +67,10 @@ export function useSurahWords(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
-  return (s, a) => cache.get(s)?.[a - 1];
+  // The same function until a surah of the list arrives, so rows can memoise.
+  const loaded = surahs ? surahs.filter((s) => cache.has(s)).length : 0;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useCallback((s, a) => cache.get(s)?.[a - 1], [key, loaded]);
 }
 
 export const useLexicon = (enabled: boolean) =>

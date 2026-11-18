@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { useStableFn } from "../../lib/useStableFn";
 import { ArrowLeft, ArrowRight, ClipboardCheck, EyeOff, Plus, X } from "lucide-react";
 import type { EditionsIndex, Surah, Verse } from "../../types/quran";
 import { SCOPE_MAX, surahColorById, type ReaderScope } from "../charts/common";
@@ -41,6 +42,7 @@ import type { Hits } from "./MarkedText";
 import {
   pageOf,
   useMushafLayout,
+  pageAyahs,
   wordCounter,
   type LayoutLine,
 } from "../../data/mushafLayout";
@@ -234,6 +236,8 @@ export function ReaderView({
   const [menuFor, setMenuFor] = useState<number | null>(null);
   // The ayah at the top of the list: the strip's "you are here" mark.
   const [topId, setTopId] = useState<number | undefined>(undefined);
+  // The row across the middle of the list: in the mushaf, the page in view.
+  const [viewIndex, setViewIndex] = useState(0);
   const [showInfo, setShowInfo] = useState(false);
   const [tajweedRules, setTajweedRules] = useState(false);
   // The head (toolbar + strip) floats over the list and slides away while
@@ -355,10 +359,13 @@ export function ReaderView({
     return [...set].sort((a, b) => a - b);
   }, [p.showWords, pickedSurah, scopeSurahs, mode]);
   const wordsAt = useSurahWords(wordSurahs);
-  const wordsOf = (id: number) => {
-    const v = verses[id - 1];
-    return v ? wordsAt(v.s, v.a) : undefined;
-  };
+  const wordsOf = useCallback(
+    (id: number) => {
+      const v = verses[id - 1];
+      return v ? wordsAt(v.s, v.a) : undefined;
+    },
+    [verses, wordsAt],
+  );
   // Hafalan mode: ayahs the learner uncovered to check themselves, and single
   // words they peeked at. Both start over with the window or the level.
   // The ayah whose memorisation is being marked.
@@ -398,23 +405,23 @@ export function ReaderView({
   };
   // One popup at a time: a word's or an ayah's. While an ayah is covered, a
   // tap uncovers it instead (to check a recitation from memory).
-  const onWord = (id: number, w: number, el: Element) => {
+  const onWord = useStableFn((id: number, w: number, el: Element) => {
     if (covered(id)) reveal(id);
     else openWord(id, w, el);
-  };
+  });
   // Press-and-hold on a printed word. On a hidden word it is a peek: only
   // that word shows, and it is kept as a stumble.
-  const onWordHold = (id: number, w: number, el: Element) => {
+  const onWordHold = useStableFn((id: number, w: number, el: Element) => {
     const text = splitWords(verses[id - 1]?.ar ?? "")[w] ?? "";
     if (!maskedParts(mask, id, w, text)[1]) return openWord(id, w, el);
     setPeeked((s) => new Set(s).add(`${id}:${w}`));
     onHifdh(addStumble(hifdh, id, w, Date.now()));
-  };
-  const onAyah = (id: number, rect: PickRect) => {
+  });
+  const onAyah = useStableFn((id: number, rect: PickRect) => {
     if (covered(id)) return reveal(id);
     setWordPick(null);
     setAyahPick({ id, rect });
-  };
+  });
   const tafsirGroups = useMemo(() => {
     const m = new Map<string, ReturnType<typeof tafsirGroupLookup>>();
     groupedTafsirs.forEach((st, id) => {
@@ -438,9 +445,9 @@ export function ReaderView({
         : { from: 1, to: 1 },
     [scopeVerses],
   );
-  // The provider keeps the last scope after the reader closes.
-  useLayoutEffect(() => setScopeRange(scopeRange), [scopeRange, setScopeRange]);
-  const range = loopRange ?? scopeRange;
+  // What the player plays: an edited range, else what this view gives it (the
+  // provider keeps the last one after the reader closes; see `followRange`).
+  const range = loopRange ?? audio.viewRange;
   // ── Android app: recitation lives in device storage, downloaded per surah ──
   const native = isNativeApp();
   // The chosen reciter's downloads; the others' (their surah counts in the
@@ -470,11 +477,14 @@ export function ReaderView({
   let downloadPrompt: AudioDownloadPrompt | null = null;
   let storage: AudioStorage | null = null;
   if (native && onDevice) {
-    // The surah playback stopped at, else the ones this view shows.
+    // The surah playback stopped at, then the rest of the range: Play waits
+    // for all of them.
     const missingSurah = rec.missing !== null ? verses[rec.missing - 1]?.s : undefined;
-    const want = (missingSurah ? [missingSurah] : scopeSurahs).filter(
-      (n) => !onDevice[n],
-    );
+    const ns = missingSurah ? [missingSurah] : [];
+    const lastSurah = verses[range.to - 1]?.s ?? 0;
+    for (let n = verses[range.from - 1]?.s ?? 1; n <= lastSurah; n++)
+      if (n !== missingSurah) ns.push(n);
+    const want = ns.filter((n) => !onDevice[n]);
     const words = want.reduce((n, x) => n + (surahMap.get(x)?.wordCount ?? 0), 0);
     const act = downloads.active;
     const jobsFor = (ns: number[]) => ns.flatMap((n) => jobOf(n) ?? []);
@@ -542,20 +552,16 @@ export function ReaderView({
     const n = Object.keys(downloads.downloaded[id] ?? {}).length;
     return n > 0 ? t.reader.audio.nSurahs(n) : null;
   };
-  // A new scope resets an edited range, unless something is playing from it.
   const hasCursor = rec.cursor !== null;
-  useEffect(() => {
-    if (!hasCursor) setLoopRange(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopeRange]);
-  /** Play from `id`; outside the range, the range becomes id..end of scope.
-   *  A hidden player opens. */
-  const playFrom = (id: number) => {
+  /** Play from `id`; outside the range, the range becomes id..end of scope
+   *  (of its page in the mushaf). A hidden player opens. */
+  const playFrom = useStableFn((id: number) => {
     if (!audio.showAudio) audio.setShowAudio(true);
+    const end = (pageRangeAt(indexOfAyah(id)) ?? scopeRange).to;
     if (id < range.from || id > range.to)
-      setLoopRange({ from: id, to: Math.max(id, scopeRange.to) });
+      setLoopRange({ from: id, to: Math.max(id, end) });
     rec.play(id);
-  };
+  });
   const playingId = rec.cursor?.id;
   // Word timings of the surah being recited (some reciters only). In the app
   // they are downloaded with the surah's audio.
@@ -577,7 +583,7 @@ export function ReaderView({
    *  go to the new range's start now instead of finishing that ayah first. */
   const editRange = (next: LoopRange | null) => {
     setLoopRange(next);
-    const r = next ?? scopeRange;
+    const r = next ?? audio.viewRange;
     if (rec.cursor && outsideRange(rec.cursor.id, r)) rec.moveTo(r.from);
   };
 
@@ -602,6 +608,53 @@ export function ReaderView({
           : filtered.findIndex((v) => v.id === id),
     [layout, layoutPages, pages, filtered],
   );
+
+  // ── The player's range follows the view: the "read by" scope in ayah view,
+  // the page in view in the mushaf (its ayahs inside the scope) ──
+  const pageRangeAt = useCallback(
+    (i: number): LoopRange | null => {
+      if (mode !== "mushaf" || i < 0 || i >= count) return null;
+      const r =
+        layout && layoutPages
+          ? pageAyahs(layout, layoutPages[i], verses.length)
+          : pages
+            ? { from: pages[i][0].id, to: pages[i][pages[i].length - 1].id }
+            : null;
+      if (!r) return null;
+      const from = Math.max(r.from, scopeRange.from);
+      const to = Math.min(r.to, scopeRange.to);
+      return from <= to ? { from, to } : null;
+    },
+    [mode, count, layout, layoutPages, pages, verses.length, scopeRange],
+  );
+  const pageRange = pageRangeAt(Math.min(viewIndex, count - 1));
+  const followRange = pageRange ?? scopeRange;
+  // The page being recited stays the range while the learner scrolls on; a
+  // new window, stopping, or an ayah outside it hands the range to the view.
+  const pushed = useRef<LoopRange | null>(null);
+  const byPage = !!pageRange;
+  useLayoutEffect(() => {
+    const held = pushed.current;
+    if (
+      pageRange &&
+      held &&
+      playingId !== undefined &&
+      !outsideRange(playingId, held) &&
+      held.from >= scopeRange.from &&
+      held.to <= scopeRange.to
+    )
+      return;
+    pushed.current = followRange;
+    setScopeRange(followRange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [followRange.from, followRange.to, playingId, byPage, scopeRange, setScopeRange]);
+  // A new window (or page in the mushaf) resets an edited range, unless
+  // something is playing from it.
+  useEffect(() => {
+    if (!hasCursor) setLoopRange(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeRange, pageRange?.from, pageRange?.to]);
+  useEffect(() => setViewIndex(0), [scopeRange, mode, layoutId]);
 
   // ── Search: every hit in the Arabic and the translations shown ──
   const q = mode === "ayah" ? query.trim() : "";
@@ -845,9 +898,15 @@ export function ReaderView({
     // The ayah just below the head. Only changes when another row reaches the
     // top, not on every pixel.
     const below = hidden ? 0 : headHRef.current;
-    const top = rowVirtualizer.getVirtualItems().find((vi) => vi.end > y + below + 8);
+    const items = rowVirtualizer.getVirtualItems();
+    const top = items.find((vi) => vi.end > y + below + 8);
     if (top) setTopId(itemFirstAyah.current(top.index));
-  }, [rowVirtualizer]);
+    // Only the mushaf needs it (its page is the player's range): in ayah view
+    // it would re-render the reader at every row.
+    if (mode !== "mushaf") return;
+    const mid = items.find((vi) => vi.end > y + (below + sc.clientHeight) / 2);
+    if (mid) setViewIndex(mid.index);
+  }, [rowVirtualizer, mode]);
   // Measure the head (it grows with the search field).
   useLayoutEffect(() => {
     const el = headRef.current;
@@ -1029,15 +1088,17 @@ export function ReaderView({
     };
   }, [menuFor]);
 
-  const openContext = (id: number) => {
+  const openContext = useStableFn((id: number) => {
     setSelectedId(id);
     setWordPick(null);
     setAyahPick(null);
     setContextSheet(true);
-  };
+  });
 
-  const verseColor = (v: Verse): string =>
-    surahColorById(v.s, colorMode, palette, surahMap, v.p);
+  const verseColor = useCallback(
+    (v: Verse): string => surahColorById(v.s, colorMode, palette, surahMap, v.p),
+    [colorMode, palette, surahMap],
+  );
 
   // The ayah the reader is on: the one at the top of the screen, else the
   // chosen one.
@@ -1095,8 +1156,10 @@ export function ReaderView({
       setTimeout(() => setCopied((c) => (c?.id === v.id ? null : c)), 1500);
     });
   };
-  const copyLink = (v: Verse) => copy(v, `https://quran.com/${v.s}/${v.a}`, "link");
-  const copyText = (v: Verse) => {
+  const copyLink = useStableFn((v: Verse) =>
+    copy(v, `https://quran.com/${v.s}/${v.a}`, "link"),
+  );
+  const copyText = useStableFn((v: Verse) => {
     const tr = translation.data?.[v.id];
     const trName = editionName;
     const name = surahMap.get(v.s)?.name ?? `${t.common.surah} ${v.s}`;
@@ -1104,7 +1167,7 @@ export function ReaderView({
       .filter(Boolean)
       .join("\n\n");
     copy(v, text, "text");
-  };
+  });
 
   const marksAt = useMemo(() => marksByAyah(marks), [marks]);
   const refOf = (id: number) => {
@@ -1123,35 +1186,51 @@ export function ReaderView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readId, playingId]);
 
-  const column = (id: string, data: (string | null)[] | null, loading: boolean) => {
-    const e = editionByIdentifier(editions, id);
-    return {
-      id,
-      name: e?.englishName ?? id,
-      lang: e?.language ?? "en",
-      rtl: e ? isRtl(e.language) : false,
-      data,
-      loading,
-    } satisfies RowTranslation;
-  };
-  const translations: RowTranslation[] = [
-    {
-      ...column(
-        edition,
-        translation.data,
-        translation.loading || footnotesPending(edition),
-      ),
-      notes: footnotes[edition],
-    },
-    ...extraIds.map((id, i) => ({
-      ...column(
+  // The rows' inputs keep their identity between renders (memoised values,
+  // stable handlers), so a scroll's re-render skips the rows already drawn.
+  const notesPending = [edition, ...extraIds].map(footnotesPending).join();
+  const translations = useMemo((): RowTranslation[] => {
+    const column = (id: string, data: (string | null)[] | null, loading: boolean) => {
+      const e = editionByIdentifier(editions, id);
+      return {
         id,
-        extraTr[i]?.data ?? null,
-        (extraTr[i]?.loading ?? true) || footnotesPending(id),
-      ),
-      notes: footnotes[id],
-    })),
-  ];
+        name: e?.englishName ?? id,
+        lang: e?.language ?? "en",
+        rtl: e ? isRtl(e.language) : false,
+        data,
+        loading,
+      } satisfies RowTranslation;
+    };
+    return [
+      {
+        ...column(
+          edition,
+          translation.data,
+          translation.loading || footnotesPending(edition),
+        ),
+        notes: footnotes[edition],
+      },
+      ...extraIds.map((id, i) => ({
+        ...column(
+          id,
+          extraTr[i]?.data ?? null,
+          (extraTr[i]?.loading ?? true) || footnotesPending(id),
+        ),
+        notes: footnotes[id],
+      })),
+    ];
+    // `notesPending` stands for footnotesPending's module state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    editions,
+    edition,
+    translation.data,
+    translation.loading,
+    extraIds,
+    extraTr,
+    footnotes,
+    notesPending,
+  ]);
   const tafsirsFor = (groups: typeof tafsirGroups): RowTafsir[] =>
     shownTafsirs.map((ed) => {
       const ai = ayahTafsirIds.indexOf(ed.id);
@@ -1172,7 +1251,49 @@ export function ReaderView({
         groupAt: (id, prevId) => (lookup ? tafsirGroupAt(lookup, id, prevId) : null),
       };
     });
-  const inlineTafsirs = tafsirsFor(tafsirGroups);
+  const shownTafsirKey = shownTafsirs.map((e) => e.id).join();
+  const inlineTafsirs = useMemo(
+    () => tafsirsFor(tafsirGroups),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [shownTafsirKey, ayahTafsirs, groupedTafsirs, tafsirGroups, lang],
+  );
+  const recited = useMemo(
+    () => (surahTimings ? { clock: rec.clock, timing: timingOf } : null),
+    [surahTimings, rec.clock, timingOf],
+  );
+  const toggleAsbab = useCallback(
+    (id: number) =>
+      setOpenAsbab((cur) => {
+        const next = new Set(cur);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    [],
+  );
+  const asbabSource = asbabState.data?.source ?? "";
+  const inlineAsbab = useMemo(
+    () =>
+      p.showAsbab && asbabMap
+        ? { byFirst: asbabMap, source: asbabSource, open: openAsbab, toggle: toggleAsbab }
+        : null,
+    [p.showAsbab, asbabMap, asbabSource, openAsbab, toggleAsbab],
+  );
+  const themeAt = useCallback(
+    (id: number, prevId: number | null) =>
+      p.showThemes && themes && themeIdx
+        ? themeHeadingAt(themes, themeIdx, id, prevId)
+        : null,
+    [p.showThemes, themes, themeIdx],
+  );
+  const inEditedRange = useCallback(
+    (id: number) => !!loopRange && id >= range.from && id <= range.to,
+    [loopRange, range],
+  );
+  const openMark = useCallback(
+    (id: number, kind: "pin" | "collection") => setMarkFor({ id, kind }),
+    [],
+  );
 
   const rowCtx: RowContext = {
     mode,
@@ -1192,34 +1313,17 @@ export function ReaderView({
     glossLang: p.glossLang,
     inlineTafsirs,
     search: searchHits,
-    recited: surahTimings ? { clock: rec.clock, timing: timingOf } : null,
-    inlineAsbab:
-      p.showAsbab && asbabMap
-        ? {
-            byFirst: asbabMap,
-            source: asbabState.data?.source ?? "",
-            open: openAsbab,
-            toggle: (id) =>
-              setOpenAsbab((cur) => {
-                const next = new Set(cur);
-                if (next.has(id)) next.delete(id);
-                else next.add(id);
-                return next;
-              }),
-          }
-        : null,
-    themeAt: (id, prevId) =>
-      p.showThemes && themes && themeIdx
-        ? themeHeadingAt(themes, themeIdx, id, prevId)
-        : null,
+    recited,
+    inlineAsbab,
+    themeAt,
     verseColor,
     audioOn,
     canPlay: !!reciter,
     playingId,
-    inEditedRange: (id) => !!loopRange && id >= range.from && id <= range.to,
+    inEditedRange,
     playFrom,
     marksAt,
-    openMark: (id, kind) => setMarkFor({ id, kind }),
+    openMark,
     openHifdh: setHifdhFor,
     copied,
     copyText,
@@ -1267,7 +1371,8 @@ export function ReaderView({
           verses={verses}
           surahMap={surahMap}
           wordCount={wordCount}
-          inScope={(id) => id >= w.from && id <= w.to}
+          scopeFrom={w.from}
+          scopeTo={w.to}
           tajweed={p.showTajweed ? tajweedState.data : null}
           selectedId={!live ? undefined : contextSheet ? highlightId : ayahPick?.id}
           pickedWord={live ? (wordPick ?? wordDetail) : null}

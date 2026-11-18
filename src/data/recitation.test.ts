@@ -16,6 +16,8 @@ import {
   sleepDue,
   sleepMinutesLeft,
   sleepTimerFor,
+  chainPreview,
+  setFinished,
   type Cursor,
   type LoopOptions,
   type LoopRange,
@@ -198,7 +200,16 @@ it("sanitizeRecitationOptions drops values that are no longer choices", async ()
   const { sanitizeRecitationOptions } = await import("./recitation");
   expect(
     sanitizeRecitationOptions({ ayahRepeat: 3, rangeRepeat: 7, gap: 1, rate: 9 }),
-  ).toEqual({ ayahRepeat: 3, rangeRepeat: 1, gap: 1, rate: 1, chain: false });
+  ).toEqual({
+    ayahRepeat: 3,
+    rangeRepeat: 1,
+    gap: 1,
+    rate: 1,
+    chain: false,
+    setRepeat: 1,
+    window: 0,
+    setPause: 0,
+  });
   expect(sanitizeRecitationOptions("x")).toBeUndefined();
 });
 
@@ -278,6 +289,57 @@ describe("chain mode", () => {
       cur = advance(cur, { from: 1, to: 4 }, chain(1), none);
     }
     expect(heard.join(" ")).toBe("3 1 2 3 4 1 2 3 4");
+  });
+
+  it("plays the set several times and moves the window, as in the demo", () => {
+    // New ayah 3 plays, the set twice, a window of 5 (ayahs 1–6).
+    const o: LoopOptions = { ...chain(3), setRepeat: 2, window: 5 };
+    expect(chainPreview(o, 6).map((g) => g.join(" "))).toEqual([
+      "1 1 1",
+      "2 2 2",
+      "1 2 1 2",
+      "3 3 3",
+      "1 2 3 1 2 3",
+      "4 4 4",
+      "1 2 3 4 1 2 3 4",
+      "5 5 5",
+      "1 2 3 4 5 1 2 3 4 5",
+      "6 6 6",
+      "1 2 3 4 5 6 1 2 3 4 5 6",
+      // Restarting from the new window.
+      "2 2 2",
+      "3 3 3",
+      "2 3 2 3",
+      "4 4 4",
+      "2 3 4 2 3 4",
+      "5 5 5",
+      "2 3 4 5 2 3 4 5",
+      "6 6 6",
+      "2 3 4 5 6 2 3 4 5 6",
+    ]);
+  });
+
+  it("keeps the window moving past it", () => {
+    const o: LoopOptions = { ...chain(1), window: 2 };
+    expect(run({ from: 1, to: 4 }, o).join(" ")).toBe(
+      "1 2 1 2 3 1 2 3 2 3 2 3 4 2 3 4 3 4 3 4",
+    );
+  });
+
+  it("names the set that just finished, for the pause after it", () => {
+    const o: LoopOptions = { ...chain(1), setRepeat: 2 };
+    const r = { from: 1, to: 3 };
+    const done: string[] = [];
+    let cur: Cursor | null = cursorAt(1, none);
+    while (cur) {
+      const nxt = advance(cur, r, o, none);
+      const set = setFinished(cur, nxt, r, o);
+      if (set) done.push(`${set.from}-${set.to}`);
+      cur = nxt;
+    }
+    // After ayah 1 alone and after 1–2; the last set ends playback.
+    expect(done).toEqual(["1-1", "1-2"]);
+    expect(setFinished(cursorAt(2, none), cursorAt(3, none), r, once)).toBeNull();
   });
 
   it("plays the basmalah each time the joining pass reaches the surah's start", () => {

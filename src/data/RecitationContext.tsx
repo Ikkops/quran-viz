@@ -16,6 +16,7 @@ import {
   LOCAL_RECITERS,
   RECITERS,
   estimateAyahSeconds,
+  outsideRange,
   sanitizeRecitationOptions,
   type LoopRange,
   type RecitationOptions,
@@ -54,7 +55,9 @@ export interface RecitationContextValue {
   /** An edited loop range; null follows the scope the reader last showed. */
   loopRange: LoopRange | null;
   setLoopRange: (r: LoopRange | null) => void;
-  /** The reader reports its scope's range while it is open. */
+  /** The range the reader's view gives the player (its scope, or the mushaf
+   *  page in view); the reader reports it while open. */
+  viewRange: LoopRange;
   setScopeRange: (r: LoopRange) => void;
   readerOpen: boolean;
 }
@@ -121,9 +124,21 @@ export function RecitationProvider({
   const reciterId = (reciter?.id ?? reciterPref) as ReciterId;
   const downloads = useAudioDownloads([reciterId]);
   const onDevice = downloads.downloaded[reciterId];
+  const range = loopRange ?? scopeRange;
+  // The surahs the range plays: Play waits until all of them are on the
+  // device, so it never stops halfway through for a download.
+  const rangeSurahs = useMemo(() => {
+    const out: number[] = [];
+    const last = verses[range.to - 1]?.s ?? 0;
+    for (let n = verses[range.from - 1]?.s ?? 1; n <= last; n++) out.push(n);
+    return out;
+  }, [verses, range.from, range.to]);
+  const rangeReady = rangeSurahs.every((n) => !!onDevice?.[n]);
   const available = useCallback(
-    (id: number) => !native || !!onDevice?.[verses[id - 1]?.s ?? 0],
-    [native, onDevice, verses],
+    (id: number) =>
+      !native ||
+      (!!onDevice?.[verses[id - 1]?.s ?? 0] && (rangeReady || outsideRange(id, range))),
+    [native, onDevice, verses, rangeReady, range],
   );
   const surahMap = useMemo(() => new Map(surahs.map((s) => [s.id, s])), [surahs]);
   const needsBasmalah = useCallback(
@@ -158,15 +173,12 @@ export function RecitationProvider({
   );
 
   // Play needed an ayah that isn't on the device: download its surah first,
-  // then the other surahs of the view the reader last showed.
+  // then the other surahs of the range playing.
   const onMissing = useCallback(
     (id: number) => {
       const first = verses[id - 1]?.s;
       if (!first) return;
-      const from = verses[scopeRange.from - 1]?.s ?? first;
-      const to = verses[scopeRange.to - 1]?.s ?? first;
-      const ns = [first];
-      for (let n = from; n <= to; n++) if (n !== first) ns.push(n);
+      const ns = [first, ...rangeSurahs.filter((n) => n !== first)];
       downloadSurahs(
         reciterId,
         ns.flatMap((n) => {
@@ -177,14 +189,14 @@ export function RecitationProvider({
         }),
       );
     },
-    [verses, scopeRange, reciterId, surahMap],
+    [verses, rangeSurahs, reciterId, surahMap],
   );
 
   const rec = useRecitation({
     reciter: reciterId,
     enabled: showAudio,
     verses,
-    range: loopRange ?? scopeRange,
+    range,
     options: audioOpts,
     needsBasmalah,
     base: native ? downloads.base : undefined,
@@ -222,6 +234,7 @@ export function RecitationProvider({
     setReciter,
     loopRange,
     setLoopRange,
+    viewRange: scopeRange,
     setScopeRange,
     readerOpen,
   };
