@@ -784,7 +784,8 @@ def main() -> None:
         a["pages"].add(r["page"])
         a["juzs"].add(r["juz_id"])
     write_json(OUT / "verses.json", verses)
-    step(f"verses.json: {len(verses)} verses")
+    write_json(OUT / "verses-cols.json", verse_columns(verses))
+    step(f"verses.json: {len(verses)} verses (+ verses-cols.json for the app)")
 
     # Array length for ayah-id-indexed files (1-indexed, position 0 unused).
     # Computed from the DB rather than hardcoded so it tracks any upstream change.
@@ -1097,6 +1098,22 @@ def step(message: str) -> None:
     left = round(spent / _etl_done * (ETL_STEPS - _etl_done))
     print(f"{_etl_done}/{ETL_STEPS} · ({_etl_done / ETL_STEPS:.0%}) · {message} · "
           f"eta {left // 60}:{left % 60:02d}", flush=True)
+
+
+VERSE_COLUMNS = ("s", "a", "juz", "hizb", "rub", "ruku", "manzil", "page",
+                 "sajda", "w", "l", "ar")
+
+
+def verse_columns(verses: list[dict]) -> dict:
+    """verses.json by column, the app's start-up copy (src/data/useQuranData.ts):
+    one array per field, ayah id = index + 1, and `p` (an ayah's own place)
+    as {id: place}. Parses in half the time of 6,236 keyed objects;
+    verses.json stays as it is for everything else that reads it."""
+    if [v["id"] for v in verses] != list(range(1, len(verses) + 1)):
+        raise SystemExit("verses are not ids 1..n in order")
+    cols = {k: [v[k] for v in verses] for k in VERSE_COLUMNS}
+    cols["p"] = {str(v["id"]): v["p"] for v in verses if "p" in v}
+    return cols
 
 
 def write_json(path: Path, data) -> None:

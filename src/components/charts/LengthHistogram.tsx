@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, Tooltip, XAxis, YAxis } from "recharts";
+import { ResponsiveContainer } from "./ResponsiveChart";
 import type { Verse } from "../../types/quran";
 import { histogram, type HistogramBucket } from "../../data/stats";
 import { GenericTooltip } from "../tooltips";
@@ -56,7 +57,9 @@ export function LengthHistogram({
         <Bar
           dataKey="count"
           name={t.common.verses}
-          isAnimationActive={!ctx.still}
+          // DESIGN.md Motion: no decorative entrances (they re-rendered the
+          // chart every frame for 1.5 s after it appeared).
+          isAnimationActive={false}
           fill={ctx.primary}
           radius={[4, 4, 0, 0]}
           cursor={onBucket ? "pointer" : undefined}

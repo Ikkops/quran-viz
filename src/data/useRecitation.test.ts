@@ -172,3 +172,40 @@ describe("useRecitation sleep timer", () => {
     expect(result.current.playing).toBe(false);
   });
 });
+
+describe("gaps", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("Play during the silence after an ayah goes straight to the next one", () => {
+    vi.useFakeTimers();
+    const play = vi
+      .spyOn(HTMLMediaElement.prototype, "play")
+      .mockResolvedValue(undefined);
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
+    const { result } = renderHook(() =>
+      useRecitation({
+        reciter: "shuraym",
+        enabled: true,
+        verses,
+        range: { from: 1, to: 3 },
+        options: { ...DEFAULT_RECITATION, gap: 3 },
+        needsBasmalah: () => false,
+        base: "/audio/",
+      }),
+    );
+    act(() => result.current.play(1));
+    act(
+      () =>
+        void (
+          play.mock.contexts[play.mock.contexts.length - 1] as HTMLMediaElement
+        ).dispatchEvent(new Event("ended")),
+    );
+    // In the 3 s silence: still on 1:1, waiting.
+    expect(result.current.cursor?.id).toBe(1);
+    act(() => result.current.toggle()); // pause
+    expect(result.current.playing).toBe(false);
+    act(() => result.current.toggle()); // play
+    expect(result.current.cursor?.id).toBe(2);
+    expect(result.current.playing).toBe(true);
+  });
+});

@@ -1,13 +1,6 @@
 import { useMemo } from "react";
-import {
-  Bar,
-  BarChart,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, Cell, Tooltip, XAxis, YAxis } from "recharts";
+import { ResponsiveContainer } from "./ResponsiveChart";
 import type { Verse } from "../../types/quran";
 import { GenericTooltip } from "../tooltips";
 import { axisColor, CURSOR_FILL, type ChartContext } from "./common";

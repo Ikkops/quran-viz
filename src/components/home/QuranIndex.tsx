@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import { LayoutGrid, List, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
 import type { ChronologyData, QuranData, RevelationType, Surah } from "../../types/quran";
 import { exceptionsBySurah, surahMapOf } from "../../data/selectors";
@@ -28,6 +28,31 @@ type TypeFilter = "all" | RevelationType;
  * filter is always in reach, and sort, place and layout sit behind one
  * button so the head stays a single row.
  */
+/** Rows drawn before the first paint: more than a tall screen shows. */
+const FIRST_ROWS = 24;
+/** The rest of the rows have been drawn once this session. */
+let allRowsDrawn = false;
+
+/** The session's first Home draws `FIRST_ROWS` rows, then the rest in a
+ *  transition (time-sliced, so the first rows paint and input still gets
+ *  through; a timer, not an animation frame, which a hidden tab never runs);
+ *  later visits draw them all at once, so scroll restoring finds the page at
+ *  its full height. */
+function useAllRows(): boolean {
+  const [all, setAll] = useState(allRowsDrawn);
+  useEffect(() => {
+    if (all) return;
+    const t = window.setTimeout(() =>
+      startTransition(() => {
+        allRowsDrawn = true;
+        setAll(true);
+      }),
+    );
+    return () => clearTimeout(t);
+  }, [all]);
+  return all;
+}
+
 export function QuranIndex({
   data,
   onOpen,
@@ -80,8 +105,11 @@ export function QuranIndex({
   const changed = sort !== "mushaf" || type !== "all" || layout !== "list";
   const surahMap = useMemo(() => surahMapOf(data.surahs), [data.surahs]);
   const exceptions = useMemo(() => exceptionsBySurah(data.verses), [data.verses]);
-  const juzCards = useMemo(() => divisionCards(data.verses, "juz"), [data.verses]);
-  const manzilCards = useMemo(() => divisionCards(data.verses, "manzil"), [data.verses]);
+  // Only the division shown (a pass over every ayah each, at start-up too).
+  const cards = useMemo(
+    () => (kind === "surah" ? [] : divisionCards(data.verses, kind)),
+    [data.verses, kind],
+  );
   const timeline = kind === "surah" && sort === "timeline";
   const chronoState = useChronology(timeline);
   const asbabState = useAsbab(timeline);
@@ -90,6 +118,7 @@ export function QuranIndex({
     [asbabState.data, data.verses],
   );
 
+  const allRows = useAllRows();
   const surahs = useMemo(() => {
     const q = query.trim();
     const qn = normalizeArabic(q);
@@ -290,7 +319,7 @@ export function QuranIndex({
             )
           ) : layout === "list" ? (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,19rem),1fr))] gap-x-6">
-              {surahs.map((x) => (
+              {(allRows ? surahs : surahs.slice(0, FIRST_ROWS)).map((x) => (
                 <SurahRow
                   key={x.id}
                   s={x}
@@ -301,7 +330,7 @@ export function QuranIndex({
             </div>
           ) : (
             <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
-              {surahs.map((s) => (
+              {(allRows ? surahs : surahs.slice(0, FIRST_ROWS)).map((s) => (
                 <SurahCard
                   key={s.id}
                   surah={s}
@@ -318,7 +347,7 @@ export function QuranIndex({
 
       {kind !== "surah" && layout === "list" && (
         <DivisionList
-          cards={kind === "juz" ? juzCards : manzilCards}
+          cards={cards}
           kind={kind}
           juzNames={kind === "juz" ? (n) => data.meta.juzs[n - 1]?.nameAr : undefined}
           surahName={(s) => surahMap.get(s)?.name ?? String(s)}
@@ -328,7 +357,7 @@ export function QuranIndex({
       )}
       {kind !== "surah" && layout === "cards" && (
         <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
-          {(kind === "juz" ? juzCards : manzilCards).map((c) => (
+          {cards.map((c) => (
             <DivisionCardView
               key={c.n}
               card={c}

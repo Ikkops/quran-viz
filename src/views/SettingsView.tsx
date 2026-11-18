@@ -1,5 +1,6 @@
 import { useRef, useState, type ReactNode } from "react";
 import { applyBackup, buildBackup, readBackup } from "../lib/backup";
+import { resetReadingStore } from "../lib/readingStore";
 import { downloadText } from "../lib/export";
 import { dayKey } from "../data/readingLog";
 import { Check } from "lucide-react";
@@ -85,6 +86,9 @@ export function SettingsView({
     if (!data) setBackupNote(t.settings.backup.bad);
     else if (window.confirm(t.settings.backup.confirm)) {
       applyBackup(data, window.localStorage);
+      // The page going hidden on reload ticks the reading timer (recitation
+      // may be playing): it must add to the restored log, not save its own.
+      resetReadingStore();
       window.location.reload();
     }
   };

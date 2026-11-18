@@ -9,7 +9,9 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import { useQuranData } from "./data/useQuranData";
+import { loadQuranData, useQuranData } from "./data/useQuranData";
+import { HomeView } from "./views/HomeView";
+import { prefetchJson } from "./data/useLazyJson";
 import { persisted, readPersisted, usePersistentState } from "./lib/usePersistentState";
 import { useTheme } from "./theme/ThemeContext";
 import type { ColorMode, ReaderTarget } from "./components/charts/common";
@@ -33,28 +35,33 @@ import {
 } from "./lib/lastRead";
 // Views, the reader and the dialogs load on first use (Recharts and the
 // reader's parts stay out of the first download).
+const viewChunk = {
+  dashboard: () => import("./views/DashboardView"),
+  structure: () => import("./views/StructureView"),
+  // Home is where the app opens: in the first bundle (about 20 KB), so its
+  // first render does not suspend for a chunk and draw a skeleton first.
+  home: () => Promise.resolve({ HomeView }),
+  activity: () => import("./views/ActivityView"),
+  settings: () => import("./views/SettingsView"),
+} satisfies Record<View, () => Promise<unknown>>;
+const readerChunk = () => import("./components/reader/ReaderView");
 const DashboardView = lazy(() =>
-  import("./views/DashboardView").then((m) => ({ default: m.DashboardView })),
+  viewChunk.dashboard().then((m) => ({ default: m.DashboardView })),
 );
 const StructureView = lazy(() =>
-  import("./views/StructureView").then((m) => ({ default: m.StructureView })),
-);
-const HomeView = lazy(() =>
-  import("./views/HomeView").then((m) => ({ default: m.HomeView })),
+  viewChunk.structure().then((m) => ({ default: m.StructureView })),
 );
 const ActivityView = lazy(() =>
-  import("./views/ActivityView").then((m) => ({ default: m.ActivityView })),
+  viewChunk.activity().then((m) => ({ default: m.ActivityView })),
 );
 const SettingsView = lazy(() =>
-  import("./views/SettingsView").then((m) => ({ default: m.SettingsView })),
+  viewChunk.settings().then((m) => ({ default: m.SettingsView })),
 );
 /** The dashboard's chosen view (views/vizDefs.ts, kept out of this chunk). */
 const VIZ_KEY = "qv.viz";
 /** The Activity page's tab (views/ActivityView.tsx, kept out of this chunk). */
 const ACTIVITY_TAB_KEY = "qv.activity.tab";
-const ReaderView = lazy(() =>
-  import("./components/reader/ReaderView").then((m) => ({ default: m.ReaderView })),
-);
+const ReaderView = lazy(() => readerChunk().then((m) => ({ default: m.ReaderView })));
 import type { ExploreTarget } from "./components/reader/VerseContextPanel";
 import type { ChartSettings } from "./views/SettingsView";
 const GlobalSearchModal = lazy(() =>
@@ -88,6 +95,55 @@ import { preferredDivision, scopeField } from "./components/reader/readerShared"
  *  closes so a shared link reopens the same chart. */
 const readHash = () =>
   parseHash(typeof window !== "undefined" ? window.location.hash : "");
+
+/** What opening the reader needs: its code, the translation and its notes,
+ *  and the tajweed colours when they are on. Each loads once. */
+const warmReader = (edition: string) => {
+  void readerChunk().catch(() => undefined);
+  loadTranslation(edition).catch(() => undefined);
+  prefetchFootnotes(edition);
+  if (readPersisted("qv.reader.tajweed", false, persisted.bool))
+    prefetchJson("tajweed.json");
+};
+
+/** Run `fn` when the main thread is idle (soon at the latest). */
+const whenIdle = (fn: () => void) =>
+  window.requestIdleCallback
+    ? window.requestIdleCallback(fn, { timeout: 3000 })
+    : window.setTimeout(fn, 200);
+
+/** The other screens' code, one per idle moment, so a tab opens at once. */
+const warmViews = () => {
+  const rest = Object.values(viewChunk);
+  const next = () => {
+    const load = rest.shift();
+    if (load)
+      void load().then(
+        () => whenIdle(next),
+        () => whenIdle(next),
+      );
+  };
+  whenIdle(next);
+};
+
+// Start-up: the core data and the first screen's code download now, beside
+// React's first render, instead of one after the other (data, then the lazy
+// view once the data is in); a reader link warms the reader at once.
+if (typeof window !== "undefined") {
+  const first = readHash();
+  void loadQuranData().catch(() => undefined);
+  void viewChunk[first.view]().catch(() => undefined);
+  // A reader link: its code now, and in ayah view its translation (mushaf
+  // pages show one only in a popup; the tajweed colours may follow the text).
+  if (first.reader) {
+    void readerChunk().catch(() => undefined);
+    if (readPersisted<string>("qv.reader.mode", "ayah") !== "mushaf") {
+      const edition = readPersisted("qv.edition", "en.sahih");
+      loadTranslation(edition).catch(() => undefined);
+      prefetchFootnotes(edition);
+    }
+  }
+}
 
 /** Set a persisted tab before the view that owns it mounts. */
 const presetTab = (key: string, value: string) => {
@@ -223,15 +279,17 @@ export default function App() {
     data && !data.editions.editions.some((e) => e.identifier === storedEdition)
       ? data.editions.default
       : storedEdition;
-  // Fetch the reader's translation and its notes once the app is idle, so the
-  // reader opens with them drawn instead of "…" turning into text.
+  // Warm the reader once the first screen is up, so the first tap on a surah
+  // opens it with its code, translation and notes already here; then the
+  // other screens.
   useEffect(() => {
-    const id = setTimeout(() => {
-      loadTranslation(edition).catch(() => undefined);
-      prefetchFootnotes(edition);
-    }, 1500);
+    const id = setTimeout(() => warmReader(edition), 1500);
     return () => clearTimeout(id);
   }, [edition]);
+  useEffect(() => {
+    const id = setTimeout(warmViews, 2500);
+    return () => clearTimeout(id);
+  }, []);
   const [searchOpen, setSearchOpen] = useState(false);
   // Mounted from their first opening on (lazy chunks; state kept after closing).
   const [searchUsed, setSearchUsed] = useState(false);
@@ -385,6 +443,16 @@ export default function App() {
     }
   };
   const reading = !!(data && reader);
+  // Opened on a reader link: the view under the reader (shown when it closes)
+  // waits until the reader is up, then draws in an idle moment; closing the
+  // reader first draws it at once.
+  const [viewUnderReader, setViewUnderReader] = useState(!initial.reader);
+  useEffect(() => {
+    if (!viewUnderReader && data)
+      whenIdle(() => startTransition(() => setViewUnderReader(true)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [!!data]);
+  const showView = viewUnderReader || !reading;
   // Reading time (Home → Activity) counts while the reader is open.
   useReadingTimer(reading);
   useReminders(hifdh, data?.verses);
@@ -466,7 +534,7 @@ export default function App() {
               </Card>
             )}
             <Suspense fallback={<LoadingSkeleton />}>
-              {data && view === "home" && (
+              {data && showView && view === "home" && (
                 <HomeView
                   data={data}
                   lastReads={lastReads.slice(0, lastReadCount)}
@@ -482,7 +550,7 @@ export default function App() {
                   }}
                 />
               )}
-              {data && view === "dashboard" && (
+              {data && showView && view === "dashboard" && (
                 <DashboardView
                   key={dashKey}
                   data={data}
@@ -497,10 +565,10 @@ export default function App() {
                   onExplore={explore}
                 />
               )}
-              {data && view === "structure" && (
+              {data && showView && view === "structure" && (
                 <StructureView data={data} onOpen={navigateReader} />
               )}
-              {data && view === "activity" && (
+              {data && showView && view === "activity" && (
                 <ActivityView
                   key={activityKey}
                   data={data}
@@ -512,7 +580,7 @@ export default function App() {
                   lastRead={lastReads[0]?.id}
                 />
               )}
-              {view === "settings" && (
+              {showView && view === "settings" && (
                 <SettingsView
                   surahs={data?.surahs ?? []}
                   settings={settings}

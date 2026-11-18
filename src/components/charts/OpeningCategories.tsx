@@ -1,14 +1,7 @@
 import { useMemo } from "react";
 import { X } from "lucide-react";
-import {
-  Bar,
-  BarChart,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, Cell, Tooltip, XAxis, YAxis } from "recharts";
+import { ResponsiveContainer } from "./ResponsiveChart";
 import type { PlaceException, SurahDatum } from "../../data/selectors";
 import type { Surah } from "../../types/quran";
 import { ALL_CATEGORIES } from "../../data/fawatih";

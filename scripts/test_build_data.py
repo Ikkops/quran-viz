@@ -393,3 +393,28 @@ def test_curated_topic_tree_builds_from_qul():
     assert nodes[hakim["p"]]["k"] == "t1268"
     assert (2, 32) in hakim["v"] and (2, 32) not in wisdom["v"]
     assert (2, 269) in wisdom["v"]
+
+
+def test_verse_columns_round_trip():
+    verses = [
+        {"id": 1, "s": 1, "a": 1, "juz": 1, "hizb": 1, "rub": 1, "ruku": 1,
+         "manzil": 1, "page": 1, "sajda": 0, "w": 4, "l": 19, "ar": "x"},
+        {"id": 2, "s": 1, "a": 2, "juz": 1, "hizb": 1, "rub": 1, "ruku": 1,
+         "manzil": 1, "page": 1, "sajda": 0, "w": 4, "l": 17, "ar": "y",
+         "p": "Medinan"},
+    ]
+    cols = bd.verse_columns(verses)
+    assert cols["ar"] == ["x", "y"] and cols["p"] == {"2": "Medinan"}
+    back = [
+        {"id": i + 1, **{k: cols[k][i] for k in bd.VERSE_COLUMNS}}
+        for i in range(len(cols["s"]))
+    ]
+    back[1]["p"] = cols["p"]["2"]
+    assert back == verses
+    try:
+        bd.verse_columns([verses[1]])
+    except SystemExit:
+        pass
+    else:
+        raise AssertionError("ids out of order must fail")
+

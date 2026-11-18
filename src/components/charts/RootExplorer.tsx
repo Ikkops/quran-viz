@@ -1,13 +1,6 @@
 import { useMemo, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Bar, BarChart, Cell, Tooltip, XAxis, YAxis } from "recharts";
+import { ResponsiveContainer } from "./ResponsiveChart";
 import type { RootEntry, Surah, Verse } from "../../types/quran";
 import { rootSurahCounts, searchRoots, topRootsForSurah } from "../../data/roots";
 import { cx, SegmentedControl, Select } from "../ui";
