@@ -1029,7 +1029,7 @@ export const id: Messages = {
       prevAyah: "Ayat sebelumnya",
       nextAyah: "Ayat berikutnya",
       goToPlaying: "Ke ayat yang sedang dibaca",
-      playFrom: "Putar dari ayat ini",
+      playAyah: "Putar ayat ini",
       from: "Dari",
       to: "Sampai",
       earlier: (end) => `Mundurkan "${end}" satu ayat`,
@@ -1090,8 +1090,8 @@ export const id: Messages = {
       onDevice: (n, size) =>
         n === 0 ? "Belum ada yang diunduh." : `${n} dari 114 surah · ${size}`,
       downloadAll: (size) => `Unduh semua (sekitar ${size})`,
-      sourceNote:
-        "Audio diunduh sekali dari everyayah.com, lalu bisa diputar tanpa koneksi. Untuk menghapusnya, buka Pengaturan → Penyimpanan audio → Audio tersimpan.",
+      sourceNote: (site) =>
+        `Audio diunduh sekali dari ${site}, lalu bisa diputar tanpa koneksi. Untuk menghapusnya, buka Pengaturan → Penyimpanan audio → Audio tersimpan.`,
     },
   },
 
@@ -1198,8 +1198,8 @@ export const id: Messages = {
     rateTitle: (pages) => `Bagaimana tadi? · halaman hafalan: ${pages}`,
     ratings: { forgot: "Lupa", hard: "Sulit", smooth: "Lancar" },
     ratingHelp: {
-      forgot: "Diulang lagi besok, dan ditandai perlu diulang.",
-      hard: "Diulang lagi setelah jumlah hari yang sama.",
+      forgot: "Segera diulang lagi, dan ditandai perlu diulang.",
+      hard: "Diulang lebih cepat daripada bila lancar.",
       smooth: "Jadwal ulang berikutnya makin jauh.",
     },
     planTitle: "Hari ini",
@@ -1213,6 +1213,14 @@ export const id: Messages = {
     none: "Tidak ada yang jatuh tempo.",
     oldMore: (n) => `${n} halaman lama lainnya sudah jatuh tempo.`,
     quota: "Halaman lama per hari",
+    retention: "Target ingatan",
+    retentionHelp:
+      "Seberapa yakin Anda masih hafal satu halaman pada hari jadwal ulangnya. Makin tinggi, makin sering diulang dan makin jarang lupa. Jadwal ulang dihitung dengan FSRS, penjadwal yang dipakai Anki.",
+    progressTitle: "Perkembangan",
+    progressTile: (name, pct, done, total) =>
+      `${name}: ${pct} hafal, ${done} dari ${total} ayat`,
+    progressWeak: (n) => `${n} perlu diulang`,
+    juzLabel: (n) => `Juz ${n}`,
     pageLabel: (page) => `Hal. ${page}`,
     homeLine: (fresh, recent, old) => `${fresh} baru · ${recent} dekat · ${old} jauh`,
     homeTitle: "Hafalan hari ini",
@@ -1379,7 +1387,7 @@ export const id: Messages = {
       ],
       [
         "Waktu per kata",
-        "quran-align karya Collin Fair (github.com/cpfair/quran-align), CC BY 4.0: saat mulai tiap kata dalam dua belas rekaman everyayah.com. Waktu kata Yasser ad-Dosari: Quranic Universal Library (QUL), resitasi 103. Rekaman lama Sa'ud asy-Syuraim (QuranicAudio.com, satu berkas per surah) diberi waktu untuk aplikasi ini dengan penjajaran otomatis memakai model MMS dari Meta, jadi waktunya bisa meleset beberapa persepuluh detik.",
+        "quran-align karya Collin Fair (github.com/cpfair/quran-align), CC BY 4.0: saat mulai tiap kata dalam dua belas rekaman everyayah.com. Waktu kata Yasser ad-Dosari: Quranic Universal Library (QUL), resitasi 103. Rekaman lama Sa'ud asy-Syuraim (QuranicAudio.com, satu berkas per surah) diberi waktu untuk aplikasi ini dengan penjajaran otomatis memakai model MMS dari Meta, jadi waktunya bisa meleset beberapa persepuluh detik. Rekaman Badr at-Turki (mp3quran.net) diberi waktu dengan cara yang sama. Waktu ayat rekaman mp3quran.net lainnya (satu berkas per surah) berasal dari data waktu mp3quran.net sendiri.",
       ],
       [
         "Topik, ayat mirip, pengantar surah, ruku', dan manzil",

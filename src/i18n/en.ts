@@ -951,7 +951,7 @@ export const en = {
       prevAyah: "Previous ayah",
       nextAyah: "Next ayah",
       goToPlaying: "Go to the ayah being recited",
-      playFrom: "Play from this ayah",
+      playAyah: "Play this ayah",
       from: "From",
       to: "To",
       earlier: (end: string) => `Move "${end}" one ayah earlier`,
@@ -1014,8 +1014,8 @@ export const en = {
       onDevice: (n: number, size: string) =>
         n === 0 ? "Nothing downloaded yet." : `${n} of 114 surahs · ${size}`,
       downloadAll: (size: string) => `Download all (about ${size})`,
-      sourceNote:
-        "Audio is downloaded from everyayah.com once, then plays without a connection. To delete it, open Settings → Audio storage → Saved audio.",
+      sourceNote: (site: string) =>
+        `Audio is downloaded from ${site} once, then plays without a connection. To delete it, open Settings → Audio storage → Saved audio.`,
     },
   },
 
@@ -1034,8 +1034,8 @@ export const en = {
     rateTitle: (pages: string) => `How did it go? · memorised pages: ${pages}`,
     ratings: { forgot: "Forgot", hard: "Hard", smooth: "Smooth" },
     ratingHelp: {
-      forgot: "Due again tomorrow, and marked as needing review.",
-      hard: "Due again after the same number of days.",
+      forgot: "Due again soon, and marked as needing review.",
+      hard: "Due again sooner than after a smooth review.",
       smooth: "The next review moves further away.",
     },
     planTitle: "Today",
@@ -1049,6 +1049,14 @@ export const en = {
     none: "Nothing due.",
     oldMore: (n: string) => `${n} more older pages are due.`,
     quota: "Older pages a day",
+    retention: "Recall target",
+    retentionHelp:
+      "How sure you want to be that you still know a page on the day it comes due. Higher means more reviews and fewer slips. Reviews are timed with FSRS, the scheduler Anki uses.",
+    progressTitle: "Progress",
+    progressTile: (name: string, pct: string, done: string, total: string) =>
+      `${name}: ${pct} memorised, ${done} of ${total} ayahs`,
+    progressWeak: (n: string) => `${n} need review`,
+    juzLabel: (n: number) => `Juz ${n}`,
     pageLabel: (page: number) => `Page ${page}`,
     homeLine: (fresh: string, recent: string, old: string) =>
       `${fresh} new · ${recent} recent · ${old} older`,
@@ -1308,7 +1316,7 @@ export const en = {
       ],
       [
         "Word timings",
-        "quran-align by Collin Fair (github.com/cpfair/quran-align), CC BY 4.0: when each word starts in twelve everyayah.com recitations. Yasser ad-Dosari's word timings: Quranic Universal Library (QUL), recitation 103. The older Sa'ud ash-Shuraym recording (QuranicAudio.com, one file per surah) was timed for this app by forced alignment with Meta's MMS model, so its timings may be off by a few tenths of a second.",
+        "quran-align by Collin Fair (github.com/cpfair/quran-align), CC BY 4.0: when each word starts in twelve everyayah.com recitations. Yasser ad-Dosari's word timings: Quranic Universal Library (QUL), recitation 103. The older Sa'ud ash-Shuraym recording (QuranicAudio.com, one file per surah) was timed for this app by forced alignment with Meta's MMS model, so its timings may be off by a few tenths of a second. Badr at-Turki's recording (mp3quran.net) was timed the same way. Ayah times of the other mp3quran.net recordings (one file per surah) come from mp3quran.net's own timing data.",
       ],
       [
         "Topics, similar ayahs, surah introductions, rukuʿ and manzil",

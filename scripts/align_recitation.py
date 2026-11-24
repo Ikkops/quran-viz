@@ -25,7 +25,9 @@ download on first run), from quran-viz/:
 
 About 4x real time on 16 CPU cores, which one run doesn't keep busy: three
 runs over different surahs (`--threads 5`, separate out files, merged after)
-go about three times as fast.
+go about three times as fast. With an NVIDIA GPU the model runs on it (CUDA
+wheels: `--index https://download.pytorch.org/whl/cu124`), far faster; a
+6 GB card holds the 30 s chunks.
 """
 
 from __future__ import annotations
@@ -46,6 +48,7 @@ from reader_data import JOINED, MARK_TOKEN, _DIAC, split_words  # noqa: E402
 
 APP = Path(__file__).resolve().parent.parent
 SR = 16000
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 BLOCK_S = 120  # expected seconds of text per block
 AHEAD_S = 60  # expected seconds of look-ahead text; 12 s let a repeated phrase
 # just past the block pull its last ayah minutes late (8:31, older Shuraym)
@@ -73,8 +76,8 @@ def emissions(model, wav: torch.Tensor, chunk_s: int = 30, ctx_s: int = 2) -> to
     for s in range(0, len(wav), step):
         a, b = max(0, s - ctx), min(len(wav), s + step + ctx)
         with torch.inference_mode():
-            e, _ = model(wav[a:b].unsqueeze(0))
-        e = e[0]
+            e, _ = model(wav[a:b].unsqueeze(0).to(DEVICE))
+        e = e[0].float().cpu()
         per = (b - a) / e.shape[0]  # samples per frame
         lo = round((s - a) / per)
         hi = lo + round((min(s + step, len(wav)) - s) / per)
@@ -175,7 +178,8 @@ def main() -> int:
     if args.threads:
         torch.set_num_threads(args.threads)
     bundle = torchaudio.pipelines.MMS_FA
-    model = bundle.get_model(with_star=True).eval()
+    model = bundle.get_model(with_star=True).eval().to(DEVICE)
+    print(f"model on {DEVICE}", flush=True)
     vocab = bundle.get_dict(star="*")
     star = vocab["*"]
     roman = uroman.Uroman()

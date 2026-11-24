@@ -98,3 +98,23 @@ def test_surah_clips_cut_mid_pause_and_basmalah_clip():
     clips, opening = frd.surah_clips(by, [2, 1], {2: row((42000, 46000))})
     assert clips == [(1700, 3500), (3500, 6500), (79700, 86500)]
     assert opening == [(0, 1700), (41700, 47500)]
+
+
+def test_mp3quran_rows_check_and_feed_surah_clips():
+    import fetch_reader_data as frd
+
+    def r(a, t0, t1):
+        return {"ayah": a, "start_time": t0, "end_time": t1}
+
+    timings = {1: [r(1, 100, 2500), r(2, 2500, 6700)], 2: [r(1, 4000, 9000)]}
+    by = frd.mp3quran_rows(timings, [2, 1])
+    clips, opening = frd.surah_clips(by, [2, 1], {})
+    # An ayah ends where the next starts: the cut is that start.
+    assert clips == [(0, 2500), (2500, 8200), (3700, 10500)]
+    assert opening == [(0, 0), (0, 3700)]
+    import pytest
+
+    with pytest.raises(ValueError):
+        frd.mp3quran_rows({1: [r(1, 100, 2500)], 2: [r(1, 0, 10)]}, [2, 1])
+    with pytest.raises(ValueError):
+        frd.mp3quran_rows({1: [r(1, 3000, 4000), r(2, 2000, 5000)]}, [2])

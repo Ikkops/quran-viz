@@ -9,6 +9,7 @@ import { dataUrl } from "./base";
 export const TIMED_RECITERS: ReadonlySet<string> = new Set([
   "shuraym",
   "shuraym-old",
+  "badr-turki",
   "abdulbasit-mujawwad",
   "abdulbasit",
   "sudais",

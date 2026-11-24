@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  type Hifdh,
   listStumbles,
+  nextMemory,
   pagesWith,
+  progressBy,
   rateReview,
   removeStumble,
   sambungStarts,
@@ -65,6 +68,19 @@ describe("sanitizeHifdh", () => {
     expect(h && statusOf(h, 4)).toBe(3);
     expect(h?.stumbles).toEqual({ "5:1": { n: 2, at: 9 } });
   });
+
+  it("reads ladder reviews as FSRS memory", () => {
+    const h = sanitizeHifdh({
+      status: "2",
+      reviews: { 1: { due: "2026-11-20", step: 2 }, 2: { due: "x", step: 1 } },
+      retention: 0.95,
+    });
+    expect(h?.reviews).toEqual({
+      1: { due: "2026-11-20", last: "2026-11-13", s: 7, d: 5 },
+    });
+    expect(h?.retention).toBe(0.95);
+    expect(sanitizeHifdh({ status: "2", retention: 0.5 })?.retention).toBeUndefined();
+  });
 });
 
 // Ten ayahs a page, two pages a surah.
@@ -84,20 +100,83 @@ describe("review", () => {
     expect(pagesWith(h, verses, [1])).toEqual([]);
   });
 
-  it("climbs the ladder on smooth, repeats on hard, restarts on forgot", () => {
+  it("matches fsrs-rs's memory state test (default parameters)", () => {
+    // fsrs-rs 6.6.2 `test_memory_state`: Again, then Good five times.
+    let m: { s: number; d: number } | null = null;
+    for (const [g, days] of [
+      [1, 0],
+      [3, 0],
+      [3, 1],
+      [3, 3],
+      [3, 8],
+      [3, 21],
+    ])
+      m = nextMemory(m, days, g);
+    expect(m!.s).toBeCloseTo(53.62691, 3);
+    expect(m!.d).toBeCloseTo(6.3574867, 4);
+  });
+
+  it("moves reviews further on smooth, less on hard, back on forgot", () => {
     const page = [{ page: 1, from: 1, to: 10 }];
+    const gap = (h: Hifdh) =>
+      (Date.parse(h.reviews[1].due) - Date.parse(h.reviews[1].last)) / 86_400_000;
     let h = setStatus(emptyHifdh(), 1, 10, 2);
     h = rateReview(h, page, "smooth", "2026-11-15");
-    expect(h.reviews[1]).toEqual({ step: 0, due: "2026-11-16" });
-    h = rateReview(h, page, "smooth", "2026-11-16");
-    expect(h.reviews[1]).toEqual({ step: 1, due: "2026-11-19" });
-    h = rateReview(h, page, "hard", "2026-11-19");
-    expect(h.reviews[1]).toEqual({ step: 1, due: "2026-11-22" });
-    h = rateReview(h, page, "forgot", "2026-11-22");
-    expect(h.reviews[1]).toEqual({ step: 0, due: "2026-11-23" });
+    expect(h.reviews[1]).toMatchObject({ last: "2026-11-15", due: "2026-11-17" });
+    const first = gap(h);
+    h = rateReview(h, page, "smooth", "2026-11-17");
+    const smooth = gap(h);
+    expect(smooth).toBeGreaterThan(first);
+    const hard = gap(rateReview(h, page, "hard", h.reviews[1].due));
+    const good = gap(rateReview(h, page, "smooth", h.reviews[1].due));
+    expect(hard).toBeLessThan(good);
+    h = rateReview(h, page, "forgot", h.reviews[1].due);
+    expect(gap(h)).toBeLessThan(smooth);
     expect(countStatus(h, 1, 10)).toEqual([0, 0, 0, 10]);
-    h = rateReview(h, page, "smooth", "2026-11-23");
+    h = rateReview(h, page, "smooth", h.reviews[1].due);
     expect(countStatus(h, 1, 10)).toEqual([0, 0, 10, 0]);
+  });
+
+  it("never schedules past half a year, and aims later for lower retention", () => {
+    const page = [{ page: 1, from: 1, to: 10 }];
+    const strong: Hifdh = {
+      ...setStatus(emptyHifdh(), 1, 10, 2),
+      reviews: { 1: { due: "2026-11-15", last: "2026-06-01", s: 400, d: 2 } },
+    };
+    expect(rateReview(strong, page, "smooth", "2026-11-15").reviews[1].due).toBe(
+      "2027-05-14",
+    );
+    const mid: Hifdh = {
+      ...strong,
+      reviews: { 1: { due: "2026-11-15", last: "2026-11-05", s: 10, d: 5 } },
+    };
+    const due = (r: number) =>
+      rateReview({ ...mid, retention: r }, page, "smooth", "2026-11-15").reviews[1].due;
+    expect(due(0.85) > due(0.9) && due(0.9) > due(0.97)).toBe(true);
+  });
+
+  it("spreads pages rated together over the fuzz range", () => {
+    const pages = [1, 2, 3, 4, 5, 6].map((p) => ({
+      page: p,
+      from: p * 10 - 9,
+      to: p * 10,
+    }));
+    let h = setStatus(emptyHifdh(), 1, 60, 2);
+    h = {
+      ...h,
+      reviews: Object.fromEntries(
+        pages.map((p) => [
+          p.page,
+          { due: "2026-11-15", last: "2026-11-05", s: 10, d: 5 },
+        ]),
+      ),
+    };
+    const dues = new Set(
+      Object.values(rateReview(h, pages, "smooth", "2026-11-15").reviews).map(
+        (r) => r.due,
+      ),
+    );
+    expect(dues.size).toBeGreaterThan(3);
   });
 
   it("leaves ayahs that are not memorised alone", () => {
@@ -118,13 +197,33 @@ describe("todaysPlan", () => {
     // Page 1 reviewed yesterday (recent, due today); page 2 not due yet.
     h = rateReview(h, [{ page: 1, from: 1, to: 10 }], "smooth", "2026-11-14");
     h = rateReview(h, [{ page: 2, from: 11, to: 20 }], "smooth", "2026-11-15");
-    // Page 5 is far up the ladder and overdue.
-    h = { ...h, reviews: { ...h.reviews, 5: { step: 4, due: "2026-11-01" } } };
+    // Pages 4 and 5 were last seen a month ago and are overdue; page 5's
+    // memory is weaker, so it comes first.
+    h = {
+      ...h,
+      reviews: {
+        ...h.reviews,
+        1: { ...h.reviews[1], due: "2026-11-15" },
+        4: { due: "2026-11-10", last: "2026-10-10", s: 40, d: 5 },
+        5: { due: "2026-11-12", last: "2026-10-12", s: 20, d: 5 },
+      },
+    };
     const plan = todaysPlan(h, verses, "2026-11-15", 2);
     expect(plan.recent.map((p) => p.page)).toEqual([1]);
-    expect(plan.old.map((p) => p.page)).toEqual([5, 3]);
+    expect(plan.old.map((p) => p.page)).toEqual([5, 4]);
     expect(plan.oldDue).toBe(3);
     expect(plan.learning.map((p) => p.page)).toEqual([6]);
+  });
+});
+
+describe("progressBy", () => {
+  it("counts memorised and weak ayahs per surah", () => {
+    let h = setStatus(emptyHifdh(), 1, 15, 2);
+    h = setStatus(h, 14, 22, 3);
+    const by = progressBy(h, verses, (v) => v.s);
+    expect(by.get(1)).toEqual({ total: 20, done: 20, weak: 7 });
+    expect(by.get(2)).toEqual({ total: 20, done: 2, weak: 2 });
+    expect(by.get(3)).toEqual({ total: 20, done: 0, weak: 0 });
   });
 });
 

@@ -1,3 +1,4 @@
+import { RECITER_INFO } from "../../data/reciters";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import {
   CircleCheck,
@@ -906,7 +907,13 @@ export function RecitationControls({
               {a.downloadAll(storage.allSize)}
             </Button>
           )}
-          <p className="text-xs text-ink-subtle">{a.sourceNote}</p>
+          <p className="text-xs text-ink-subtle">
+            {a.sourceNote(
+              new URL(
+                RECITER_INFO[reciter]?.source ?? "https://everyayah.com/",
+              ).hostname.replace(/^(cdn|download|www)\./, ""),
+            )}
+          </p>
         </section>
       )}
     </div>

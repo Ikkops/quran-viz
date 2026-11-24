@@ -91,7 +91,7 @@ export interface RowContext {
   canPlay: boolean;
   playingId: number | undefined;
   inEditedRange: (id: number) => boolean;
-  playFrom: (id: number) => void;
+  playAyah: (id: number) => void;
   /** Pins on an ayah and collections holding it. */
   marksAt: Map<number, { pins: Pin[]; collections: Collection[] }>;
   /** Open the sheet that pins this ayah or files it in collections. */
@@ -301,8 +301,8 @@ function VerseRowImpl({
             )}
             {ctx.canPlay && (
               <QuietIconButton
-                label={`${t.reader.audio.playFrom} ${ref}`}
-                onClick={() => ctx.playFrom(v.id)}
+                label={`${t.reader.audio.playAyah} ${ref}`}
+                onClick={() => ctx.playAyah(v.id)}
                 className={playing ? "text-illumination" : undefined}
               >
                 <Play size={16} />
