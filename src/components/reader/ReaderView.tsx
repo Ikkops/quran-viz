@@ -573,13 +573,11 @@ export function ReaderView({
     return n > 0 ? t.reader.audio.nSurahs(n) : null;
   };
   const hasCursor = rec.cursor !== null;
-  /** Play from `id`; outside the range, the range becomes id..end of scope
-   *  (of its page in the mushaf). A hidden player opens. */
-  const playFrom = useStableFn((id: number) => {
+  /** Play `id` alone (with its repeats): the range becomes that ayah, so the
+   *  player stops after it. A hidden player opens. */
+  const playAyah = useStableFn((id: number) => {
     if (!audio.showAudio) audio.setShowAudio(true);
-    const end = (pageRangeAt(indexOfAyah(id)) ?? scopeRange).to;
-    if (id < range.from || id > range.to)
-      setLoopRange({ from: id, to: Math.max(id, end) });
+    setLoopRange({ from: id, to: id });
     rec.play(id);
   });
   const playingId = rec.cursor?.id;
@@ -620,9 +618,6 @@ export function ReaderView({
   );
   const { layoutPages, pages, count } = rows;
   const indexOfAyah = useCallback(
-    // Lint only (no React Compiler in the build): it cannot keep this memo,
-    // and skipped this component wholesale while it used `useVirtualizer`.
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     (id: number) =>
       layout && layoutPages
         ? layoutPages.indexOf(pageOf(layout, id))
@@ -635,8 +630,6 @@ export function ReaderView({
   // ── The player's range follows the view: the "read by" scope in ayah view,
   // the page in view in the mushaf (its ayahs inside the scope) ──
   const pageRangeAt = useCallback(
-    // See `indexOfAyah`.
-    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     (i: number): LoopRange | null => {
       if (mode !== "mushaf" || i < 0 || i >= count) return null;
       const r =
@@ -988,8 +981,9 @@ export function ReaderView({
     },
     [max, onNavigate, target.scope, target.value],
   );
-  // A sideways swipe moves to the next (swipe left) or previous (swipe right)
-  // surah, juz, hizb, rukuʿ or page, like ← / →, with the neighbour's start
+  // A sideways swipe moves to the next (swipe right) or previous (swipe left)
+  // surah, juz, hizb, rukuʿ or page, as pages turn in an Arabic mushaf, with
+  // the neighbour's start
   // (`ReaderPeek`) beside the text while the finger is down. Not over an
   // open popover, menu or sheet, nor while searching (the hits are this
   // window's; the end-of-list buttons hide then too).
@@ -1000,10 +994,11 @@ export function ReaderView({
     trackRef: slideRef,
   } = useSwipePager({
     current: scopeKey,
-    canGo: (d) => target.value + d >= 1 && target.value + d <= max,
+    // The pager's +1 is the pane on the right (a swipe left): a step back.
+    canGo: (d) => target.value - d >= 1 && target.value - d <= max,
     onCommit: (d) => {
-      swipedTo.current = `${target.scope}:${target.value + d}`;
-      go(target.value + d);
+      swipedTo.current = `${target.scope}:${target.value - d}`;
+      go(target.value - d);
     },
     enabled:
       !query.trim() &&
@@ -1032,7 +1027,7 @@ export function ReaderView({
         .filter(Boolean)
         .map((d) => {
           const dir = Number(d) as -1 | 1;
-          const value = target.value + dir;
+          const value = target.value - dir;
           const rows = windowRows(
             verses.filter((v) => scopeField(v, target.scope) === value),
             mode === "mushaf",
@@ -1372,7 +1367,7 @@ export function ReaderView({
     canPlay: !!reciter,
     playingId,
     inEditedRange,
-    playFrom,
+    playAyah,
     marksAt,
     openMark,
     openHifdh: setHifdhFor,
@@ -2036,7 +2031,7 @@ export function ReaderView({
           }}
           onPlay={() => {
             setWordPick(null);
-            playFrom(wordPick.id);
+            playAyah(wordPick.id);
           }}
           onContext={() => openContext(wordPick.id)}
           onClose={() => setWordPick(null)}
@@ -2056,7 +2051,7 @@ export function ReaderView({
           canPlay={!!reciter}
           onPlay={() => {
             setAyahPick(null);
-            playFrom(ayahPick.id);
+            playAyah(ayahPick.id);
           }}
           onContext={() => openContext(ayahPick.id)}
           onHifdh={() => {

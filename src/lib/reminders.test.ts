@@ -92,7 +92,10 @@ describe("nextReminders", () => {
     // Page 1 due on the 6th, page 2 on the 8th; both memorised.
     const h: Hifdh = {
       ...setStatus(emptyHifdh(), 1, 12, 2),
-      reviews: { 1: { due: "2026-05-06", step: 1 }, 2: { due: "2026-05-08", step: 4 } },
+      reviews: {
+        1: { due: "2026-05-06", last: "2026-05-03", s: 3, d: 5 },
+        2: { due: "2026-05-08", last: "2026-04-08", s: 30, d: 5 },
+      },
     };
     const list = nextReminders(at(2026, 5, 4, 4), on(false, true), state({ hifdh: h }));
     expect(list.map((r) => [dayKey(r.at), r.count])).toEqual([

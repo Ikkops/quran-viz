@@ -4,7 +4,10 @@
 // (Ibrahim al-Akhdar, Muhammad Jibril 64 kbps, Mustafa Isma'il). `bytes` is the size of the whole set: exact for the two
 // local sets, otherwise estimated from the sizes of 40 ayahs spread over the
 // mushaf (good to about a tenth), which is enough for "about 25 MB" labels
-// and the seek bar's first estimate.
+// and the seek bar's first estimate. The `mp3quran.net` sets (2026-11-25) are
+// whole-surah recordings that mp3quran publishes ayah timings for, printed
+// by `scripts/fetch_reader_data.py mp3quran` with their clips; their `bytes`
+// are exact (HEAD) and `bitrate` is size over length, rounded.
 
 export interface ReciterInfo {
   name: string;
@@ -53,6 +56,35 @@ export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
     origin: "QuranicAudio.com",
     bytes: 1_495_802_496,
   },
+  "badr-turki": {
+    name: "Badr at-Turki",
+    nameAr: "بدر التركي",
+    // One file per surah; mp3quran.net publishes no ayah timings for it, so
+    // its ayah and word times are ours (scripts/align_recitation.py).
+    source: "https://cdn.mp3quran.net/audio/badr-turki/r1/",
+    bitrate: 192,
+    origin: "mp3quran.net",
+    bytes: 2_163_073_534,
+    surahFiles: true,
+  },
+  "abdulaziz-turki": {
+    name: "Abdul Aziz at-Turki",
+    nameAr: "عبدالعزيز التركي",
+    source: "https://cdn.mp3quran.net/audio/abdulaziz-turki/r1/",
+    bitrate: 128,
+    origin: "mp3quran.net",
+    bytes: 1_640_490_535,
+    surahFiles: true,
+  },
+  "abdulbari-thubaiti": {
+    name: "Abdul Bari ath-Thubaiti",
+    nameAr: "عبدالبارئ الثبيتي",
+    source: "https://cdn.mp3quran.net/audio/abdulbari-thubaiti/r1/",
+    bitrate: 128,
+    origin: "mp3quran.net",
+    bytes: 1_140_238_723,
+    surahFiles: true,
+  },
   "abdulbasit-mujawwad": {
     name: "Abdul Basit Abdus-Samad (Mujawwad)",
     nameAr: "عبد الباسط عبد الصمد (مجود)",
@@ -85,6 +117,15 @@ export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
     origin: "EveryAyah.com",
     bytes: 834_788_556,
   },
+  "abdullah-khayyat": {
+    name: "Abdullah Khayyat",
+    nameAr: "عبدالله خياط",
+    source: "https://cdn.mp3quran.net/audio/abdullah-khayyat/r1/",
+    bitrate: 128,
+    origin: "mp3quran.net",
+    bytes: 1_129_877_097,
+    surahFiles: true,
+  },
   matrud: {
     name: "Abdullah Matrud",
     nameAr: "عبد الله مطرود",
@@ -92,6 +133,15 @@ export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
     bitrate: 128,
     origin: "EveryAyah.com",
     bytes: 1_611_049_103,
+  },
+  "abdulrahman-oosi": {
+    name: "Abdurrahman al-Ausi",
+    nameAr: "عبدالرحمن العوسي",
+    source: "https://cdn.mp3quran.net/audio/abdulrahman-oosi/r1/",
+    bitrate: 128,
+    origin: "mp3quran.net",
+    bytes: 1_587_402_191,
+    surahFiles: true,
   },
   sudais: {
     name: "Abdurrahman as-Sudais",
@@ -108,6 +158,15 @@ export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
     bitrate: 64,
     origin: "EveryAyah.com",
     bytes: 747_675_239,
+  },
+  "ahmad-nufais": {
+    name: "Ahmad an-Nufais",
+    nameAr: "أحمد النفيس",
+    source: "https://cdn.mp3quran.net/audio/ahmad-nufais/r1/",
+    bitrate: 160,
+    origin: "mp3quran.net",
+    bytes: 1_986_934_769,
+    surahFiles: true,
   },
   nuaina: {
     name: "Ahmad Nu'aina'",
@@ -165,6 +224,15 @@ export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
     origin: "EveryAyah.com",
     bytes: 838_903_548,
   },
+  "anas-emadi": {
+    name: "Anas al-Imadi",
+    nameAr: "أنس العمادي",
+    source: "https://cdn.mp3quran.net/audio/anas-emadi/r1/",
+    bitrate: 128,
+    origin: "mp3quran.net",
+    bytes: 1_481_354_299,
+    surahFiles: true,
+  },
   alili: {
     name: "Aziz Alili",
     nameAr: "عزيز عليلي",
@@ -172,6 +240,15 @@ export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
     bitrate: 128,
     origin: "EveryAyah.com",
     bytes: 1_483_240_586,
+  },
+  "bandar-baleela": {
+    name: "Bandar Balilah",
+    nameAr: "بندر بليله",
+    source: "https://cdn.mp3quran.net/audio/bandar-baleela/r1/",
+    bitrate: 160,
+    origin: "mp3quran.net",
+    bytes: 1_793_065_865,
+    surahFiles: true,
   },
   abbad: {
     name: "Faris Abbad",
@@ -181,6 +258,15 @@ export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
     origin: "EveryAyah.com",
     bytes: 595_909_189,
   },
+  "haitham-dukhain": {
+    name: "Haitham ad-Dukhain",
+    nameAr: "هيثم الدخين",
+    source: "https://cdn.mp3quran.net/audio/haitham-dukhain/r1/",
+    bitrate: 128,
+    origin: "mp3quran.net",
+    bytes: 1_646_207_028,
+    surahFiles: true,
+  },
   rifai: {
     name: "Hani ar-Rifa'i",
     nameAr: "هاني الرفاعي",
@@ -188,6 +274,42 @@ export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
     bitrate: 64,
     origin: "EveryAyah.com",
     bytes: 716_674_657,
+  },
+  "idrees-abkar": {
+    name: "Idris Abkar",
+    nameAr: "إدريس أبكر",
+    source: "https://cdn.mp3quran.net/audio/idrees-abkar/r1/",
+    bitrate: 128,
+    origin: "mp3quran.net",
+    bytes: 1_779_231_546,
+    surahFiles: true,
+  },
+  "jamaan-osaimi": {
+    name: "Jam'an al-Usaimi",
+    nameAr: "جمعان العصيمي",
+    source: "https://cdn.mp3quran.net/audio/jamaan-osaimi/r1/",
+    bitrate: 96,
+    origin: "mp3quran.net",
+    bytes: 1_041_773_970,
+    surahFiles: true,
+  },
+  "khalid-jalil": {
+    name: "Khalid al-Jalil",
+    nameAr: "خالد الجليل",
+    source: "https://cdn.mp3quran.net/audio/khalid-jalil/r1/",
+    bitrate: 192,
+    origin: "mp3quran.net",
+    bytes: 1_937_176_612,
+    surahFiles: true,
+  },
+  "khalid-mohanna": {
+    name: "Khalid al-Muhanna",
+    nameAr: "خالد المهنا",
+    source: "https://cdn.mp3quran.net/audio/khalid-mohanna/r1/",
+    bitrate: 48,
+    origin: "mp3quran.net",
+    bytes: 644_410_596,
+    surahFiles: true,
   },
   qahtani: {
     name: "Khalid al-Qahtani",
@@ -244,6 +366,24 @@ export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
     bitrate: 64,
     origin: "EveryAyah.com",
     bytes: 1_178_683_828,
+  },
+  "majed-zamil": {
+    name: "Majid az-Zamil",
+    nameAr: "ماجد الزامل",
+    source: "https://cdn.mp3quran.net/audio/majed-zamil/r1/",
+    bitrate: 160,
+    origin: "mp3quran.net",
+    bytes: 1_726_693_270,
+    surahFiles: true,
+  },
+  "mansour-salimi": {
+    name: "Mansur as-Salimi",
+    nameAr: "منصور السالمي",
+    source: "https://cdn.mp3quran.net/audio/mansour-salimi/r1/",
+    bitrate: 256,
+    origin: "mp3quran.net",
+    bytes: 3_392_518_621,
+    surahFiles: true,
   },
   alafasy: {
     name: "Mishary Rashid al-Afasy",
@@ -309,6 +449,15 @@ export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
     origin: "EveryAyah.com",
     bytes: 1_716_675_642,
   },
+  "mustafa-ismail": {
+    name: "Mustafa Isma'il (Mujawwad)",
+    nameAr: "مصطفى إسماعيل",
+    source: "https://cdn.mp3quran.net/audio/mustafa-ismail/r2/",
+    bitrate: 96,
+    origin: "mp3quran.net",
+    bytes: 3_373_733_731,
+    surahFiles: true,
+  },
   qatami: {
     name: "Nasir al-Qatami",
     nameAr: "ناصر القطامي",
@@ -316,6 +465,15 @@ export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
     bitrate: 128,
     origin: "EveryAyah.com",
     bytes: 1_124_839_033,
+  },
+  "raad-kurdi": {
+    name: "Ra'd al-Kurdi",
+    nameAr: "رعد محمد الكردي",
+    source: "https://cdn.mp3quran.net/audio/raad-kurdi/r1/",
+    bitrate: 128,
+    origin: "mp3quran.net",
+    bytes: 1_997_725_372,
+    surahFiles: true,
   },
   ghamdi: {
     name: "Sa'd al-Ghamdi",
@@ -349,6 +507,24 @@ export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
     origin: "EveryAyah.com",
     bytes: 1_276_765_442,
   },
+  "saleh-habdan": {
+    name: "Salih al-Habdan",
+    nameAr: "صالح الهبدان",
+    source: "https://cdn.mp3quran.net/audio/saleh-habdan/r1/",
+    bitrate: 192,
+    origin: "mp3quran.net",
+    bytes: 2_302_936_382,
+    surahFiles: true,
+  },
+  "wadee-yamani": {
+    name: "Wadi' al-Yamani",
+    nameAr: "وديع اليمني",
+    source: "https://cdn.mp3quran.net/audio/wadee-yamani/r1/",
+    bitrate: 128,
+    origin: "mp3quran.net",
+    bytes: 1_680_645_492,
+    surahFiles: true,
+  },
   salamah: {
     name: "Yasir Salamah",
     nameAr: "ياسر سلامة",
@@ -357,10 +533,24 @@ export const RECITER_INFO: Record<ReciterId, ReciterInfo> = {
     origin: "EveryAyah.com",
     bytes: 1_510_499_403,
   },
+  "yousef-ahmad": {
+    name: "Yusuf bin Nuh Ahmad",
+    nameAr: "يوسف بن نوح أحمد",
+    source: "https://cdn.mp3quran.net/audio/yousef-ahmad/r1/",
+    bitrate: 96,
+    origin: "mp3quran.net",
+    bytes: 1_025_394_084,
+    surahFiles: true,
+  },
 };
 
 export const RECITERS: readonly ReciterId[] = Object.keys(RECITER_INFO);
 
 /** The sets scripts/fetch_audio.py can download into `audio/` for the desktop
  *  (MIRRORS `RECITERS` in that script). */
-export const LOCAL_RECITERS: readonly ReciterId[] = ["shuraym", "shuraym-old", "yasser"];
+export const LOCAL_RECITERS: readonly ReciterId[] = [
+  "shuraym",
+  "shuraym-old",
+  "yasser",
+  "badr-turki",
+];

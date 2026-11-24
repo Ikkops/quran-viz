@@ -229,18 +229,35 @@ describe("ReaderView", () => {
     });
     afterEach(() => width.mockRestore());
 
-    it("goes to the next surah on a long swipe left, and not on a short one", () => {
+    // As in an Arabic mushaf: a swipe right reads on, a swipe left goes back.
+    it("goes to the next surah on a long swipe right, and not on a short one", () => {
       const onNavigate = vi.fn();
       renderReader({ onNavigate });
       const text = screen.getByRole("article", { name: "1:2" });
-      fireEvent.touchStart(text, at(300));
-      fireEvent.touchMove(text, at(270));
+      fireEvent.touchStart(text, at(0));
+      fireEvent.touchMove(text, at(30));
       fireEvent.touchEnd(text, { touches: [] });
       expect(onNavigate).not.toHaveBeenCalled();
-      fireEvent.touchStart(text, at(300));
+      fireEvent.touchStart(text, at(0));
       fireEvent.touchMove(text, at(150));
       fireEvent.touchEnd(text, { touches: [] });
       expect(onNavigate).toHaveBeenCalledWith({ scope: "surah", value: 2 });
+    });
+
+    it("goes to the previous surah on a long swipe left", () => {
+      const onNavigate = vi.fn();
+      const next = { ...verses[0], id: 3, s: 2, a: 1, ar: "الٓمٓ" };
+      renderReader({
+        onNavigate,
+        verses: [...verses, next],
+        surahs: [...surahs, { ...surahs[0], id: 2, number: 2, name: "Al-Baqara" }],
+        target: { scope: "surah", value: 2 },
+      });
+      const text = screen.getByRole("article", { name: "2:1" });
+      fireEvent.touchStart(text, at(300));
+      fireEvent.touchMove(text, at(150));
+      fireEvent.touchEnd(text, { touches: [] });
+      expect(onNavigate).toHaveBeenCalledWith({ scope: "surah", value: 1 });
     });
 
     it("stays at the last surah", () => {
@@ -252,8 +269,8 @@ describe("ReaderView", () => {
         target: { scope: "surah", value: 114 },
       });
       const text = screen.getByRole("article", { name: "114:1" });
-      fireEvent.touchStart(text, at(300));
-      fireEvent.touchMove(text, at(100));
+      fireEvent.touchStart(text, at(0));
+      fireEvent.touchMove(text, at(200));
       expect(document.querySelector("[inert][aria-hidden]")).toBeNull();
       fireEvent.touchEnd(text, { touches: [] });
       expect(onNavigate).not.toHaveBeenCalled();
@@ -267,8 +284,8 @@ describe("ReaderView", () => {
       });
       const text = screen.getByRole("article", { name: "1:1" });
       expect(screen.queryByRole("article", { name: "2:1", hidden: true })).toBeNull();
-      fireEvent.touchStart(text, at(300));
-      fireEvent.touchMove(text, at(200));
+      fireEvent.touchStart(text, at(0));
+      fireEvent.touchMove(text, at(100));
       const peek = document.querySelector<HTMLElement>("[inert][aria-hidden]")!;
       expect(peek).not.toBeNull();
       expect(
@@ -475,7 +492,7 @@ describe("ReaderView recitation outlives the reader", () => {
 
     const { rerender } = render(<Harness open />);
     await userEvent.click(
-      await screen.findByRole("button", { name: /Play from this ayah.*1:2/ }),
+      await screen.findByRole("button", { name: /Play this ayah.*1:2/ }),
     );
     expect(screen.getByTestId("probe")).toHaveTextContent("2 true");
     pause.mockClear();

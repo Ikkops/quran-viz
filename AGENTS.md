@@ -572,17 +572,32 @@ in rubric (`MapMarks.weak`), and shows the share memorised overall and for the
 juz under the pointer.
 
 Review (`lib/hifdh.ts`): the unit is the Madinah mushaf page (`verses.page`),
-kept in `reviews` as `{ due: dayKey, step }` on the `LADDER` 1-3-7-14-30-90
-days. `rateReview(h, pages, rating, today)`: smooth moves a page one step up
-and turns its status 3 back to 2; hard repeats the step; forgot returns it to
-step 0 and turns its status 2 into 3. In the reader the Hafalan bar's
+scheduled by FSRS-6, the scheduler Anki uses (`nextMemory`, ported from
+fsrs-rs 6.6.2 `model.rs` with its 21 default parameters; `hifdh.test.ts`
+replays fsrs-rs's own memory-state test). A page is one card: `reviews` holds
+`{ due, last, s, d }` (stability in days, difficulty 1–10); forgot / hard /
+smooth are Again / Hard / Good. `rateReview(h, pages, rating, today)` moves
+each page's memory, then schedules it where `retrievability` falls to the
+desired retention (`h.retention`, `RETENTION_CHOICES` 85–97%, default 90%,
+the panel's "Recall target"), at most `MAX_INTERVAL` (180) days; pages rated
+together are spread over Anki's fuzz range (`fuzzRange`, from `fuzz.rs`),
+each on the day with the fewest reviews already due (Anki's load balancer,
+made deterministic), so a juz rated at once does not fall due in one day.
+Smooth turns status 3 back to 2, forgot turns 2 into 3. Stored ladder reviews
+(`{ due, step }`, the old 1-3-7-14-30-90 days) are read by `sanitizeHifdh` as
+stability = that interval, difficulty 5. In the reader the Hafalan bar's
 clipboard button rates the memorised pages of the current window
 (`pagesWith(hifdh, scopeVerses, [2, 3])`). `todaysPlan(h, verses, today,
-quota)` gives `learning` (pages with status 1), `recent` (due, step < 3) and
-`old` (due at step ≥ 3 or never reviewed, the longest overdue first, cut to
-`quota`, `qv.hifdh.quota`). Activity → Memorisation
-(`components/hifdh/HifdhPanel.tsx`, a `TABS` entry) shows that plan (a page
-opens in the reader with Hafalan mode switched on, `openForReview`), "Continue
+quota)` gives `learning` (pages with status 1), `recent` (due, last two
+reviews ≤ 7 days apart) and `old` (the other due pages and the never
+reviewed, the lowest chance of recall first, as Anki orders FSRS reviews,
+cut to `quota`, `qv.hifdh.quota`). Not taken from Anki (yet): optimising the
+parameters from a review log (none is kept), leech tagging, easy days.
+Activity → Memorisation (`components/hifdh/HifdhPanel.tsx`, a `TABS` entry)
+shows that plan (a page opens in the reader with Hafalan mode switched on,
+`openForReview`), the progress map (`HifdhProgress.tsx`: one tile per surah
+or juz, filled from the bottom by its memorised share of ayahs from
+`progressBy`, a rubric dot where ayahs need review, a tap opens it), "Continue
 the ayah" (`sambungStarts`: a memorised ayah whose next ayah in the surah is
 memorised too; a miss marks the next ayah status 3, a hit clears it) and the
 stumbled words (`listStumbles`, `removeStumble`). Home shows a "Memorisation
@@ -749,7 +764,9 @@ markers in the text (`TranslationText`); a pressed one shows its note below.
 Transliteration follows the UI language (`transliterationFor`). Reading by
 juz, hizb, rukuʿ or page, the head's title is the surah at the top and the
 division is the bold subtitle. A sideways swipe on the list goes to the next
-(left) or previous (right) window, like ←/→, through `useSwipePager` (`ahead`): the
+(swipe right) or previous (swipe left) window, as pages turn in an Arabic
+mushaf, through `useSwipePager` (`ahead`; the reader maps the pager's +1,
+the pane on the right, to a step back): the
 `overflow-clip` div around the scroller carries the handlers, the track wraps
 the scroller, and a `ReaderPeek` on each side shows the start of that
 neighbour window (static, `inert`, a full-height pane with the list's padding
@@ -862,8 +879,9 @@ everyayah.com into `audio/<id>/SSSAAA.mp3` plus `index.json` (name, bitrate,
 `origin`, `recorded`, file count, `complete`). Desktop reciters
 (`LOCAL_RECITERS`): `shuraym` (Sa'ud ash-Shuraym, 64 kbps, ~530 MB),
 `shuraym-old` (his older recording, QuranicAudio.com, 32 kbps, ~260 MB, one
-`SSS.mp3` per surah: `surahFiles` in `RECITERS`/`RECITER_INFO`) and `yasser`
-(Yasser ad-Dosari, 128 kbps only). A whole-surah reciter plays each ayah as
+`SSS.mp3` per surah: `surahFiles` in `RECITERS`/`RECITER_INFO`), `yasser`
+(Yasser ad-Dosari, 128 kbps only) and `badr-turki` (Badr at-Turki,
+mp3quran.net, 192 kbps, 2.2 GB, one file per surah). A whole-surah reciter plays each ayah as
 a `Clip` of the surah's file (`clipOf` in `data/recitation.ts`, from
 `clips/<id>.json`): `useRecitation` seeks to its start, ends it when
 `timeupdate` passes its end (up to ~250 ms late, inside the pause), and does
@@ -877,8 +895,21 @@ It resumes, validates the MP3 header, rewrites the index every 250 files, and
 reciter, add it to `RECITERS` in the script and to `LOCAL_RECITERS` in
 `data/reciters.ts`. That file is the Android app's catalogue (40 reciters
 from everyayah.com's `recitations.js`: Hafs only, no translations, one bitrate
-each, 64 kbps where published); `bytes` there is exact for the three desktop
-sets and otherwise estimated from 40 sampled ayahs. `audio/` is
+each, 64 kbps where published; plus whole-surah sets from mp3quran.net, see
+below); `bytes` there is exact for the three desktop sets and the mp3quran
+ones, otherwise estimated from 40 sampled ayahs. mp3quran.net publishes ayah
+timings for 115 of its recordings (`/api/v3/ayat_timing/reads`);
+`fetch_reader_data.py mp3quran --mp3quran <id>=<read>` fetches one's 114
+surahs (`mp3quran_rows` checks every ayah is there, in order), turns them into
+`clips/<id>.json` with `surah_clips` (its ayah bounds are starts, so a clip
+ends where the next ayah begins; no word timings) and prints the
+`RECITER_INFO` entry (`surahFiles`, `origin: "mp3quran.net"`). Checked on
+Bandar Balilah's 114: the marks sit within ~0.3 s of the quietest point
+between ayahs. Badr at-Turki's recording there has no timings, in QUL or
+elsewhere, so `align_recitation.py` timed it (ayahs and words) as it did the
+older Shuraym, on an RTX 3060 (CUDA torch wheels, about half an hour for
+25 hours of audio), imported with `fetch_reader_data.py qul --qul
+badr-turki=<out.json>`; in `TIMED_RECITERS`. `audio/` is
 gitignored and is **never** copied into `dist/`: the `localAudio` plugin in
 `vite.config.ts` serves it at `audio/` only from `npm run dev` and `npm run
 preview` (with Range support). On a static host the index fetch fails,
@@ -1025,9 +1056,9 @@ the surah's audio or on first play (`deviceTimings`: read and written with
 Filesystem, fetched from `REMOTE_DATA`, never through the WebView's file
 server; a failed load is retried after 8 s as playback moves on, the `again`
 argument of `useWordTimings`); `build:android` leaves
-`data/timings` out. Each verse row gets a "play from here" button; outside the
-  range it sets the range to that ayah through the end of the scope (of its
-  page in the mushaf). The range follows the view until edited: the "read by"
+`data/timings` out. Each verse row gets a "play this ayah" button (so do the
+  mushaf's ayah and word popovers): it sets the range to that ayah alone, so
+  it plays with its repeats and stops. The range follows the view until edited: the "read by"
   scope in ayah view, the page across the middle of the list in the mushaf
   (`viewIndex`, `pageRangeAt` → `pageAyahs`, clipped to the scope). The
   reader pushes it as the context's `viewRange`; while the playing ayah is
@@ -1113,14 +1144,15 @@ content (translations, topic names, root glosses, CSV headers) is not translated
   the Makki/Madani caveat and the counting note. Opened from Settings, Welcome and
   the info button beside the rail's totals. Its text lives in `t.about`; keep the
   sources list in step with the ETL.
-- **Icon**: `scripts/build_icons.py` sets اِقْرَأْ in Amiri Bold (from
-  `node_modules/@fontsource/amiri`, shaped with HarfBuzz) in lapis with the vowel
-  marks in rubric on paper, and writes `public/favicon.svg`, `favicon-32.png`,
-  `apple-touch-icon.png`, the Android adaptive icon (vector foreground +
-  monochrome layer, `@color/ic_launcher_background` = paper), the legacy mipmap
-  PNGs and every `splash.png`. Needs `pip install uharfbuzz fonttools brotli` and
-  `rsvg-convert`. Never hand-edit the generated files; the rail's brand tile is
-  `favicon.svg`.
+- **Icon**: `scripts/build_icons.py` draws the rub el hizb star (۞: two squares
+  turned against each other, an open centre, filled even-odd) in lapis with a
+  rubric dot on paper, as path data on a 100-unit square (`MAIN`, `ACCENT`; no
+  font, drawn on a Claude Design canvas beside three other marks), and writes
+  `public/favicon.svg`, `favicon-32.png`, `apple-touch-icon.png`, the Android
+  adaptive icon (vector foreground + monochrome layer,
+  `@color/ic_launcher_background` = paper), the legacy mipmap PNGs and every
+  `splash.png`. Needs `rsvg-convert` and ImageMagick (`identify`). Never
+  hand-edit the generated files; the rail's brand tile is `favicon.svg`.
 
 ## Keyboard shortcuts and loading
 

@@ -59,6 +59,16 @@ RECITERS = {
         "origin": "QuranicAudio.com",
         "surahFiles": True,
     },
+    "badr-turki": {
+        "name": "Badr at-Turki",
+        "nameAr": "بدر التركي",
+        # One file per surah. mp3quran.net publishes no ayah timings for it, so
+        # ayah and word times come from scripts/align_recitation.py.
+        "source": "https://cdn.mp3quran.net/audio/badr-turki/r1/",
+        "bitrate": 192,
+        "origin": "mp3quran.net",
+        "surahFiles": True,
+    },
 }
 
 UA = "quran-viz-audio-fetch/1.0"

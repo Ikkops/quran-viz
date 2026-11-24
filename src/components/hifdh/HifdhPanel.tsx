@@ -5,7 +5,9 @@ import type { ReaderTarget } from "../charts/common";
 import { useI18n } from "../../i18n/I18nContext";
 import { splitWords } from "../../data/mushafLayout";
 import {
+  DEFAULT_RETENTION,
   QUOTA_CHOICES,
+  RETENTION_CHOICES,
   listStumbles,
   removeStumble,
   sambungStarts,
@@ -16,6 +18,7 @@ import {
 } from "../../lib/hifdh";
 import { AyahText } from "../reader/AyahText";
 import { Button, Card, QuietIconButton, Select, Sheet } from "../ui";
+import { HifdhProgress } from "./HifdhProgress";
 import { openForReview, pageSpan, useHifdhPlan } from "./plan";
 
 const SHOWN_STUMBLES = 50;
@@ -104,9 +107,28 @@ export function HifdhPanel({
                 options={QUOTA_CHOICES.map((q) => ({ value: String(q), label: n(q) }))}
               />
             </div>
+            <div className="flex flex-col gap-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-sm text-ink">{h.retention}</span>
+                <Select<string>
+                  className="w-24"
+                  size="sm"
+                  ariaLabel={h.retention}
+                  value={String(hifdh.retention ?? DEFAULT_RETENTION)}
+                  onChange={(v) => onHifdh({ ...hifdh, retention: Number(v) })}
+                  options={RETENTION_CHOICES.map((r) => ({
+                    value: String(r),
+                    label: `${n(r * 100)}%`,
+                  }))}
+                />
+              </div>
+              <p className="text-xs text-ink-subtle">{h.retentionHelp}</p>
+            </div>
           </>
         )}
       </Card>
+
+      <HifdhProgress data={data} hifdh={hifdh} onOpen={onOpen} />
 
       <Card className="flex flex-col gap-2 p-4">
         <h2 className="flex items-center gap-2 text-heading text-ink">
