@@ -217,13 +217,35 @@ describe("todaysPlan", () => {
 });
 
 describe("progressBy", () => {
-  it("counts memorised and weak ayahs per surah", () => {
+  it("counts memorised, weak and memorising ayahs per surah, with its range", () => {
     let h = setStatus(emptyHifdh(), 1, 15, 2);
     h = setStatus(h, 14, 22, 3);
+    h = setStatus(h, 41, 45, 1);
     const by = progressBy(h, verses, (v) => v.s);
-    expect(by.get(1)).toEqual({ total: 20, done: 20, weak: 7 });
-    expect(by.get(2)).toEqual({ total: 20, done: 2, weak: 2 });
-    expect(by.get(3)).toEqual({ total: 20, done: 0, weak: 0 });
+    expect(by.get(1)).toEqual({
+      total: 20,
+      done: 20,
+      weak: 7,
+      learning: 0,
+      from: 1,
+      to: 20,
+    });
+    expect(by.get(2)).toEqual({
+      total: 20,
+      done: 2,
+      weak: 2,
+      learning: 0,
+      from: 21,
+      to: 40,
+    });
+    expect(by.get(3)).toEqual({
+      total: 20,
+      done: 0,
+      weak: 0,
+      learning: 5,
+      from: 41,
+      to: 60,
+    });
   });
 });
 

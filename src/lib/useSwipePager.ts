@@ -76,12 +76,14 @@ const NONE = Symbol("none");
  * cheap first screens); otherwise at the first drag, in a transition, and
  * dropped again once the drag settles (heavy panes: charts, whole tabs).
  *
- * Layout: spread `handlers` on a container with `touch-pan-y` that clips
- * sideways (`overflow-hidden`; for non-`ahead` callers it may be clipped only
- * while `sides` is non-empty). React touch handlers are enough: `touch-pan-y`
- * leaves sideways moves to us, so nothing needs `preventDefault`. Inside,
- * `trackRef` on a `relative` track holding the current pane in normal flow
- * and the neighbours.
+ * Layout: spread `handlers` on a container with `touch-pan-y`, as wide as the
+ * pane; it may reach past the pane (the tab views stretch it down to the tab
+ * bar, so their empty space pages too). Inside it, an element clips sideways
+ * (`overflow-hidden`; for non-`ahead` callers it may be clipped only while
+ * `sides` is non-empty) around `trackRef` on a `relative` track holding the
+ * current pane in normal flow and the neighbours. React touch handlers are
+ * enough: `touch-pan-y` leaves sideways moves to us, so nothing needs
+ * `preventDefault`.
  *
  * `current` is anything that changes when the caller moves to a new pane (its
  * index). After a commit the track is held at ∓100% (the neighbour in view)

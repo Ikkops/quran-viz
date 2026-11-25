@@ -12,6 +12,7 @@ import { ActivityPanel } from "../components/home/ActivityPanel";
 import { MarksPanel } from "../components/marks/MarksPanel";
 import { HifdhPanel } from "../components/hifdh/HifdhPanel";
 import type { Hifdh } from "../lib/hifdh";
+import { SWIPE_TO_TAB_BAR } from "../components/shell/Navigation";
 
 type ActivityProps = {
   data: QuranData;
@@ -33,6 +34,13 @@ function Stats({ data, lastRead }: ActivityProps) {
 // To add a tab, add one entry here (and its label in both i18n files).
 const TABS = [
   {
+    id: "hifdh",
+    label: (t: Messages) => t.activity.tabs.hifdh,
+    render: (p: ActivityProps): ReactNode => (
+      <HifdhPanel data={p.data} hifdh={p.hifdh} onHifdh={p.onHifdh} onOpen={p.onOpen} />
+    ),
+  },
+  {
     id: "stats",
     label: (t: Messages) => t.activity.tabs.stats,
     render: (p: ActivityProps) => <Stats {...p} />,
@@ -42,13 +50,6 @@ const TABS = [
     label: (t: Messages) => t.activity.tabs.marks,
     render: (p: ActivityProps): ReactNode => (
       <MarksPanel data={p.data} marks={p.marks} onMarks={p.onMarks} onOpen={p.onOpen} />
-    ),
-  },
-  {
-    id: "hifdh",
-    label: (t: Messages) => t.activity.tabs.hifdh,
-    render: (p: ActivityProps): ReactNode => (
-      <HifdhPanel data={p.data} hifdh={p.hifdh} onHifdh={p.onHifdh} onOpen={p.onOpen} />
     ),
   },
 ] as const;
@@ -62,7 +63,7 @@ export function ActivityView(props: ActivityProps) {
   const { t } = useI18n();
   const [tab, setTab] = usePersistentState<ActivityTab>(
     ACTIVITY_TAB_KEY,
-    "stats",
+    "hifdh",
     persisted.oneOf(TAB_IDS),
   );
   const index = Math.max(0, TAB_IDS.indexOf(tab));
@@ -73,7 +74,16 @@ export function ActivityView(props: ActivityProps) {
     onCommit: (d) => setTab(TAB_IDS[index + d]),
   });
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-4">
+    // The swipe area is the whole view, down to the tab bar, so the empty
+    // space under a short panel pages too.
+    <div
+      data-testid="activity-swipe"
+      className={cx(
+        "mx-auto flex w-full max-w-5xl flex-1 touch-pan-y touch-pinch-zoom flex-col gap-4",
+        SWIPE_TO_TAB_BAR,
+      )}
+      {...handlers}
+    >
       <SegmentedControl<ActivityTab>
         ariaLabel={t.activity.sections}
         value={tab}
@@ -85,11 +95,7 @@ export function ActivityView(props: ActivityProps) {
           keep their shadows and focus rings. */}
       <div
         data-testid="activity-pager"
-        className={cx(
-          "touch-pan-y touch-pinch-zoom",
-          sides.length > 0 && "overflow-hidden",
-        )}
-        {...handlers}
+        className={cx(sides.length > 0 && "overflow-hidden")}
       >
         <div ref={trackRef} className="relative">
           {TABS[index].render(props)}

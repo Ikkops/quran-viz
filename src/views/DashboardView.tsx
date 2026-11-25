@@ -75,6 +75,7 @@ import {
   type CloudLang,
   type VizId,
 } from "./vizDefs";
+import { SWIPE_TO_TAB_BAR } from "../components/shell/Navigation";
 
 const PetaMushaf = lazy(() =>
   import("../components/peta/PetaMushaf").then((m) => ({ default: m.PetaMushaf })),
@@ -699,196 +700,212 @@ export function DashboardView({
   return (
     // The question menu sits beside the chart from MENU_PX of dashboard width
     // (measured, not a media query: CSS zoom leaves those reading the window).
-    <div ref={rootRef} className="flex items-start gap-4">
-      {sideMenu && (
-        <Card className="sticky top-4 w-[17rem] shrink-0 p-2">
-          <QuestionList defs={VIZ_DEFS} value={viz} onChange={pickViz} />
-        </Card>
-      )}
-
-      <Card className="min-w-0 flex-1 p-4">
-        {!sideMenu && (
-          <div className="mb-2 flex items-center gap-2">
-            <Button
-              onClick={() => setMenuOpen(true)}
-              aria-haspopup="dialog"
-              icon={<LayoutGrid size={16} aria-hidden />}
-            >
-              {t.dashboard.allCharts}
-            </Button>
-            <div className="flex items-center gap-0.5 text-sm font-medium tabular-nums text-ink-muted">
-              <Button
-                variant="quiet"
-                onClick={() => stepViz(-1)}
-                aria-label={t.dashboard.prevChart}
-                title={t.dashboard.prevChart}
-                className="w-9 px-0 touch:min-w-11"
-              >
-                <ChevronLeft size={18} aria-hidden />
-              </Button>
-              <span className="min-w-[3.5rem] text-center">
-                {n(vizIndex + 1)} / {n(VIZ_DEFS.length)}
-              </span>
-              <Button
-                variant="quiet"
-                onClick={() => stepViz(1)}
-                aria-label={t.dashboard.nextChart}
-                title={t.dashboard.nextChart}
-                className="w-9 px-0 touch:min-w-11"
-              >
-                <ChevronRight size={18} aria-hidden />
-              </Button>
+    <div className="flex flex-1 flex-col">
+      {/* The swipe area runs down to the tab bar, so the space under the card
+        pages too; the menu beside the chart never pages. */}
+      <div
+        ref={rootRef}
+        data-testid="dashboard-swipe"
+        className={cx(
+          "flex flex-1 touch-pan-y touch-pinch-zoom items-start gap-4",
+          SWIPE_TO_TAB_BAR,
+        )}
+        {...handlers}
+      >
+        {sideMenu && (
+          <Card className="sticky top-4 w-[17rem] shrink-0 p-2">
+            <div data-no-swipe>
+              <QuestionList defs={VIZ_DEFS} value={viz} onChange={pickViz} />
             </div>
-          </div>
+          </Card>
         )}
 
-        {/* Clipped only mid-swipe, so filter popovers and focus rings show
-            otherwise; edge to edge, so panes slide under the card's edge. */}
-        <div
-          data-testid="dashboard-pager"
-          className={cx(
-            "-mx-4 touch-pan-y touch-pinch-zoom px-4",
-            sides.length > 0 && "overflow-hidden",
-          )}
-          {...handlers}
-        >
-          <div ref={trackRef} className="relative">
-            <div className="mb-3 flex flex-wrap items-start gap-x-4 gap-y-2">
-              <div className="min-w-0 flex-[1_1_20rem]">
-                {heading(viz)}
-                <p
-                  className="mt-1 max-w-[68ch] text-base leading-relaxed text-ink"
-                  aria-live="polite"
-                >
-                  {answer ?? t.common.loading}
-                </p>
-                <p className="mt-0.5 text-sm text-ink-subtle">{subtitle}</p>
-              </div>
-              <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
-                {headerControls}
-                {tabular && (
-                  <Button
-                    onClick={() => setShowTable(!showTable)}
-                    title={showTable ? t.dashboard.showChart : t.dashboard.showData}
-                    aria-pressed={showTable}
-                    icon={
-                      showTable ? (
-                        <BarChart3 size={16} aria-hidden />
-                      ) : (
-                        <Table2 size={16} aria-hidden />
-                      )
-                    }
-                  >
-                    {showTable ? t.dashboard.showChart : t.dashboard.showData}
-                  </Button>
-                )}
+        <Card className="min-w-0 flex-1 p-4">
+          {!sideMenu && (
+            <div className="mb-2 flex items-center gap-2">
+              <Button
+                onClick={() => setMenuOpen(true)}
+                aria-haspopup="dialog"
+                icon={<LayoutGrid size={16} aria-hidden />}
+              >
+                {t.dashboard.allCharts}
+              </Button>
+              <div className="flex items-center gap-0.5 text-sm font-medium tabular-nums text-ink-muted">
                 <Button
-                  onClick={handleExport}
-                  title={t.dashboard.png}
-                  disabled={table}
-                  icon={<Download size={16} aria-hidden />}
+                  variant="quiet"
+                  onClick={() => stepViz(-1)}
+                  aria-label={t.dashboard.prevChart}
+                  title={t.dashboard.prevChart}
+                  className="w-9 px-0 touch:min-w-11"
                 >
-                  PNG
+                  <ChevronLeft size={18} aria-hidden />
                 </Button>
-                {tabular && (
-                  <Button
-                    onClick={() => void downloadCsv(csvRows(), `quran-${viz}`)}
-                    title={t.dashboard.csv}
-                    icon={<FileSpreadsheet size={16} aria-hidden />}
+                <span className="min-w-[3.5rem] text-center">
+                  {n(vizIndex + 1)} / {n(VIZ_DEFS.length)}
+                </span>
+                <Button
+                  variant="quiet"
+                  onClick={() => stepViz(1)}
+                  aria-label={t.dashboard.nextChart}
+                  title={t.dashboard.nextChart}
+                  className="w-9 px-0 touch:min-w-11"
+                >
+                  <ChevronRight size={18} aria-hidden />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Clipped only mid-swipe, so filter popovers and focus rings show
+            otherwise; edge to edge, so panes slide under the card's edge. */}
+          <div
+            data-testid="dashboard-pager"
+            className={cx("-mx-4 px-4", sides.length > 0 && "overflow-hidden")}
+          >
+            <div ref={trackRef} className="relative">
+              <div className="mb-3 flex flex-wrap items-start gap-x-4 gap-y-2">
+                <div className="min-w-0 flex-[1_1_20rem]">
+                  {heading(viz)}
+                  <p
+                    className="mt-1 max-w-[68ch] text-base leading-relaxed text-ink"
+                    aria-live="polite"
                   >
-                    CSV
+                    {answer ?? t.common.loading}
+                  </p>
+                  <p className="mt-0.5 text-sm text-ink-subtle">{subtitle}</p>
+                </div>
+                <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
+                  {headerControls}
+                  {tabular && (
+                    <Button
+                      onClick={() => setShowTable(!showTable)}
+                      title={showTable ? t.dashboard.showChart : t.dashboard.showData}
+                      aria-pressed={showTable}
+                      icon={
+                        showTable ? (
+                          <BarChart3 size={16} aria-hidden />
+                        ) : (
+                          <Table2 size={16} aria-hidden />
+                        )
+                      }
+                    >
+                      {showTable ? t.dashboard.showChart : t.dashboard.showData}
+                    </Button>
+                  )}
+                  <Button
+                    onClick={handleExport}
+                    title={t.dashboard.png}
+                    disabled={table}
+                    icon={<Download size={16} aria-hidden />}
+                  >
+                    PNG
                   </Button>
+                  {tabular && (
+                    <Button
+                      onClick={() => void downloadCsv(csvRows(), `quran-${viz}`)}
+                      title={t.dashboard.csv}
+                      icon={<FileSpreadsheet size={16} aria-hidden />}
+                    >
+                      CSV
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <FilterBar
+                  uses={def.uses}
+                  surahs={data.surahs}
+                  filter={filter}
+                  onFilter={changeFilter}
+                  colorMode={colorMode}
+                  onColorMode={changeColorMode}
+                  horizontal={horizontal}
+                  onHorizontal={setHorizontal}
+                  onReset={reset}
+                  dirty={dirty}
+                />
+              </div>
+
+              {pinned && !table && (
+                <div className="mb-3">
+                  <MarkReadout
+                    pinned={pinned}
+                    onOpen={onOpen}
+                    onClear={() => setPinned(null)}
+                  />
+                </div>
+              )}
+
+              <div
+                onPointerDownCapture={(e) => {
+                  pointer.current = e.pointerType || "mouse";
+                }}
+                // A finger inside the chart never pages; a fixed-height chart (it
+                // fits the screen) also keeps the page still so the tooltip can
+                // follow the finger. Tall views, lists and sideways scrollers pan.
+                data-no-swipe
+                data-touch-lock={chartLocksPan || undefined}
+                className={cx(
+                  "w-full rounded-xl",
+                  chartLocksPan && "touch-pinch-zoom",
+                  (table || !def.autoHeight) && tall,
+                  !table && !def.autoHeight && "resize-y overflow-hidden",
+                )}
+              >
+                {table ? (
+                  <DataTable rows={csvRows()} targetOf={targetOfRow} onOpen={onOpen} />
+                ) : (
+                  <div
+                    ref={chartRef}
+                    className={cx("w-full", !def.autoHeight && "h-full")}
+                  >
+                    {renderChart(viz, filteredVerses, surahData, true)}
+                  </div>
                 )}
               </div>
-            </div>
-
-            <div className="mb-3">
-              <FilterBar
-                uses={def.uses}
-                surahs={data.surahs}
-                filter={filter}
-                onFilter={changeFilter}
-                colorMode={colorMode}
-                onColorMode={changeColorMode}
-                horizontal={horizontal}
-                onHorizontal={setHorizontal}
-                onReset={reset}
-                dirty={dirty}
-              />
-            </div>
-
-            {pinned && !table && (
-              <div className="mb-3">
-                <MarkReadout
-                  pinned={pinned}
-                  onOpen={onOpen}
-                  onClear={() => setPinned(null)}
-                />
-              </div>
-            )}
-
-            <div
-              onPointerDownCapture={(e) => {
-                pointer.current = e.pointerType || "mouse";
-              }}
-              // A finger inside the chart never pages; a fixed-height chart (it
-              // fits the screen) also keeps the page still so the tooltip can
-              // follow the finger. Tall views, lists and sideways scrollers pan.
-              data-no-swipe
-              data-touch-lock={chartLocksPan || undefined}
-              className={cx(
-                "w-full rounded-xl",
-                chartLocksPan && "touch-pinch-zoom",
-                (table || !def.autoHeight) && tall,
-                !table && !def.autoHeight && "resize-y overflow-hidden",
-              )}
-            >
-              {table ? (
-                <DataTable rows={csvRows()} targetOf={targetOfRow} onOpen={onOpen} />
-              ) : (
-                <div ref={chartRef} className={cx("w-full", !def.autoHeight && "h-full")}>
-                  {renderChart(viz, filteredVerses, surahData, true)}
+              {def.uses.color && !table && (
+                <div className="mt-3 border-t border-line pt-3">
+                  <Legend
+                    colorMode={colorMode}
+                    pie={theme.palette.pie}
+                    activeKeys={activeKeySet}
+                    onToggle={toggleKey}
+                    ayahLevel={viz === "length" && metric !== "avgWords"}
+                  />
                 </div>
               )}
-            </div>
-            {def.uses.color && !table && (
-              <div className="mt-3 border-t border-line pt-3">
-                <Legend
-                  colorMode={colorMode}
-                  pie={theme.palette.pie}
-                  activeKeys={activeKeySet}
-                  onToggle={toggleKey}
-                  ayahLevel={viz === "length" && metric !== "avgWords"}
-                />
-              </div>
-            )}
 
-            {sides.map((d) => {
-              const peekViz = vizAt(d);
-              const scope = peekScope(peekViz);
-              return (
-                <div
-                  key={d}
-                  aria-hidden
-                  // `inert` is not in React 18's types; passed through as an attribute.
-                  {...({ inert: "" } as object)}
-                  className={cx(
-                    "absolute inset-y-0 w-full overflow-hidden",
-                    d === 1 ? "left-full" : "right-full",
-                  )}
-                >
-                  {heading(peekViz)}
+              {sides.map((d) => {
+                const peekViz = vizAt(d);
+                const scope = peekScope(peekViz);
+                return (
                   <div
-                    className={cx("mt-3 w-full", !VIZ_BY_ID[peekViz].autoHeight && tall)}
+                    key={d}
+                    aria-hidden
+                    // `inert` is not in React 18's types; passed through as an attribute.
+                    {...({ inert: "" } as object)}
+                    className={cx(
+                      "absolute inset-y-0 w-full overflow-hidden",
+                      d === 1 ? "left-full" : "right-full",
+                    )}
                   >
-                    {renderChart(peekViz, scope.verses, scope.surahData, false)}
+                    {heading(peekViz)}
+                    <div
+                      className={cx(
+                        "mt-3 w-full",
+                        !VIZ_BY_ID[peekViz].autoHeight && tall,
+                      )}
+                    >
+                      {renderChart(peekViz, scope.verses, scope.surahData, false)}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      </div>
 
       <Sheet
         open={menuOpen && !sideMenu}

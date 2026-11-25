@@ -15,7 +15,7 @@ import { prefetchJson } from "./data/useLazyJson";
 import { persisted, readPersisted, usePersistentState } from "./lib/usePersistentState";
 import { useTheme } from "./theme/ThemeContext";
 import type { ColorMode, ReaderTarget } from "./components/charts/common";
-import { Card, Skeleton } from "./components/ui";
+import { Card, Skeleton, cx } from "./components/ui";
 import { BOOKMARKS_KEY } from "./lib/bookmarks";
 import { HIFDH_KEY, emptyHifdh, sanitizeHifdh, type Hifdh } from "./lib/hifdh";
 import {
@@ -61,6 +61,8 @@ const SettingsView = lazy(() =>
 const VIZ_KEY = "qv.viz";
 /** The Activity page's tab (views/ActivityView.tsx, kept out of this chunk). */
 const ACTIVITY_TAB_KEY = "qv.activity.tab";
+/** The views that page sideways (`useSwipePager`) and fill the screen. */
+const SWIPE_VIEWS: ReadonlySet<View> = new Set(["activity", "structure", "dashboard"]);
 const ReaderView = lazy(() => readerChunk().then((m) => ({ default: m.ReaderView })));
 import type { ExploreTarget } from "./components/reader/VerseContextPanel";
 import type { ChartSettings } from "./views/SettingsView";
@@ -79,7 +81,12 @@ import type { WelcomeChoice } from "./components/panels/Welcome";
 import { parseHash, serializeHash, type View } from "./lib/hash";
 import { shortcutFor } from "./lib/shortcuts";
 import { effectiveUiScale, isWideLayout, useViewportWidth } from "./lib/uiScale";
-import { BottomTabs, TopBar, type NavProps } from "./components/shell/Navigation";
+import {
+  BottomTabs,
+  TAB_BAR_ROOM,
+  TopBar,
+  type NavProps,
+} from "./components/shell/Navigation";
 import { useI18n } from "./i18n/I18nContext";
 import { searchEditionFor } from "./data/searchEdition";
 import { loadTranslation } from "./data/useTranslation";
@@ -443,6 +450,8 @@ export default function App() {
     }
   };
   const reading = !!(data && reader);
+  /** Views whose sideways swipe area runs down to the tab bar (`SWIPE_TO_TAB_BAR`). */
+  const fillsScreen = !reading && SWIPE_VIEWS.has(view);
   // Opened on a reader link: the view under the reader (shown when it closes)
   // waits until the reader is up, then draws in an idle moment; closing the
   // reader first draws it at once.
@@ -484,7 +493,15 @@ export default function App() {
           } as CSSProperties
         }
       >
-        <div className="min-w-0">
+        <div
+          className={cx(
+            "min-w-0",
+            // The swiping views fill the screen down to the tab bar, so their
+            // swipe area reaches the bottom. Only those: a centred grid like
+            // Settings' would size to its content as a flex item.
+            fillsScreen && "flex min-h-[calc(100*var(--zvh))] flex-col",
+          )}
+        >
           {!reading && <TopBar {...navProps} />}
           {data && reader && (
             <Suspense fallback={<ReaderSkeleton />}>
@@ -514,7 +531,11 @@ export default function App() {
           )}
           <main
             hidden={reading}
-            className="mx-auto max-w-7xl px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-5"
+            className={cx(
+              "mx-auto max-w-7xl px-4 pt-5",
+              TAB_BAR_ROOM,
+              fillsScreen && "flex w-full flex-1 flex-col",
+            )}
           >
             {loading && <LoadingSkeleton />}
             {error && (

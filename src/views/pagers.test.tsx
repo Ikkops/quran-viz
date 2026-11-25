@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { QuranData, Surah, Verse } from "../types/quran";
 import { emptyHifdh } from "../lib/hifdh";
@@ -111,10 +111,15 @@ describe("Structure swipe", () => {
     expect(stored("qv.structure.tab")).toBe("overview");
     expect(screen.getByText("overview body")).toBeInTheDocument();
   });
+  it("pages from the empty space under the card too", () => {
+    structure();
+    swipe("structure-swipe", -150);
+    expect(stored("qv.structure.tab")).toBe("manzil");
+  });
 });
 
 describe("Activity swipe", () => {
-  it("moves stats → marks", () => {
+  const activity = () =>
     render(
       <ActivityView
         data={data}
@@ -125,10 +130,24 @@ describe("Activity swipe", () => {
         onOpen={() => {}}
       />,
     );
+  it("opens on Memorisation, the first tab, and moves on to Statistics", () => {
+    activity();
+    const group = screen.getByRole("group", { name: "Activity sections" });
+    expect(
+      within(group)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Memorisation", "Statistics", "Bookmarks"]);
+    expect(screen.getByText("hifdh body")).toBeInTheDocument();
     swipe("activity-pager", -150);
-    expect(stored("qv.activity.tab")).toBe("marks");
-    expect(screen.getByText("marks body")).toBeInTheDocument();
-    expect(screen.queryByText("stats body")).toBeNull();
+    expect(stored("qv.activity.tab")).toBe("stats");
+    expect(screen.getByText("stats body")).toBeInTheDocument();
+    expect(screen.queryByText("hifdh body")).toBeNull();
+  });
+  it("pages from the empty space under the panel too", () => {
+    activity();
+    swipe("activity-swipe", -150);
+    expect(stored("qv.activity.tab")).toBe("stats");
   });
 });
 
@@ -159,7 +178,8 @@ describe("Dashboard swipe", () => {
     expect(stored("qv.viz")).toBe("length");
     expect(screen.getByRole("heading", { name: "Surah length" })).toBeInTheDocument();
 
-    swipe("dashboard-pager", -150);
+    // From the empty space under the card too.
+    swipe("dashboard-swipe", -150);
     expect(stored("qv.viz")).toBe("correlation");
     expect(screen.getByText("correlation body")).toBeInTheDocument();
   });

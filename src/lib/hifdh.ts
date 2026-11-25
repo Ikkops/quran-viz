@@ -358,22 +358,38 @@ export function todaysPlan(
   };
 }
 
-/** Memorised ayahs (status 2 or 3, of which `weak` are 3) out of `total`,
- *  per group (`key` of each verse: its surah, its juz). */
+/** One group's memorisation (a surah, a juz…): its ayah count, how many are
+ *  memorised (`done`, needing review or not), need review (`weak`) and are
+ *  being memorised (`learning`), and its first and last ayah ids. */
+export interface Progress {
+  total: number;
+  done: number;
+  weak: number;
+  learning: number;
+  from: number;
+  to: number;
+}
+
+/** Memorisation per group of `verses` (in mushaf order), keyed by `key`. */
 export function progressBy<V extends { id: number }>(
   h: Hifdh,
   verses: readonly V[],
   key: (v: V) => number,
-): Map<number, { total: number; done: number; weak: number }> {
-  const out = new Map<number, { total: number; done: number; weak: number }>();
+): Map<number, Progress> {
+  const out = new Map<number, Progress>();
   verses.forEach((v) => {
     const k = key(v);
-    const g = out.get(k) ?? { total: 0, done: 0, weak: 0 };
+    let g = out.get(k);
+    if (!g) {
+      g = { total: 0, done: 0, weak: 0, learning: 0, from: v.id, to: v.id };
+      out.set(k, g);
+    }
     const st = statusOf(h, v.id);
     g.total++;
+    g.to = v.id;
     if (st >= 2) g.done++;
     if (st === 3) g.weak++;
-    out.set(k, g);
+    if (st === 1) g.learning++;
   });
   return out;
 }
