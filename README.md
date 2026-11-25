@@ -1,4 +1,4 @@
-# Quran — Data Visualization
+# Qurani
 
 A static React + TypeScript app for reading the Quran and exploring it
 quantitatively: a reader, a dashboard of charts, and the mushaf's structure. It

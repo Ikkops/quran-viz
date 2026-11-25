@@ -18,7 +18,7 @@ Qur'anic text.
 
 ## Product Purpose
 
-quran-viz lets a learner see the Qur'an's structure through data (length, place of revelation,
+Qurani lets a learner see the Qur'an's structure through data (length, place of revelation,
 revelation order, juz/hizb/page divisions, vocabulary, roots, topics, similar ayahs) and then land
 on the exact ayah with its translation, tafsir, asbab al-nuzul and recitation. Success: from any
 chart, card or search, a learner reaches the ayah in one step, and from any ayah reaches its
@@ -55,7 +55,8 @@ shown honestly, including where scholars differ.
 
 ## Brand Commitments
 
-- Name: "Al-Qur'an — Visualisasi Data" (ID) / quran-viz.
+- Name: "Qurani" in both languages (قرآني, "of the Qur'an"). The repository, project folder,
+  Android package id (`io.github.ikkops.quranviz`) and storage keys keep the old `quran-viz` name.
 - Qur'anic Arabic is shown faithfully and never decorated, cropped mid-ayah or used as ornament.
 - Differences of scholarly opinion (e.g. Makkiyah/Madaniyah of specific ayahs) are stated, not
   hidden.

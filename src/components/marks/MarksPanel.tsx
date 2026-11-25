@@ -371,7 +371,7 @@ export function MarksPanel({
             onClick={() =>
               void downloadText(
                 JSON.stringify(marks, null, 2),
-                `quran-viz-bookmarks-${dayKey(new Date())}.json`,
+                `qurani-bookmarks-${dayKey(new Date())}.json`,
                 "application/json",
               )
             }

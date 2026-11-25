@@ -3,7 +3,7 @@ import { defineConfig } from "vitepress";
 // The docs site: `npm run docs:dev` to write, `npm run docs:build` for the
 // static site that .github/workflows/docs.yml publishes to GitHub Pages.
 export default defineConfig({
-  title: "quran-viz docs",
+  title: "Qurani docs",
   description: "How to use the Qur'an app, and how it works inside.",
   base: "/quran-viz/",
   lang: "en",

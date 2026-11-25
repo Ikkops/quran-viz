@@ -4,6 +4,12 @@ Context for agents working in `quran-viz/`. The workspace layout, reference
 corpus, and the juz-writing protocol are in `../AGENTS.md`; this file covers the
 app: commands, ETL, data gotchas, runtime architecture, and UI patterns.
 
+The app is called **Qurani** (launcher label, page title, Home's top bar,
+APK `qurani-1.0.<n>.apk`, the docs). The repository, this folder, the Android
+package id `io.github.ikkops.quranviz`, the `qv.*` storage keys and the backup
+and sync format tags keep `quran-viz`: changing the package id would make
+Android treat it as another app (no update over the old one, its data lost).
+
 Readable docs for people (how to use the app, how it works) live in `docs/`
 (VitePress, `npm run docs:dev`, published to GitHub Pages by
 `.github/workflows/docs.yml`). When a change alters what a learner sees or
@@ -55,7 +61,10 @@ exists, the script gunzips it automatically) **and** `../reference/quran-refs/qu
   downloadable tafsirs out), then `npx cap sync android` copies `dist/` into
   `android/app/src/main/assets/public/` (gitignored). `.github/workflows/android.yml`
   builds it; `versionCode` = run number and release signing both come from env
-  vars in `android/app/build.gradle`. In the app, `<a download>` does nothing, so
+  vars in `android/app/build.gradle`. A push builds `main` as it is when the run
+  starts (`ref: main`, `BUILD_SHA`), not the commit that queued it: quick merges
+  queue their runs out of order and the newest cancels the rest, which once
+  released v1.0.44 from the first of three merges. In the app, `<a download>` does nothing, so
   `lib/export.ts` routes PNG/CSV through `@capacitor/filesystem` + `@capacitor/share`
   when `Capacitor.isNativePlatform()`. `core.fileMode` is false here: keep
   `android/gradlew` at mode 100755 in the index (`git update-index --chmod=+x`).
@@ -1145,8 +1154,8 @@ localStorage is per origin, so settings only carry over on the same host:port.
 ## Sync between devices
 
 Settings → Sync (`components/settings/SyncSettings.tsx`) keeps one encrypted
-copy in a secret gist in the learner's GitHub account (description "quran-viz
-sync", file `quran-viz-sync.json`); a fine-grained token with Gists read and
+copy in a secret gist in the learner's GitHub account (description "Qurani
+sync", file `qurani-sync.json`); a fine-grained token with Gists read and
 write, and a passphrase, are stored in `qv.sync.config` on each device. Code in
 `lib/sync/`:
 - `changes.ts`, the only part the app imports at start-up: `SYNCED_PREFS`

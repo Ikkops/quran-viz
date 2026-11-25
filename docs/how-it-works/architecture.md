@@ -1,6 +1,6 @@
 # Architecture
 
-quran-viz has no backend. It runs in two stages:
+Qurani has no backend. (The repository and project folder keep the older name, `quran-viz`.) It runs in two stages:
 
 ```text
  build time (Python)                         run time (browser or Android WebView)

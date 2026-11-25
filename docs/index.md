@@ -1,6 +1,6 @@
-# quran-viz
+# Qurani
 
-quran-viz is a Qur'an reader and study app. It shows the mushaf's structure as data (lengths, places of revelation, divisions, vocabulary, roots, topics, similar ayahs) and takes you from any chart, card or search to the ayah itself, with its translation, tafsir, asbab al-nuzul and recitation. It also helps you memorise: it plans each day's review and remembers how each page went.
+Qurani is a Qur'an reader and study app. It shows the mushaf's structure as data (lengths, places of revelation, divisions, vocabulary, roots, topics, similar ayahs) and takes you from any chart, card or search to the ayah itself, with its translation, tafsir, asbab al-nuzul and recitation. It also helps you memorise: it plans each day's review and remembers how each page went.
 
 The same app runs in a desktop browser and as an Android app, offline. Its interface is in English and Indonesian.
 

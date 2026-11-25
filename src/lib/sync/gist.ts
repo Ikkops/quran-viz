@@ -3,8 +3,8 @@
 // revision, so GitHub keeps the history. Only `fetch`, no SDK.
 
 const API = "https://api.github.com";
-export const GIST_FILE = "quran-viz-sync.json";
-export const GIST_DESCRIPTION = "quran-viz sync";
+export const GIST_FILE = "qurani-sync.json";
+export const GIST_DESCRIPTION = "Qurani sync";
 
 export type SyncProblem = "token" | "offline" | "github" | "passphrase" | "format";
 

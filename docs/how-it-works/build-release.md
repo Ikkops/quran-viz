@@ -30,6 +30,8 @@ All of these should pass: `npx vitest run`, the Python tests, `npx eslint .` (no
 - **On a pull request:** it runs the tests and builds a signed APK, attached to the run so it can be tried before merging.
 - **On a push to `main`:** it does the same and publishes a release `v1.0.<run number>` with the APK. Obtainium picks that up as an update.
 
+A push builds `main` as it is when the run starts, not the commit that queued the run. When several pull requests merge in quick succession, GitHub can start their runs out of order, and the newest run cancels the others; building the tip makes sure the release carries all of them.
+
 The release build sets `VITE_DATA_REF` to its own commit. The app then downloads tafsirs and word timings from exactly that commit's `public/data/`, so an installed app never meets a newer file format. The signing key lives outside the repository. `scripts/android-set-secrets.sh` copies it into the repository's Actions secrets once. Keep a backup of it: a lost key means uninstalling the app to update it.
 
 Native Java code (fullscreen, the storage plugin) is compiled only by CI. Check the pull request's `apk` job after changing it.
