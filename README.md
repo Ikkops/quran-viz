@@ -5,7 +5,10 @@ quantitatively: a reader, a dashboard of charts, and the mushaf's structure. It
 is backed by the **quran-database-main** SQLite dataset and the QUL corpus,
 turned into static JSON at build time. The same build ships as an Android app.
 
-[`AGENTS.md`](AGENTS.md) is the full guide (commands, data pipeline, runtime
+The documentation, how to use the app and how it works, is at
+<https://ikkops.github.io/quran-viz/> (sources in [`docs/`](docs/), built with
+VitePress: `npm run docs:dev`). [`AGENTS.md`](AGENTS.md) is the full reference
+for developers and coding agents (commands, data pipeline, runtime
 architecture, UI patterns); [`PRODUCT.md`](PRODUCT.md) and
 [`DESIGN.md`](DESIGN.md) say who the app is for and how it should look.
 
