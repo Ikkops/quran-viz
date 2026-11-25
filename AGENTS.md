@@ -661,7 +661,9 @@ hidden for it. The old Charts | Map tabs and `qv.dashboard.tab` are gone:
 (3 tabs) page sideways with `useSwipePager`; the dashboard wraps like its
 stepper, the tabs do not. The swipe handlers sit on the view's outer wrapper
 (`*-swipe` test ids), which runs to the tab bar: `App` makes the content
-column and `<main>` flex columns that fill the screen while a view shows, the
+column and `<main>` flex columns that fill the screen for these three views
+only (`SWIPE_VIEWS`; a centred grid such as Settings' would size to its
+content as a flex item), the
 wrapper is `flex-1` plus `SWIPE_TO_TAB_BAR` (it reaches through `<main>`'s
 bottom padding, `TAB_BAR_ROOM`, both in `components/shell/Navigation.tsx`), so
 the empty space under a short pane pages too. Inside, the pager (`*-pager`)

@@ -61,6 +61,8 @@ const SettingsView = lazy(() =>
 const VIZ_KEY = "qv.viz";
 /** The Activity page's tab (views/ActivityView.tsx, kept out of this chunk). */
 const ACTIVITY_TAB_KEY = "qv.activity.tab";
+/** The views that page sideways (`useSwipePager`) and fill the screen. */
+const SWIPE_VIEWS: ReadonlySet<View> = new Set(["activity", "structure", "dashboard"]);
 const ReaderView = lazy(() => readerChunk().then((m) => ({ default: m.ReaderView })));
 import type { ExploreTarget } from "./components/reader/VerseContextPanel";
 import type { ChartSettings } from "./views/SettingsView";
@@ -448,6 +450,8 @@ export default function App() {
     }
   };
   const reading = !!(data && reader);
+  /** Views whose sideways swipe area runs down to the tab bar (`SWIPE_TO_TAB_BAR`). */
+  const fillsScreen = !reading && SWIPE_VIEWS.has(view);
   // Opened on a reader link: the view under the reader (shown when it closes)
   // waits until the reader is up, then draws in an idle moment; closing the
   // reader first draws it at once.
@@ -492,9 +496,10 @@ export default function App() {
         <div
           className={cx(
             "min-w-0",
-            // Views fill the screen down to the tab bar, so a pager's swipe
-            // area reaches the bottom (not while reading: <main> is hidden).
-            !reading && "flex min-h-[calc(100*var(--zvh))] flex-col",
+            // The swiping views fill the screen down to the tab bar, so their
+            // swipe area reaches the bottom. Only those: a centred grid like
+            // Settings' would size to its content as a flex item.
+            fillsScreen && "flex min-h-[calc(100*var(--zvh))] flex-col",
           )}
         >
           {!reading && <TopBar {...navProps} />}
@@ -529,7 +534,7 @@ export default function App() {
             className={cx(
               "mx-auto max-w-7xl px-4 pt-5",
               TAB_BAR_ROOM,
-              !reading && "flex w-full flex-1 flex-col",
+              fillsScreen && "flex w-full flex-1 flex-col",
             )}
           >
             {loading && <LoadingSkeleton />}
