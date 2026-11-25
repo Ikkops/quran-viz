@@ -5,10 +5,13 @@
 
 export const BACKUP_APP = "quran-viz";
 
-/** Where audio is kept is a path on this device; it does not travel. */
-const SKIP = new Set(["qv.audio.location"]);
+/** Where audio is kept is a path on this device; it does not travel. Nor do
+ *  sync's token, passphrase and state, or this install's id. */
+const SKIP = new Set(["qv.audio.location", "qv.device"]);
 const mine = (k: string) =>
-  (k.startsWith("qv.") || k === "quranviz.theme") && !SKIP.has(k);
+  (k.startsWith("qv.") || k === "quranviz.theme") &&
+  !SKIP.has(k) &&
+  !k.startsWith("qv.sync.");
 
 export interface Backup {
   app: typeof BACKUP_APP;

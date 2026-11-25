@@ -14,6 +14,7 @@ import {
   countStatus,
   emptyHifdh,
   sanitizeHifdh,
+  setRetention,
   setStatus,
   statusOf,
   stumbleCount,
@@ -59,14 +60,34 @@ describe("sanitizeHifdh", () => {
     expect(sanitizeHifdh({ status: "0129" })).toBeUndefined();
   });
 
-  it("repairs the length and drops bad stumbles", () => {
+  it("repairs the length and drops bad stumbles, keeping removal markers", () => {
     const h = sanitizeHifdh({
       status: "0123",
       stumbles: { "5:1": { n: 2, at: 9 }, bad: { n: 1, at: 1 }, "6:0": { n: 0, at: 1 } },
     });
     expect(h?.status).toHaveLength(6236);
     expect(h && statusOf(h, 4)).toBe(3);
-    expect(h?.stumbles).toEqual({ "5:1": { n: 2, at: 9 } });
+    // A zero count is a removed stumble, kept so sync doesn't bring it back.
+    expect(h?.stumbles).toEqual({ "5:1": { n: 2, at: 9 }, "6:0": { n: 0, at: 1 } });
+    expect(h && listStumbles(h)).toEqual([{ id: 5, w: 1, n: 2, at: 9 }]);
+  });
+
+  it("stamps status changes, retention and ratings for sync", () => {
+    let h = setStatus(emptyHifdh(), 1, 3, 2, 100);
+    expect(h.statusAt).toEqual({ 1: 100, 2: 100, 3: 100 });
+    // Ayahs already at that status keep their time.
+    h = setStatus(h, 2, 4, 2, 200);
+    expect(h.statusAt).toEqual({ 1: 100, 2: 100, 3: 100, 4: 200 });
+    h = rateReview(h, [{ page: 1, from: 1, to: 4 }], "forgot", "2026-11-25", 300);
+    expect(h.reviews[1].at).toBe(300);
+    expect(h.statusAt).toEqual({ 1: 300, 2: 300, 3: 300, 4: 300 });
+    expect(setRetention(h, 0.95, 400)).toMatchObject({
+      retention: 0.95,
+      retentionAt: 400,
+    });
+    const back = sanitizeHifdh(JSON.parse(JSON.stringify(setRetention(h, 0.95, 400))));
+    expect(back).toMatchObject({ retentionAt: 400, statusAt: h.statusAt });
+    expect(back?.reviews[1].at).toBe(300);
   });
 
   it("reads ladder reviews as FSRS memory", () => {

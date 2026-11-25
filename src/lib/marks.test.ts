@@ -32,24 +32,40 @@ describe("marks", () => {
     expect(movePin(m, "p1", 20, 3).pins[0].ayah).toBeNull();
   });
 
-  it("adds, renames, recolours and deletes", () => {
+  it("adds, renames, recolours and deletes, leaving a marker for sync", () => {
     let m = addPin(initialMarks(names), "  Hafalan ", MARK_COLORS[0], 7, 1);
-    expect(m.pins[1]).toMatchObject({ id: "p2", name: "Hafalan", ayah: 7 });
+    const pin = m.pins[1];
+    expect(pin).toMatchObject({ name: "Hafalan", ayah: 7, t: 1 });
+    // Ids are unique across devices, not "p2" on both.
+    expect(pin.id).toMatch(/^p1[a-z0-9]{4}$/);
     expect(addPin(m, "   ", MARK_COLORS[0])).toBe(m);
     m = addCollection(m, "Doa", MARK_COLORS[2], 201, 1);
-    expect(m.collections[1].items).toEqual([{ id: 201, note: "", at: 1 }]);
-    m = editMark(m, "c2", { name: "Doa-doa", color: MARK_COLORS[3] });
-    expect(m.collections[1]).toMatchObject({ name: "Doa-doa", color: MARK_COLORS[3] });
-    expect(editMark(m, "c2", { name: "" }).collections[1].name).toBe("Doa-doa");
-    m = deleteMark(m, "p2");
+    const col = m.collections[1].id;
+    expect(m.collections[1].items).toEqual([{ id: 201, note: "", at: 1, t: 1 }]);
+    m = editMark(m, col, { name: "Doa-doa", color: MARK_COLORS[3] }, 2);
+    expect(m.collections[1]).toMatchObject({
+      name: "Doa-doa",
+      color: MARK_COLORS[3],
+      t: 2,
+    });
+    expect(editMark(m, col, { name: "" }).collections[1].name).toBe("Doa-doa");
+    m = deleteMark(m, pin.id, 3);
     expect(m.pins).toHaveLength(1);
+    expect(m.gone).toEqual({ [`p:${pin.id}`]: 3 });
   });
 
   it("toggles an ayah in a collection and keeps its note", () => {
     let m = toggleInCollection(initialMarks(names), "c1", 5, 1);
-    m = setItemNote(m, "c1", 5, "note");
-    expect(m.collections[0].items[0]).toEqual({ id: 5, note: "note", at: 1 });
-    expect(toggleInCollection(m, "c1", 5).collections[0].items).toEqual([]);
+    m = setItemNote(m, "c1", 5, "note", 2);
+    expect(m.collections[0].items[0]).toEqual({ id: 5, note: "note", at: 1, t: 2 });
+    const off = toggleInCollection(m, "c1", 5, 3);
+    expect(off.collections[0].items).toEqual([]);
+    expect(off.gone).toEqual({ "i:c1:5": 3 });
+    // Times and markers survive storage.
+    expect(sanitizeMarks(JSON.parse(JSON.stringify(off)))?.gone).toEqual({ "i:c1:5": 3 });
+    expect(sanitizeMarks(JSON.parse(JSON.stringify(m)))?.collections[0].items[0].t).toBe(
+      2,
+    );
   });
 
   it("indexes marks by ayah", () => {

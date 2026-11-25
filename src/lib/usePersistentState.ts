@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { noteLocalChange, onSyncApplied } from "./sync/changes";
 
 /** Read `key` from localStorage, falling back to `initial` when it is missing,
  *  unparsable, or rejected by `sanitize`. */
@@ -35,14 +36,33 @@ export function usePersistentState<T>(
   sanitize?: (raw: unknown) => T | undefined,
 ) {
   const [value, setValue] = useState<T>(() => readPersisted(key, initial, sanitize));
+  const mounted = useRef(false);
 
   useEffect(() => {
+    const json = JSON.stringify(value);
+    let changed = false;
     try {
-      window.localStorage.setItem(key, JSON.stringify(value));
+      changed = window.localStorage.getItem(key) !== json;
+      if (changed) window.localStorage.setItem(key, json);
     } catch {
       /* ignore (quota / private mode) */
     }
+    // A change the learner made (not the first write of a default, nor a
+    // value sync just stored): sync stamps it and picks it up.
+    if (changed && mounted.current) noteLocalChange(key);
+    mounted.current = true;
   }, [key, value]);
+
+  // Sync stored a merged value: show it.
+  useEffect(
+    () =>
+      onSyncApplied(
+        (keys) => keys.includes(key) && setValue(readPersisted(key, initial, sanitize)),
+      ),
+    // `initial` and `sanitize` are fresh on every render; the key is what matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [key],
+  );
 
   // Another tab wrote this key: take its value, or this tab's next write
   // would put its own stale copy back over it (a bookmark added there, gone).

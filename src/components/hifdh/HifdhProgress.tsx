@@ -6,6 +6,7 @@ import { useI18n } from "../../i18n/I18nContext";
 import { countStatus, progressBy, type Hifdh, type Progress } from "../../lib/hifdh";
 import { Button, Card, SegmentedControl, cx } from "../ui";
 import { SurahNameArt } from "../home/SurahRow";
+import { recallStats, useReviewLog } from "../../lib/reviewLog";
 
 type By = "surah" | "juz";
 
@@ -70,6 +71,10 @@ export function HifdhProgress({
     [hifdh, verses, by],
   );
   const all = useMemo(() => countStatus(hifdh), [hifdh]);
+  const log = useReviewLog();
+  // The 30 days end when the card opened; ratings made since still count.
+  const [opened] = useState(() => Date.now());
+  const recall = useMemo(() => recallStats(log, opened), [log, opened]);
   const whole = {
     total: verses.length,
     done: all[2] + all[3],
@@ -140,6 +145,11 @@ export function HifdhProgress({
             </li>
           ))}
         </ul>
+        {recall.reviews > 0 && (
+          <p className="text-sm text-ink-muted">
+            {h.progressRecall(n(recall.reviews), pct(recall.recalled, recall.reviews))}
+          </p>
+        )}
       </div>
 
       {/* The map is for the eye and the finger; keyboards and screen readers

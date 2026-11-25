@@ -195,12 +195,41 @@ export const en = {
       "Home lists where your recent reading stopped: one place per stretch of reading, so scrolling on through a surah moves its place along instead of adding more.",
     backup: {
       title: "Backup",
-      help: "Bookmarks, memorisation, reading activity and settings are kept only on this device. Save them to one file to keep them safe or to move to another device. Downloaded audio is not included.",
+      help: "Bookmarks, memorisation, reading activity and settings are kept on this device (and, with Sync on, in your encrypted copy on GitHub). Save them to one file to keep them safe or to move to another device. Downloaded audio is not included.",
       save: "Save a backup",
       restore: "Restore from a backup",
       confirm:
         "Replace everything on this device (bookmarks, memorisation, reading activity, settings) with this backup?",
       bad: "That file isn't a quran-viz backup.",
+    },
+    sync: {
+      title: "Sync between devices",
+      help: "Keeps bookmarks, memorisation, reviews, reading time and reading settings the same on your phone and computer. They are stored in a private gist in your GitHub account, encrypted with your passphrase before they leave the device. Theme, fonts and sizes stay per device.",
+      step: "First, create a GitHub token that can only use gists:",
+      tokenLink: "New fine-grained token on GitHub",
+      stepPermission:
+        "Under Account permissions, set Gists to Read and write, then copy the token.",
+      token: "GitHub token",
+      passphrase: "Passphrase",
+      passphraseHelp:
+        "Use the same passphrase on every device. It can't be recovered: without it the synced copy can't be opened, though each device keeps its own data.",
+      start: "Start syncing",
+      now: "Sync now",
+      stop: "Stop syncing on this device",
+      syncing: "Syncing…",
+      never: "Not synced yet",
+      last: (ago: string) => `Last synced ${ago}`,
+      justNow: "just now",
+      problems: {
+        token:
+          "GitHub didn't accept the token. Check that it hasn't expired and that Gists is set to Read and write.",
+        passphrase:
+          "This passphrase doesn't open the synced copy. Use the one you chose on your first device.",
+        offline: "No connection. Sync runs again when you're back online.",
+        github: "GitHub didn't answer as expected. Try again in a while.",
+        format:
+          "The synced copy couldn't be read. It may come from a newer version of the app: update this one.",
+      },
     },
     reminders: {
       title: "Reminders",
@@ -1059,6 +1088,8 @@ export const en = {
     progressShare: (pct: string) => `${pct} of the Qur'an memorised`,
     progressReview: "Needs review",
     progressLearning: (n: string) => `${n} memorising`,
+    progressRecall: (n: string, pct: string) =>
+      `Last 30 days: ${n} page reviews, ${pct} recalled`,
     progressRange: (from: string, to: string) => `${from} – ${to}`,
     progressCount: (done: string, total: string) => `${done} of ${total} ayahs`,
     progressShowAll: (n: string) => `Show all ${n}`,

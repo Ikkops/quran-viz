@@ -15,6 +15,7 @@ import { isNativeApp } from "../data/audioStore";
 import type { Surah } from "../types/quran";
 import { AudioStorageSettings } from "../components/settings/AudioStorageSettings";
 import { ReminderSettings } from "../components/settings/ReminderSettings";
+import { SyncSettings } from "../components/settings/SyncSettings";
 
 export interface ChartSettings {
   bucketSize: number;
@@ -324,6 +325,12 @@ export function SettingsView({
           <p aria-live="polite" className="text-sm text-ink-muted">
             {themeMsg}
           </p>
+        </div>
+      </Section>
+
+      <Section title={t.settings.sync.title}>
+        <div>
+          <SyncSettings />
         </div>
       </Section>
 

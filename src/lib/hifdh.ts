@@ -45,6 +45,8 @@ export interface Review {
   s: number;
   /** Difficulty, 1 (easy) to 10. */
   d: number;
+  /** When it was rated (ms); the newer rating wins when devices sync. */
+  at?: number;
 }
 
 export interface Hifdh {
@@ -56,6 +58,11 @@ export interface Hifdh {
   reviews: Record<string, Review>;
   /** Desired retention (one of `RETENTION_CHOICES`); unset is the default. */
   retention?: number;
+  /** When `retention` was last set (ms), for sync. */
+  retentionAt?: number;
+  /** When each ayah's status last changed (ms), keyed by ayah id; only ayahs
+   *  changed since sync arrived. The newer status wins when devices sync. */
+  statusAt?: Record<string, number>;
 }
 
 export const emptyHifdh = (): Hifdh => ({
@@ -78,7 +85,7 @@ export function sanitizeHifdh(raw: unknown): Hifdh | undefined {
         /^\d+:\d+$/.test(k) &&
         s &&
         Number.isInteger(s.n) &&
-        (s.n as number) > 0 &&
+        (s.n as number) >= 0 &&
         typeof s.at === "number"
       )
         stumbles[k] = { n: s.n as number, at: s.at };
@@ -93,7 +100,13 @@ export function sanitizeHifdh(raw: unknown): Hifdh | undefined {
       const x = v as Record<string, unknown> | null;
       if (!/^\d+$/.test(k) || !x || !day(x.due)) continue;
       if (day(x.last) && num(x.s, S_MIN, S_MAX) && num(x.d, 1, 10))
-        reviews[k] = { due: x.due, last: x.last, s: x.s, d: x.d };
+        reviews[k] = {
+          due: x.due,
+          last: x.last,
+          s: x.s,
+          d: x.d,
+          ...(num(x.at, 0, Infinity) ? { at: x.at } : {}),
+        };
       // A ladder review: its last interval stands in for stability.
       else if (Number.isInteger(x.step) && num(x.step, 0, OLD_LADDER.length - 1)) {
         const days = OLD_LADDER[x.step];
@@ -103,20 +116,56 @@ export function sanitizeHifdh(raw: unknown): Hifdh | undefined {
   const retention = (RETENTION_CHOICES as readonly unknown[]).includes(r.retention)
     ? (r.retention as number)
     : undefined;
-  return { status, stumbles, reviews, ...(retention ? { retention } : {}) };
+  const statusAt: Record<string, number> = {};
+  if (r.statusAt && typeof r.statusAt === "object")
+    for (const [k, v] of Object.entries(r.statusAt as Record<string, unknown>))
+      if (/^\d+$/.test(k) && Number(k) >= 1 && Number(k) <= AYAHS && num(v, 0, Infinity))
+        statusAt[k] = v;
+  return {
+    status,
+    stumbles,
+    reviews,
+    ...(retention ? { retention } : {}),
+    ...(num(r.retentionAt, 0, Infinity) ? { retentionAt: r.retentionAt } : {}),
+    ...(Object.keys(statusAt).length ? { statusAt } : {}),
+  };
 }
+
+/** `statusAt` with ayahs `from`–`to` (inclusive) stamped `now`. */
+function stamped(h: Hifdh, ids: Iterable<number>, now: number): Record<string, number> {
+  const out = { ...h.statusAt };
+  for (const id of ids) out[id] = now;
+  return out;
+}
+
+/** Set the desired retention (stamped, so the newest choice wins in sync). */
+export const setRetention = (h: Hifdh, retention: number, now = Date.now()): Hifdh => ({
+  ...h,
+  retention,
+  retentionAt: now,
+});
 
 export const statusOf = (h: Hifdh, id: number): HifdhStatus =>
   (Number(h.status[id - 1]) || 0) as HifdhStatus;
 
 /** Give every ayah from `from` to `to` (global ids, inclusive) one status. */
-export function setStatus(h: Hifdh, from: number, to: number, s: HifdhStatus): Hifdh {
+export function setStatus(
+  h: Hifdh,
+  from: number,
+  to: number,
+  s: HifdhStatus,
+  now = Date.now(),
+): Hifdh {
   const a = Math.max(1, Math.min(from, to));
   const b = Math.min(AYAHS, Math.max(from, to));
   if (b < a) return h;
+  const changed: number[] = [];
+  for (let id = a; id <= b; id++) if (statusOf(h, id) !== s) changed.push(id);
+  if (!changed.length) return h;
   return {
     ...h,
     status: h.status.slice(0, a - 1) + String(s).repeat(b - a + 1) + h.status.slice(b),
+    statusAt: stamped(h, changed, now),
   };
 }
 
@@ -151,6 +200,7 @@ export function listStumbles(
   h: Hifdh,
 ): { id: number; w: number; n: number; at: number }[] {
   return Object.entries(h.stumbles)
+    .filter(([, s]) => s.n > 0)
     .map(([k, s]) => {
       const [id, w] = k.split(":").map(Number);
       return { id, w, n: s.n, at: s.at };
@@ -158,10 +208,10 @@ export function listStumbles(
     .sort((a, b) => b.n - a.n || b.at - a.at);
 }
 
-export function removeStumble(h: Hifdh, id: number, w: number): Hifdh {
-  const stumbles = { ...h.stumbles };
-  delete stumbles[`${id}:${w}`];
-  return { ...h, stumbles };
+/** Forget the stumbles on a word. Kept as a zero count with its time, so a
+ *  device that syncs later doesn't bring them back. */
+export function removeStumble(h: Hifdh, id: number, w: number, now = Date.now()): Hifdh {
+  return { ...h, stumbles: { ...h.stumbles, [`${id}:${w}`]: { n: 0, at: now } } };
 }
 
 /** What the planner needs of a verse (`Verse` has both). */
@@ -212,6 +262,8 @@ const S_MAX = 36500;
 const DECAY = -W[20];
 const FACTOR = 0.9 ** (1 / DECAY) - 1;
 const GRADE: Record<Rating, 1 | 2 | 3> = { forgot: 1, hard: 2, smooth: 3 };
+/** The FSRS grade of a rating: forgot 1 (Again), hard 2, smooth 3 (Good). */
+export const gradeOf = (r: Rating): 1 | 2 | 3 => GRADE[r];
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 const initDifficulty = (g: number) => W[4] - Math.exp(W[5] * (g - 1)) + 1;
 
@@ -285,7 +337,9 @@ export function rateReview(
   pages: readonly HifdhPage[],
   rating: Rating,
   today: string,
+  now = Date.now(),
 ): Hifdh {
+  const changed: number[] = [];
   const status = [...h.status];
   const reviews = { ...h.reviews };
   const rated = new Set(pages.map((p) => String(p.page)));
@@ -309,12 +363,21 @@ export function rateReview(
       if (cost < best) [best, due] = [cost, day];
     }
     load.set(due, (load.get(due) ?? 0) + 1);
-    reviews[p.page] = { due, last: today, s: m.s, d: m.d };
+    reviews[p.page] = { due, last: today, s: m.s, d: m.d, at: now };
     if (rating === "hard") continue;
     const [a, b] = rating === "forgot" ? ["2", "3"] : ["3", "2"];
-    for (let id = p.from; id <= p.to; id++) if (status[id - 1] === a) status[id - 1] = b;
+    for (let id = p.from; id <= p.to; id++)
+      if (status[id - 1] === a) {
+        status[id - 1] = b;
+        changed.push(id);
+      }
   }
-  return { ...h, status: status.join(""), reviews };
+  return {
+    ...h,
+    status: status.join(""),
+    reviews,
+    ...(changed.length ? { statusAt: stamped(h, changed, now) } : {}),
+  };
 }
 
 export interface HifdhPlan {

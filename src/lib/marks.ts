@@ -31,6 +31,8 @@ export interface Pin {
   /** Global ayah id, or null while the pin hasn't been placed. */
   ayah: number | null;
   at: number;
+  /** Last change (ms); the newer one wins when devices sync. */
+  t?: number;
 }
 
 export interface CollectionItem {
@@ -38,6 +40,8 @@ export interface CollectionItem {
   id: number;
   note: string;
   at: number;
+  /** Last change (ms), for sync. */
+  t?: number;
 }
 
 export interface Collection {
@@ -45,11 +49,16 @@ export interface Collection {
   name: string;
   color: MarkColor;
   items: CollectionItem[];
+  /** Last rename or recolour (ms), for sync. */
+  t?: number;
 }
 
 export interface Marks {
   pins: Pin[];
   collections: Collection[];
+  /** What was deleted and when (ms), so sync doesn't bring it back: keyed
+   *  `p:<pin id>`, `c:<collection id>` or `i:<collection id>:<ayah>`. */
+  gone?: Record<string, number>;
 }
 
 const ayahOk = (n: unknown): n is number =>
@@ -60,6 +69,10 @@ const nameOf = (n: unknown): string =>
   typeof n === "string" ? n.trim().slice(0, NAME_MAX) : "";
 const timeOf = (t: unknown): number =>
   typeof t === "number" && Number.isFinite(t) ? t : 0;
+/** `{ t }` when `t` is a time, else nothing (older data has none). */
+const stampOf = (t: unknown): { t?: number } =>
+  typeof t === "number" && Number.isFinite(t) ? { t } : {};
+const GONE_KEY = /^(?:[pc]:[^:]+|i:[^:]+:\d+)$/;
 
 /** The marks a new learner starts with: one pin and one collection, named in
  *  the interface language. Old flat bookmarks become the collection's items. */
@@ -99,6 +112,7 @@ export function sanitizeMarks(raw: unknown): Marks | undefined {
       color: colorOf(x.color, MARK_COLORS[4]),
       ayah: ayahOk(x.ayah) ? x.ayah : null,
       at: timeOf(x.at),
+      ...stampOf(x.t),
     });
   }
   const outCols: Collection[] = [];
@@ -107,21 +121,39 @@ export function sanitizeMarks(raw: unknown): Marks | undefined {
     const x = c as Record<string, unknown>;
     const name = nameOf(x.name);
     if (!fresh(x.id) || !name) continue;
+    const rawItems = Array.isArray(x.items) ? (x.items as Record<string, unknown>[]) : [];
     outCols.push({
       id: x.id,
       name,
       color: colorOf(x.color, MARK_COLORS[1]),
-      items: sanitizeBookmarks(x.items) ?? [],
+      items: (sanitizeBookmarks(x.items) ?? []).map((b) => ({
+        ...b,
+        ...stampOf(rawItems.find((r) => r?.id === b.id)?.t),
+      })),
+      ...stampOf(x.t),
     });
   }
-  return { pins: outPins, collections: outCols };
+  const gone: Record<string, number> = {};
+  const rawGone = (raw as Record<string, unknown>).gone;
+  if (rawGone && typeof rawGone === "object")
+    for (const [k, v] of Object.entries(rawGone as Record<string, unknown>))
+      if (GONE_KEY.test(k) && typeof v === "number" && Number.isFinite(v)) gone[k] = v;
+  return {
+    pins: outPins,
+    collections: outCols,
+    ...(Object.keys(gone).length ? { gone } : {}),
+  };
 }
 
-const newId = (prefix: string, taken: { id: string }[]): string => {
-  let n = taken.length + 1;
-  while (taken.some((x) => x.id === `${prefix}${n}`)) n++;
-  return `${prefix}${n}`;
+/** A new id, unique across devices (two devices adding a pin each must not
+ *  both make "p2" and have sync take them for one). */
+const newId = (prefix: string, taken: { id: string }[], now: number): string => {
+  let id: string;
+  do id = `${prefix}${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  while (taken.some((x) => x.id === id));
+  return id;
 };
+const gone = (m: Marks, key: string, now: number) => ({ ...m.gone, [key]: now });
 
 /** Put a pin on an ayah (it leaves wherever it was); on the ayah it already
  *  marks, take it off. */
@@ -129,7 +161,7 @@ export function movePin(m: Marks, pinId: string, ayah: number, now = Date.now())
   return {
     ...m,
     pins: m.pins.map((p) =>
-      p.id !== pinId ? p : { ...p, ayah: p.ayah === ayah ? null : ayah, at: now },
+      p.id !== pinId ? p : { ...p, ayah: p.ayah === ayah ? null : ayah, at: now, t: now },
     ),
   };
 }
@@ -145,7 +177,10 @@ export function addPin(
   if (!n) return m;
   return {
     ...m,
-    pins: [...m.pins, { id: newId("p", m.pins), name: n, color, ayah, at: now }],
+    pins: [
+      ...m.pins,
+      { id: newId("p", m.pins, now), name: n, color, ayah, at: now, t: now },
+    ],
   };
 }
 
@@ -158,12 +193,12 @@ export function addCollection(
 ): Marks {
   const n = nameOf(name);
   if (!n) return m;
-  const items = ayah === null ? [] : [{ id: ayah, note: "", at: now }];
+  const items = ayah === null ? [] : [{ id: ayah, note: "", at: now, t: now }];
   return {
     ...m,
     collections: [
       ...m.collections,
-      { id: newId("c", m.collections), name: n, color, items },
+      { id: newId("c", m.collections, now), name: n, color, items, t: now },
     ],
   };
 }
@@ -173,19 +208,22 @@ export function editMark(
   m: Marks,
   id: string,
   change: { name?: string; color?: MarkColor },
+  now = Date.now(),
 ): Marks {
   const apply = <T extends { id: string; name: string; color: MarkColor }>(x: T): T => {
     if (x.id !== id) return x;
     const name = change.name === undefined ? x.name : nameOf(change.name) || x.name;
-    return { ...x, name, color: change.color ?? x.color };
+    return { ...x, name, color: change.color ?? x.color, t: now };
   };
-  return { pins: m.pins.map(apply), collections: m.collections.map(apply) };
+  return { ...m, pins: m.pins.map(apply), collections: m.collections.map(apply) };
 }
 
-export function deleteMark(m: Marks, id: string): Marks {
+export function deleteMark(m: Marks, id: string, now = Date.now()): Marks {
+  const kind = m.pins.some((p) => p.id === id) ? "p" : "c";
   return {
     pins: m.pins.filter((p) => p.id !== id),
     collections: m.collections.filter((c) => c.id !== id),
+    gone: gone(m, `${kind}:${id}`, now),
   };
 }
 
@@ -196,18 +234,22 @@ export function toggleInCollection(
   ayah: number,
   now = Date.now(),
 ): Marks {
+  const c = m.collections.find((x) => x.id === collectionId);
+  if (!c) return m;
+  const had = c.items.some((i) => i.id === ayah);
   return {
     ...m,
-    collections: m.collections.map((c) =>
-      c.id !== collectionId
-        ? c
+    collections: m.collections.map((x) =>
+      x !== c
+        ? x
         : {
-            ...c,
-            items: c.items.some((i) => i.id === ayah)
-              ? c.items.filter((i) => i.id !== ayah)
-              : [...c.items, { id: ayah, note: "", at: now }],
+            ...x,
+            items: had
+              ? x.items.filter((i) => i.id !== ayah)
+              : [...x.items, { id: ayah, note: "", at: now, t: now }],
           },
     ),
+    ...(had ? { gone: gone(m, `i:${collectionId}:${ayah}`, now) } : {}),
   };
 }
 
@@ -216,6 +258,7 @@ export function setItemNote(
   collectionId: string,
   ayah: number,
   note: string,
+  now = Date.now(),
 ): Marks {
   return {
     ...m,
@@ -225,7 +268,7 @@ export function setItemNote(
         : {
             ...c,
             items: c.items.map((i) =>
-              i.id === ayah ? { ...i, note: note.slice(0, 500) } : i,
+              i.id === ayah ? { ...i, note: note.slice(0, 500), t: now } : i,
             ),
           },
     ),
