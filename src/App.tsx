@@ -464,6 +464,18 @@ export default function App() {
   const showView = viewUnderReader || !reading;
   // Reading time (Home → Activity) counts while the reader is open.
   useReadingTimer(reading);
+  // Sync between devices (Settings → Sync): its code loads after start-up.
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let gone = false;
+    void import("./lib/sync/engine").then((m) => {
+      if (!gone) stop = m.startSyncTriggers();
+    });
+    return () => {
+      gone = true;
+      stop?.();
+    };
+  }, []);
   useReminders(hifdh, data?.verses);
   const marked = useMemo(() => markedAyahs(marks), [marks]);
   const navProps: NavProps = {

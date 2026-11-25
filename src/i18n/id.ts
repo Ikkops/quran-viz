@@ -307,12 +307,42 @@ export const id: Messages = {
       "Beranda menampilkan tempat bacaan terakhir berhenti: satu tempat untuk tiap rentang bacaan, jadi menggulir terus dalam satu surah hanya memindahkan tempatnya, tidak menambah yang baru.",
     backup: {
       title: "Cadangan",
-      help: "Penanda, hafalan, aktivitas membaca dan pengaturan hanya tersimpan di perangkat ini. Simpan semuanya ke satu berkas agar aman atau untuk dipindahkan ke perangkat lain. Audio yang diunduh tidak ikut.",
+      help: "Penanda, hafalan, aktivitas membaca dan pengaturan tersimpan di perangkat ini (dan, bila Sinkronisasi aktif, di salinan terenkripsi Anda di GitHub). Simpan semuanya ke satu berkas agar aman atau untuk dipindahkan ke perangkat lain. Audio yang diunduh tidak ikut.",
       save: "Simpan cadangan",
       restore: "Pulihkan dari cadangan",
       confirm:
         "Ganti semua yang ada di perangkat ini (penanda, hafalan, aktivitas membaca, pengaturan) dengan cadangan ini?",
       bad: "Berkas itu bukan cadangan quran-viz.",
+    },
+    sync: {
+      title: "Sinkronisasi antarperangkat",
+      help: "Menyamakan penanda, hafalan, murajaah, waktu membaca, dan pengaturan membaca di ponsel dan komputer. Semuanya disimpan di gist pribadi di akun GitHub Anda, dienkripsi dengan frasa sandi Anda sebelum meninggalkan perangkat. Tema, fon, dan ukuran tetap per perangkat.",
+      step: "Pertama, buat token GitHub yang hanya bisa memakai gist:",
+      tokenLink: "Token fine-grained baru di GitHub",
+      stepPermission:
+        "Di Account permissions, atur Gists ke Read and write, lalu salin tokennya.",
+      token: "Token GitHub",
+      passphrase: "Frasa sandi",
+      passphraseHelp:
+        "Pakai frasa sandi yang sama di setiap perangkat. Frasa ini tidak bisa dipulihkan: tanpanya salinan sinkron tidak bisa dibuka, tetapi data di tiap perangkat tetap ada.",
+      start: "Mulai sinkronisasi",
+      now: "Sinkronkan sekarang",
+      stop: "Hentikan sinkronisasi di perangkat ini",
+      syncing: "Menyinkronkan…",
+      never: "Belum pernah disinkronkan",
+      last: (ago) => `Terakhir disinkronkan ${ago}`,
+      justNow: "baru saja",
+      problems: {
+        token:
+          "GitHub menolak token ini. Pastikan token belum kedaluwarsa dan Gists diatur ke Read and write.",
+        passphrase:
+          "Frasa sandi ini tidak membuka salinan sinkron. Pakai frasa sandi yang Anda pilih di perangkat pertama.",
+        offline:
+          "Tidak ada koneksi. Sinkronisasi berjalan lagi saat Anda kembali online.",
+        github: "GitHub tidak menjawab seperti biasa. Coba lagi nanti.",
+        format:
+          "Salinan sinkron tidak bisa dibaca. Mungkin berasal dari versi aplikasi yang lebih baru: perbarui aplikasi ini.",
+      },
     },
     reminders: {
       title: "Pengingat",
@@ -1223,6 +1253,8 @@ export const id: Messages = {
     progressShare: (pct) => `${pct} Al-Qur'an sudah hafal`,
     progressReview: "Perlu diulang",
     progressLearning: (n) => `${n} sedang dihafal`,
+    progressRecall: (n, pct) =>
+      `30 hari terakhir: ${n} kali murajaah halaman, ${pct} teringat`,
     progressRange: (from, to) => `${from} – ${to}`,
     progressCount: (done, total) => `${done} dari ${total} ayat`,
     progressShowAll: (n) => `Tampilkan semua ${n}`,

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { persisted, readPersisted, usePersistentState } from "./usePersistentState";
+import { announceSyncApplied, onLocalChange, readStamps } from "./sync/changes";
 
 beforeEach(() => localStorage.clear());
 
@@ -18,6 +19,27 @@ describe("usePersistentState", () => {
     localStorage.setItem("t.list", JSON.stringify(["a", "b"]));
     act(() => void window.dispatchEvent(new StorageEvent("storage", { key: "t.list" })));
     expect(result.current[0]).toEqual(["a", "b"]);
+  });
+
+  it("stamps a synced setting the learner changes, not its first default", () => {
+    const changed: string[] = [];
+    const off = onLocalChange((k) => changed.push(k));
+    const { result } = renderHook(() => usePersistentState("qv.reading.goal", 5));
+    // The default written on first use is not a change: another device's
+    // real choice must win over it.
+    expect(readStamps()["qv.reading.goal"]).toBeUndefined();
+    act(() => result.current[1](20));
+    expect(readStamps()["qv.reading.goal"]).toBeGreaterThan(0);
+    expect(changed).toEqual(["qv.reading.goal"]);
+    off();
+  });
+
+  it("shows what sync stored, without stamping it as a change here", () => {
+    const { result } = renderHook(() => usePersistentState("qv.lang", "en"));
+    localStorage.setItem("qv.lang", JSON.stringify("id"));
+    act(() => announceSyncApplied(["qv.lang"]));
+    expect(result.current[0]).toBe("id");
+    expect(readStamps()["qv.lang"]).toBeUndefined();
   });
 
   it("falls back to the initial value when sanitize rejects the stored one", () => {

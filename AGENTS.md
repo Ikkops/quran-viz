@@ -593,8 +593,11 @@ clipboard button rates the memorised pages of the current window
 quota)` gives `learning` (pages with status 1), `recent` (due, last two
 reviews ≤ 7 days apart) and `old` (the other due pages and the never
 reviewed, the lowest chance of recall first, as Anki orders FSRS reviews,
-cut to `quota`, `qv.hifdh.quota`). Not taken from Anki (yet): optimising the
-parameters from a review log (none is kept), leech tagging, easy days.
+cut to `quota`, `qv.hifdh.quota`). Every rating is also logged as
+`[page, grade, at]` in `qv.hifdh.log` (`lib/reviewLog.ts`, apart from
+`qv.hifdh` so that stays small); the progress card shows the last 30 days'
+recall from it. Not taken from Anki (yet): optimising the parameters from that
+log (it needs months of reviews), leech tagging, easy days.
 Activity → Memorisation (`components/hifdh/HifdhPanel.tsx`, a `TABS` entry)
 shows that plan (a page opens in the reader with Hafalan mode switched on,
 `openForReview`), the progress card (`HifdhProgress.tsx`, Surah | Juz: the
@@ -1132,6 +1135,48 @@ search), `qv.edition` (reader translation), and `qv.reader.*` (gear-menu toggles
 Arabic font and the Arabic text scale live in `quranviz.theme` (`ThemeContext`);
 the reader's "Arabic size" slider writes that same `arabicScale`.
 localStorage is per origin, so settings only carry over on the same host:port.
+
+## Sync between devices
+
+Settings → Sync (`components/settings/SyncSettings.tsx`) keeps one encrypted
+copy in a secret gist in the learner's GitHub account (description "quran-viz
+sync", file `quran-viz-sync.json`); a fine-grained token with Gists read and
+write, and a passphrase, are stored in `qv.sync.config` on each device. Code in
+`lib/sync/`:
+- `changes.ts`, the only part the app imports at start-up: `SYNCED_PREFS`
+  (language, edition, reading goal, khatam, hifdh quota, last-read count,
+  tajweed and the reader's info and gloss languages; display settings,
+  `qv.settings` with its interface scale, the reciter and reminders stay per
+  device), their change times in `qv.sync.stamps`, `noteLocalChange(key)` and
+  `onSyncApplied`. `usePersistentState` stamps a key only when the learner
+  changes it (not the first default, not a value sync stored) and re-reads a
+  key sync wrote; `readingStore` and `reviewLog` listen too.
+- `merge.ts`, pure: a `SyncDoc` holds marks, hifdh, the review log, reading
+  time per device id, last-read places and the synced settings. Pins,
+  collections and collection ayahs merge as records by newest `t` (or `at`),
+  with deletion markers in `marks.gone` (kept 180 days); each ayah's status by
+  `hifdh.statusAt` (unstamped: the further status wins), each page's review by
+  `Review.at`, stumbles by `at` (a removal is `n: 0`), `retention` by
+  `retentionAt`; logs as unions; reading time per device and day by max. Order
+  of merging never changes the result, and merging twice changes nothing
+  (`merge.test.ts`).
+- `crypto.ts`: PBKDF2-SHA256 (600,000 rounds) into AES-GCM-256 via WebCrypto;
+  the derived key is cached, and a rewrite keeps the copy's salt.
+- `gist.ts`: `fetch` against api.github.com; `SyncError.problem` is `token`,
+  `offline`, `github`, `passphrase` or `format` for the card's message.
+- `engine.ts`: `collectLocal`, `applyLocal` (writes only changed keys, then
+  `announceSyncApplied`), `syncOnce(transport, passphrase, device)`,
+  `syncNow`, `startSyncTriggers` (launch, back to the front, 20 s after a
+  change in marks, hifdh, the review log or a synced setting, at once when the
+  app goes to the background with a change waiting, coming online). `App`
+  imports it lazily (its own ~10 kB chunk). Device id: `qv.device`. Backups
+  leave out `qv.sync.*` and `qv.device`.
+
+Mark ids are made unique across devices (`p` or `c`, base-36 time, four random
+characters); the starting pin `p1` and collection `c1` are the same on every
+device on purpose. Reading time: `qv.reading.log` is this device's own,
+`qv.reading.others` holds the other devices' logs from sync, and
+`useReadingLog`/`readingLog()` give the sum.
 
 ## UI language (English / Indonesian)
 

@@ -11,6 +11,7 @@ import {
   listStumbles,
   removeStumble,
   sambungStarts,
+  setRetention,
   setStatus,
   statusOf,
   type Hifdh,
@@ -115,7 +116,7 @@ export function HifdhPanel({
                   size="sm"
                   ariaLabel={h.retention}
                   value={String(hifdh.retention ?? DEFAULT_RETENTION)}
-                  onChange={(v) => onHifdh({ ...hifdh, retention: Number(v) })}
+                  onChange={(v) => onHifdh(setRetention(hifdh, Number(v)))}
                   options={RETENTION_CHOICES.map((r) => ({
                     value: String(r),
                     label: `${n(r * 100)}%`,

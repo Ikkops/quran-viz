@@ -108,11 +108,13 @@ import { HifdhSheet } from "./HifdhSheet";
 import {
   RATINGS,
   addStumble,
+  gradeOf,
   pagesWith,
   rateReview,
   stumbleCount,
   type Hifdh,
 } from "../../lib/hifdh";
+import { appendReviews } from "../../lib/reviewLog";
 import { dayKey } from "../../data/readingLog";
 import {
   HIFDH_LEVELS,
@@ -2075,7 +2077,13 @@ export function ReaderView({
               <button
                 type="button"
                 onClick={() => {
-                  onHifdh(rateReview(hifdh, ratePages, r, dayKey(new Date())));
+                  const now = Date.now();
+                  onHifdh(rateReview(hifdh, ratePages, r, dayKey(new Date(now)), now));
+                  appendReviews(
+                    ratePages.map((p) => p.page),
+                    gradeOf(r),
+                    now,
+                  );
                   setRating(false);
                   hideAgain();
                 }}

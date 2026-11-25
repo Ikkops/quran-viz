@@ -54,6 +54,17 @@ export function sanitizeReadingLog(raw: unknown): ReadingLog | undefined {
   return out;
 }
 
+/** Reading logs per device id (sync), each cleaned; anything else is dropped. */
+export function sanitizeReadingByDevice(raw: unknown): Record<string, ReadingLog> {
+  const out: Record<string, ReadingLog> = {};
+  if (raw && typeof raw === "object" && !Array.isArray(raw))
+    for (const [device, log] of Object.entries(raw as Record<string, unknown>)) {
+      const clean = sanitizeReadingLog(log);
+      if (device && clean) out[device] = clean;
+    }
+  return out;
+}
+
 export function addReading(log: ReadingLog, day: string, seconds: number): ReadingLog {
   if (!(seconds > 0)) return log;
   return { ...log, [day]: Math.min(86_400, (log[day] ?? 0) + seconds) };

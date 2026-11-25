@@ -8,6 +8,12 @@ describe("backup", () => {
     localStorage.setItem("qv.marks", JSON.stringify({ pins: [] }));
     localStorage.setItem("quranviz.theme", JSON.stringify({ theme: "sepia" }));
     localStorage.setItem("qv.audio.location", JSON.stringify("/sdcard/audio"));
+    // Sync's token and passphrase, and this install's id, never go in a file.
+    localStorage.setItem(
+      "qv.sync.config",
+      JSON.stringify({ token: "t", passphrase: "p" }),
+    );
+    localStorage.setItem("qv.device", JSON.stringify("abc"));
     localStorage.setItem("other", JSON.stringify(1));
     localStorage.setItem("qv.broken", "{");
     const b = buildBackup(localStorage, "2026-11-15");
