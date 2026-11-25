@@ -211,7 +211,7 @@ export const id: Messages = {
 
   shortcuts: [
     "Cari di Al-Qur'an (Arab, 2:255, atau terjemahan)",
-    "Beranda · Dasbor · Struktur · Aktivitas · Pengaturan",
+    "Beranda · Aktivitas · Dasbor · Struktur · Pengaturan",
     "Penanda",
     "Pengaturan, dengan daftar ini",
     "Pembaca: surah, juz, halaman… sebelum / berikutnya",
@@ -1220,6 +1220,13 @@ export const id: Messages = {
     progressTile: (name, pct, done, total) =>
       `${name}: ${pct} hafal, ${done} dari ${total} ayat`,
     progressWeak: (n) => `${n} perlu diulang`,
+    progressShare: (pct) => `${pct} Al-Qur'an sudah hafal`,
+    progressReview: "Perlu diulang",
+    progressLearning: (n) => `${n} sedang dihafal`,
+    progressRange: (from, to) => `${from} – ${to}`,
+    progressCount: (done, total) => `${done} dari ${total} ayat`,
+    progressShowAll: (n) => `Tampilkan semua ${n}`,
+    progressStartedOnly: "Tampilkan yang sudah dimulai saja",
     juzLabel: (n) => `Juz ${n}`,
     pageLabel: (page) => `Hal. ${page}`,
     homeLine: (fresh, recent, old) => `${fresh} baru · ${recent} dekat · ${old} jauh`,

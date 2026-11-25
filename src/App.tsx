@@ -15,7 +15,7 @@ import { prefetchJson } from "./data/useLazyJson";
 import { persisted, readPersisted, usePersistentState } from "./lib/usePersistentState";
 import { useTheme } from "./theme/ThemeContext";
 import type { ColorMode, ReaderTarget } from "./components/charts/common";
-import { Card, Skeleton } from "./components/ui";
+import { Card, Skeleton, cx } from "./components/ui";
 import { BOOKMARKS_KEY } from "./lib/bookmarks";
 import { HIFDH_KEY, emptyHifdh, sanitizeHifdh, type Hifdh } from "./lib/hifdh";
 import {
@@ -79,7 +79,12 @@ import type { WelcomeChoice } from "./components/panels/Welcome";
 import { parseHash, serializeHash, type View } from "./lib/hash";
 import { shortcutFor } from "./lib/shortcuts";
 import { effectiveUiScale, isWideLayout, useViewportWidth } from "./lib/uiScale";
-import { BottomTabs, TopBar, type NavProps } from "./components/shell/Navigation";
+import {
+  BottomTabs,
+  TAB_BAR_ROOM,
+  TopBar,
+  type NavProps,
+} from "./components/shell/Navigation";
 import { useI18n } from "./i18n/I18nContext";
 import { searchEditionFor } from "./data/searchEdition";
 import { loadTranslation } from "./data/useTranslation";
@@ -484,7 +489,14 @@ export default function App() {
           } as CSSProperties
         }
       >
-        <div className="min-w-0">
+        <div
+          className={cx(
+            "min-w-0",
+            // Views fill the screen down to the tab bar, so a pager's swipe
+            // area reaches the bottom (not while reading: <main> is hidden).
+            !reading && "flex min-h-[calc(100*var(--zvh))] flex-col",
+          )}
+        >
           {!reading && <TopBar {...navProps} />}
           {data && reader && (
             <Suspense fallback={<ReaderSkeleton />}>
@@ -514,7 +526,11 @@ export default function App() {
           )}
           <main
             hidden={reading}
-            className="mx-auto max-w-7xl px-4 pb-[calc(5rem+env(safe-area-inset-bottom))] pt-5"
+            className={cx(
+              "mx-auto max-w-7xl px-4 pt-5",
+              TAB_BAR_ROOM,
+              !reading && "flex w-full flex-1 flex-col",
+            )}
           >
             {loading && <LoadingSkeleton />}
             {error && (

@@ -375,7 +375,8 @@ an id.
   `onCommit(dir)`, `enabled`, `onThreshold(past)` (the hook itself gives a
   haptic `tick()` from `lib/haptics.ts` there, as `Sheet` does at its 30%;
   Android app only); returns React touch
-  `handlers` for an `overflow-hidden touch-pan-y` container, `sides` (the
+  `handlers` for a `touch-pan-y` container (it may reach past the pane; an
+  inner element clips while `sides` is not empty), `sides` (the
   directions whose neighbour pane to mount) and `trackRef` (`relative`; a
   neighbour is `absolute inset-y-0 w-full`, `left-full` for +1 or `right-full`
   for -1, `aria-hidden inert`). A drag does no React work between touchstart
@@ -524,8 +525,9 @@ straight line from `from` to page 604 tonight; 0 once read), and a status
 or removes it with a native date field; `KhatamRow` on Home, under the
 today/streak line, shows today's pages and the progress and opens the reader.
 
-**Activity** (`views/ActivityView.tsx`, view id `activity`, `qv.activity.tab`):
-Statistics (`components/home/ActivityPanel.tsx`: today, current and longest
+**Activity** (`views/ActivityView.tsx`, view id `activity`, `qv.activity.tab`;
+second in the tab bar, after Home), tabs in this order: Memorisation (the
+default, below), Statistics (`components/home/ActivityPanel.tsx`: today, current and longest
 streak, total time, bars per week, month, year or all time
 (`qv.activity.period`), daily goal `qv.reading.goal`; maths in
 `data/readingLog.ts`, store in `lib/readingStore.ts`, `useReadingTimer(reading)`
@@ -595,9 +597,15 @@ cut to `quota`, `qv.hifdh.quota`). Not taken from Anki (yet): optimising the
 parameters from a review log (none is kept), leech tagging, easy days.
 Activity → Memorisation (`components/hifdh/HifdhPanel.tsx`, a `TABS` entry)
 shows that plan (a page opens in the reader with Hafalan mode switched on,
-`openForReview`), the progress map (`HifdhProgress.tsx`: one tile per surah
-or juz, filled from the bottom by its memorised share of ayahs from
-`progressBy`, a rubric dot where ayahs need review, a tap opens it), "Continue
+`openForReview`), the progress card (`HifdhProgress.tsx`, Surah | Juz: the
+share of the Qur'an memorised with one bar and counts; a map of one cell per
+surah or juz, filled from the bottom; rows for the started ones with the
+surah's name and calligraphic name, or the juz's ayah range, and "Show all".
+Bars and cells use one encoding: memorised lapis, needs review rubric,
+memorising lapis at 30%. `progressBy` gives `done`, `weak`, `learning` and
+each group's first and last ayah id. The map is `aria-hidden` with
+`tabIndex={-1}` cells: the rows are the keyboard and screen-reader path; a tap
+on either opens the reader), "Continue
 the ayah" (`sambungStarts`: a memorised ayah whose next ayah in the surah is
 memorised too; a miss marks the next ayah status 3, a hit clears it) and the
 stumbled words (`listStumbles`, `removeStumble`). Home shows a "Memorisation
@@ -651,8 +659,15 @@ hidden for it. The old Charts | Map tabs and `qv.dashboard.tab` are gone:
 `migrateStoredViz` folds a stored `map` tab into `qv.viz`, and `#browse` /
 `tab=map` links open `v=map`. Dashboard, Structure (7 tabs) and Activity
 (3 tabs) page sideways with `useSwipePager`; the dashboard wraps like its
-stepper, the tabs do not. Their containers take `overflow-hidden` only while
-`sides` is not empty (popovers and shadows are clipped otherwise) and are
+stepper, the tabs do not. The swipe handlers sit on the view's outer wrapper
+(`*-swipe` test ids), which runs to the tab bar: `App` makes the content
+column and `<main>` flex columns that fill the screen while a view shows, the
+wrapper is `flex-1` plus `SWIPE_TO_TAB_BAR` (it reaches through `<main>`'s
+bottom padding, `TAB_BAR_ROOM`, both in `components/shell/Navigation.tsx`), so
+the empty space under a short pane pages too. Inside, the pager (`*-pager`)
+takes `overflow-hidden` only while `sides` is not empty (popovers and shadows
+are clipped otherwise); the dashboard's side menu is `data-no-swipe` and its
+"All charts" sheet sits outside the wrapper. All are
 `touch-pan-y touch-pinch-zoom`. On the dashboard the whole chart box is
 `data-no-swipe` (views change from the title, answer, filters or the stepper),
 and a fixed-height chart that does not scroll itself is also `touch-pinch-zoom`
@@ -1158,7 +1173,7 @@ content (translations, topic names, root glosses, CSV headers) is not translated
 
 App-level shortcuts live in `lib/shortcuts.ts` (`shortcutFor` is pure and
 tested; `SHORTCUTS` feeds the `?` help sheet): Ctrl/Cmd+K or `/` search, `H` home, `1`–`4`
-dashboard, structure, activity, settings (closing the reader), `B` bookmarks
+activity, dashboard, structure, settings (closing the reader), `B` bookmarks
 (Activity), `?` settings (where the list is shown). They are ignored while typing or while a window
 is open (except Ctrl/Cmd+K). The reader keeps its own ←/→ (not while a sheet is open).
 

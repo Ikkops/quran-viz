@@ -431,6 +431,15 @@ bar), bookmarks (lapis dot); a root's or a topic's ayahs highlighted by dimming 
 The "Memorisation" highlight does the same for what the learner has memorised,
 with a rubric dot under ayahs that need review. The same strip, one row high, sits under the reader's head as "where am I in the Qur'an".
 
+### Memorisation progress
+One encoding across the card: memorised in lapis, needs review in rubric (as
+the Peta's review dots), being memorised in lapis at 30%, the rest gutter. A
+share bar for the whole Qur'an with counts, a map of equal cells (one per surah
+or juz, filled from the bottom; for the eye and the finger, while the rows
+below carry the names for keyboards and screen readers), and quiet rows with
+the surah's name and calligraphic name (or a juz's ayah range), counts and a
+thin bar. Rows fit as many 18rem columns as the card holds.
+
 ### Index list
 Surahs, juz and manzils as a dense table (hairline rows, tabular figures, sortable headers), a
 length bar per surah coloured by place with exception ayahs in their own colour. Cards remain

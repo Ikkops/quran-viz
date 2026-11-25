@@ -10,7 +10,7 @@ export const SHORTCUTS: { keys: string; does: string }[] = [
   { keys: "Ctrl K  or  /", does: "Search the Qur'an (Arabic, 2:255, or translation)" },
   {
     keys: "H · 1 · 2 · 3 · 4",
-    does: "Home · Dashboard · Structure · Activity · Settings",
+    does: "Home · Activity · Dashboard · Structure · Settings",
   },
   { keys: "B", does: "Bookmarks" },
   { keys: "?", does: "Settings, with this list" },
@@ -23,9 +23,9 @@ export const SHORTCUTS: { keys: string; does: string }[] = [
 const VIEW_KEYS: Record<string, View> = {
   h: "home",
   H: "home",
-  "1": "dashboard",
-  "2": "structure",
-  "3": "activity",
+  "1": "activity",
+  "2": "dashboard",
+  "3": "structure",
   "4": "settings",
 };
 

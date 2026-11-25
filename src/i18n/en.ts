@@ -96,7 +96,7 @@ export const en = {
 
   shortcuts: [
     "Search the Qur'an (Arabic, 2:255, or translation)",
-    "Home · Dashboard · Structure · Activity · Settings",
+    "Home · Activity · Dashboard · Structure · Settings",
     "Bookmarks",
     "Settings, with this list",
     "Reader: previous / next surah, juz, page…",
@@ -1056,6 +1056,13 @@ export const en = {
     progressTile: (name: string, pct: string, done: string, total: string) =>
       `${name}: ${pct} memorised, ${done} of ${total} ayahs`,
     progressWeak: (n: string) => `${n} need review`,
+    progressShare: (pct: string) => `${pct} of the Qur'an memorised`,
+    progressReview: "Needs review",
+    progressLearning: (n: string) => `${n} memorising`,
+    progressRange: (from: string, to: string) => `${from} – ${to}`,
+    progressCount: (done: string, total: string) => `${done} of ${total} ayahs`,
+    progressShowAll: (n: string) => `Show all ${n}`,
+    progressStartedOnly: "Show only those started",
     juzLabel: (n: number) => `Juz ${n}`,
     pageLabel: (page: number) => `Page ${page}`,
     homeLine: (fresh: string, recent: string, old: string) =>

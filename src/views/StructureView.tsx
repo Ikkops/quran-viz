@@ -14,6 +14,7 @@ import { DivisionBreakdown } from "../components/charts/DivisionBreakdown";
 import { SimilarArcs } from "../components/charts/SimilarArcs";
 import { useSimilar } from "../data/useSimilar";
 import { useSwipePager } from "../lib/useSwipePager";
+import { SWIPE_TO_TAB_BAR } from "../components/shell/Navigation";
 
 type Tab = "overview" | "manzil" | "juz" | "hizb" | "ruku" | "sajda" | "similar";
 
@@ -101,49 +102,56 @@ export function StructureView({
   };
 
   return (
-    <Card className="p-4">
-      <SectionTitle
-        title={t.structure.titles[tab]}
-        subtitle={t.structure.subtitles[tab]}
-        right={
-          <SegmentedControl<Tab>
-            value={tab}
-            onChange={setTab}
-            options={TABS.map((k) => ({ value: k, label: t.structure.tabs[k] }))}
-          />
-        }
-      />
-      {/* Clipped only while the neighbours are mounted (a swipe); edge to
+    // The swipe area runs from the card down to the tab bar, so the space
+    // under the card pages too; the card's own pager only clips and moves.
+    <div
+      data-testid="structure-swipe"
+      className={cx(
+        "flex flex-1 touch-pan-y touch-pinch-zoom flex-col",
+        SWIPE_TO_TAB_BAR,
+      )}
+      {...handlers}
+    >
+      <Card className="p-4">
+        <SectionTitle
+          title={t.structure.titles[tab]}
+          subtitle={t.structure.subtitles[tab]}
+          right={
+            <SegmentedControl<Tab>
+              value={tab}
+              onChange={setTab}
+              options={TABS.map((k) => ({ value: k, label: t.structure.tabs[k] }))}
+            />
+          }
+        />
+        {/* Clipped only while the neighbours are mounted (a swipe); edge to
           edge, so panes slide under the card's edge. */}
-      <div
-        data-testid="structure-pager"
-        className={cx(
-          "-mx-4 touch-pan-y touch-pinch-zoom px-4",
-          sides.length > 0 && "overflow-hidden",
-        )}
-        {...handlers}
-      >
         <div
-          ref={trackRef}
-          className="relative h-[calc(64*var(--zvh))] min-h-[440px] w-full"
+          data-testid="structure-pager"
+          className={cx("-mx-4 px-4", sides.length > 0 && "overflow-hidden")}
         >
-          {renderTab(tab)}
-          {sides.map((d) => (
-            <div
-              key={d}
-              aria-hidden
-              // `inert` is not in React 18's types; passed through as an attribute.
-              {...({ inert: "" } as object)}
-              className={cx(
-                "absolute inset-y-0 w-full overflow-hidden",
-                d === 1 ? "left-full" : "right-full",
-              )}
-            >
-              {renderTab(TABS[index + d])}
-            </div>
-          ))}
+          <div
+            ref={trackRef}
+            className="relative h-[calc(64*var(--zvh))] min-h-[440px] w-full"
+          >
+            {renderTab(tab)}
+            {sides.map((d) => (
+              <div
+                key={d}
+                aria-hidden
+                // `inert` is not in React 18's types; passed through as an attribute.
+                {...({ inert: "" } as object)}
+                className={cx(
+                  "absolute inset-y-0 w-full overflow-hidden",
+                  d === 1 ? "left-full" : "right-full",
+                )}
+              >
+                {renderTab(TABS[index + d])}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    </Card>
+      </Card>
+    </div>
   );
 }

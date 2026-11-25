@@ -11,9 +11,9 @@ import {
 export type View = "home" | "dashboard" | "structure" | "activity" | "settings";
 export const VIEWS: readonly View[] = [
   "home",
+  "activity",
   "dashboard",
   "structure",
-  "activity",
   "settings",
 ];
 const MAX_AYAH = 6236;

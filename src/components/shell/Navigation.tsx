@@ -24,7 +24,14 @@ const VIEW_ICONS: Record<View, ReactNode> = {
   activity: <Activity size={20} />,
   settings: <SettingsIcon size={20} />,
 };
-const VIEW_ORDER: View[] = ["home", "dashboard", "structure", "activity", "settings"];
+const VIEW_ORDER: View[] = ["home", "activity", "dashboard", "structure", "settings"];
+
+/** Room under the content for the fixed tab bar (`<main>`'s bottom padding). */
+export const TAB_BAR_ROOM = "pb-[calc(5rem+env(safe-area-inset-bottom))]";
+/** For a view's swipe area: run down through that room to the tab bar, so
+ *  no strip above the bar ignores a swipe. */
+export const SWIPE_TO_TAB_BAR =
+  "-mb-[calc(5rem+env(safe-area-inset-bottom))] pb-[calc(5rem+env(safe-area-inset-bottom))]";
 
 export interface NavProps {
   view: View;
@@ -114,7 +121,7 @@ function TabButton({
   );
 }
 
-/** Bottom tab bar: Home, Dashboard, Structure, Activity, Settings. */
+/** Bottom tab bar: Home, Activity, Dashboard, Structure, Settings. */
 export function BottomTabs(p: NavProps) {
   const { t } = useI18n();
   return (
