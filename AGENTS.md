@@ -4,6 +4,12 @@ Context for agents working in `quran-viz/`. The workspace layout, reference
 corpus, and the juz-writing protocol are in `../AGENTS.md`; this file covers the
 app: commands, ETL, data gotchas, runtime architecture, and UI patterns.
 
+Readable docs for people (how to use the app, how it works) live in `docs/`
+(VitePress, `npm run docs:dev`, published to GitHub Pages by
+`.github/workflows/docs.yml`). When a change alters what a learner sees or
+does, update the matching `docs/guide/` page in the same pull request; refresh
+screenshots with `scripts/docs_screenshots.py`.
+
 ## Commands (run from `quran-viz/`)
 
 ```bash

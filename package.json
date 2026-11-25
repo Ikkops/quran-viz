@@ -14,7 +14,10 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.1",
@@ -61,6 +64,7 @@
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.61.1",
     "vite": "^8.0.16",
+    "vitepress": "^1.6.4",
     "vitest": "^4.1.9"
   }
 }
