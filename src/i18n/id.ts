@@ -181,8 +181,8 @@ export const id: Messages = {
   },
 
   app: {
-    title: "Al-Qur'an — Visualisasi Data",
-    titleShort: "Data Al-Qur'an",
+    title: "Qurani",
+    titleShort: "Qurani",
     nav: "Navigasi utama",
     startReading: "Mulai membaca",
     countsNote:
@@ -312,7 +312,7 @@ export const id: Messages = {
       restore: "Pulihkan dari cadangan",
       confirm:
         "Ganti semua yang ada di perangkat ini (penanda, hafalan, aktivitas membaca, pengaturan) dengan cadangan ini?",
-      bad: "Berkas itu bukan cadangan quran-viz.",
+      bad: "Berkas itu bukan cadangan Qurani.",
     },
     sync: {
       title: "Sinkronisasi antarperangkat",

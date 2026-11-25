@@ -2,7 +2,7 @@
 
 ## On Android
 
-Each push to the `main` branch builds a signed APK and publishes it as a GitHub release named `v1.0.<number>`, with the file `quran-viz-1.0.<number>.apk`.
+Each push to the `main` branch builds a signed APK and publishes it as a GitHub release named `v1.0.<number>`, with the file `qurani-1.0.<number>.apk`.
 
 The easiest way to stay up to date is [Obtainium](https://github.com/ImranR98/Obtainium):
 

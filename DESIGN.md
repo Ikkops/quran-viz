@@ -1,5 +1,5 @@
 ---
-name: quran-viz
+name: Qurani
 description: A structure-first Qur'an study instrument — the mushaf as data, wired to a reader.
 colors:
   paper: "#F7F8F5"
@@ -160,7 +160,7 @@ components:
     rounded: "{rounded.xs}"
 ---
 
-# Design System: quran-viz
+# Design System: Qurani
 
 > Status: Phase 6 of the redesign, plus the 2026-11 interface pass (type steps,
 > `shadow-soft`, radius roles, `Button`). Tokens live in code (`src/index.css`,

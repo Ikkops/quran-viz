@@ -342,7 +342,7 @@ export function SettingsView({
               onClick={() =>
                 void downloadText(
                   JSON.stringify(buildBackup(window.localStorage, dayKey(new Date()))),
-                  `quran-viz-backup-${dayKey(new Date())}.json`,
+                  `qurani-backup-${dayKey(new Date())}.json`,
                   "application/json",
                 )
               }

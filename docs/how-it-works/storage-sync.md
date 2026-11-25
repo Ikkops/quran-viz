@@ -26,7 +26,7 @@ Everything you make is kept in the browser's `localStorage`, under keys that sta
 
 ```text
  this device                                        secret gist (GitHub)
- 1. read the sealed copy  ◄───────────────────────  quran-viz-sync.json
+ 1. read the sealed copy  ◄───────────────────────  qurani-sync.json   
  2. open it with the passphrase, merge with what is here
  3. store what changed, tell the screens to read it again
  4. seal the result, write it back  ──────────────►  (only if it changed)

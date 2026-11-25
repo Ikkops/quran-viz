@@ -66,8 +66,8 @@ export const en = {
   },
 
   app: {
-    title: "Qur'an — Data Visualization",
-    titleShort: "Qur'an Data",
+    title: "Qurani",
+    titleShort: "Qurani",
     nav: "Main navigation",
     startReading: "Start reading",
     countsNote:
@@ -200,7 +200,7 @@ export const en = {
       restore: "Restore from a backup",
       confirm:
         "Replace everything on this device (bookmarks, memorisation, reading activity, settings) with this backup?",
-      bad: "That file isn't a quran-viz backup.",
+      bad: "That file isn't a Qurani backup.",
     },
     sync: {
       title: "Sync between devices",

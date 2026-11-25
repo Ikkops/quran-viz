@@ -4,7 +4,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
 // `npm run build:android`, which leaves out the tafsirs the app downloads.
 const config: CapacitorConfig = {
   appId: "io.github.ikkops.quranviz",
-  appName: "Quran Viz",
+  appName: "Qurani",
   webDir: "dist",
 };
 

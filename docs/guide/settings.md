@@ -46,7 +46,7 @@ The theme, fonts, sizes, interface scale, reciter and reminders stay per device.
 
 ### Setting it up
 
-1. On GitHub, open **[New fine-grained token](https://github.com/settings/personal-access-tokens/new)**. Name it, for example "quran-viz sync", and pick an expiry.
+1. On GitHub, open **[New fine-grained token](https://github.com/settings/personal-access-tokens/new)**. Name it, for example "Qurani sync", and pick an expiry.
 2. Under **Account permissions**, set **Gists** to **Read and write**. Nothing else is needed.
 3. Generate the token and copy it.
 4. In the app, open **Settings → Sync between devices**. Paste the token, choose a passphrase, and press **Start syncing**.
@@ -55,7 +55,7 @@ The theme, fonts, sizes, interface scale, reciter and reminders stay per device.
 The first device creates the gist. The others find it by its name and merge what they had.
 
 ::: warning Keep the passphrase
-The passphrase can't be recovered. Without it the synced copy can't be opened, though each device keeps its own data. If you lose it, stop syncing on every device, delete the gist named "quran-viz sync" on GitHub, and start again with a new passphrase.
+The passphrase can't be recovered. Without it the synced copy can't be opened, though each device keeps its own data. If you lose it, stop syncing on every device, delete the gist named "Qurani sync" on GitHub, and start again with a new passphrase.
 :::
 
 ### When it runs

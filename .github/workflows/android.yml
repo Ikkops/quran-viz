@@ -22,7 +22,15 @@ jobs:
     env:
       APP_VERSION_CODE: ${{ github.run_number }}
     steps:
+      # A push to main builds main as it is when the run starts, not the commit
+      # that queued it: quick merges can queue their runs out of order, and the
+      # newest run cancels the others, so the run left must build the tip
+      # (otherwise a release can carry the oldest of the merges).
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event_name == 'push' && 'main' || '' }}
+      - name: Note the commit being built
+        run: echo "BUILD_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v5
         with:
@@ -35,7 +43,7 @@ jobs:
         env:
           # A release downloads tafsir and word timings from its own commit
           # (src/data/tafsirStore.ts); a pull request's APK from main.
-          VITE_DATA_REF: ${{ github.event_name == 'push' && github.sha || 'main' }}
+          VITE_DATA_REF: ${{ github.event_name == 'push' && env.BUILD_SHA || 'main' }}
       - run: npx cap sync android
 
       - uses: actions/setup-java@v5
@@ -65,13 +73,13 @@ jobs:
       - name: Name the APK
         run: |
           cp android/app/build/outputs/apk/release/app-release.apk \
-             "quran-viz-1.0.${APP_VERSION_CODE}.apk"
-          ls -lh quran-viz-*.apk
+             "qurani-1.0.${APP_VERSION_CODE}.apk"
+          ls -lh qurani-*.apk
 
       - uses: actions/upload-artifact@v4
         with:
-          name: quran-viz-apk
-          path: quran-viz-*.apk
+          name: qurani-apk
+          path: qurani-*.apk
           retention-days: 14
 
       - name: Publish release
@@ -79,7 +87,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "v1.0.${APP_VERSION_CODE}" quran-viz-*.apk \
-            --target "$GITHUB_SHA" \
-            --title "Quran Viz 1.0.${APP_VERSION_CODE}" \
-            --notes "Built from ${GITHUB_SHA::7}: $(git log -1 --pretty=%s)"
+          gh release create "v1.0.${APP_VERSION_CODE}" qurani-*.apk \
+            --target "$BUILD_SHA" \
+            --title "Qurani 1.0.${APP_VERSION_CODE}" \
+            --notes "Built from ${BUILD_SHA::7}: $(git log -1 --pretty=%s)"
